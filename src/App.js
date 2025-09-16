@@ -1,24 +1,57 @@
-import logo from './logo.svg';
-import './App.css';
+import { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Navbar from "./components/Navbar";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import DashboardLayout from "./pages/DashboardLayout";
 
 function App() {
+  const [user, setUser] = useState(() => {
+    const raw = localStorage.getItem("fake_user");
+    return raw ? JSON.parse(raw) : null;
+  });
+
+  useEffect(() => {
+    if (user) localStorage.setItem("fake_user", JSON.stringify(user));
+    else localStorage.removeItem("fake_user");
+  }, [user]);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+      <Routes>
+        {/* Trang Home luôn truyền user */}
+        <Route
+          path="/"
+          element={
+            <>
+              <Navbar user={user} setUser={setUser} />
+              <div className="pt-20">
+                <Home user={user} /> {/*truyền user */}
+              </div>
+            </>
+          }
+        />
+
+        {/* Trang Login */}
+        <Route
+          path="/login"
+          element={
+            <>
+              <Navbar user={user} setUser={setUser} />
+              <div className="pt-20">
+                <Login setUser={setUser} />
+              </div>
+            </>
+          }
+        />
+
+        {/* Dashboard */}
+        <Route
+          path="/dashboard"
+          element={<DashboardLayout user={user} setUser={setUser} />}
+        />
+      </Routes>
+    </Router>
   );
 }
 
