@@ -4,6 +4,7 @@ import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import DashboardLayout from "./pages/DashboardLayout";
+import HotelDashboard from "./pages/HotelDashboard"; // 👈 thêm file mới
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -19,20 +20,20 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Trang Home luôn truyền user */}
+        {/* Trang Home */}
         <Route
           path="/"
           element={
             <>
               <Navbar user={user} setUser={setUser} />
               <div className="pt-20">
-                <Home user={user} /> {/*truyền user */}
+                <Home user={user} />
               </div>
             </>
           }
         />
 
-        {/* Trang Login */}
+        {/* Login */}
         <Route
           path="/login"
           element={
@@ -45,10 +46,16 @@ function App() {
           }
         />
 
-        {/* Dashboard */}
+        {/* Dashboard (Flights) */}
         <Route
           path="/dashboard"
           element={<DashboardLayout user={user} setUser={setUser} />}
+        />
+
+        {/* Hotel Dashboard */}
+        <Route
+          path="/hotel"
+          element={<HotelDashboard user={user} setUser={setUser} />}
         />
       </Routes>
     </Router>

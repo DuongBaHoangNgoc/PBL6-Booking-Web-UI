@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import FeaturedDestinations from "../components/FeaturedDestinations";
 
 export default function Home({ user }) {
   const navigate = useNavigate();
@@ -10,6 +11,16 @@ export default function Home({ user }) {
       navigate("/login"); // nếu chưa login thì sang login
     }
   };
+
+  const destinations = [
+    {
+      name: "Hạ Long Bay",
+      price: "From $199",
+      image: "/images/destination1.jpg",
+    },
+    { name: "Phú Quốc", price: "From $249", image: "/images/destination2.jpg" },
+    { name: "Đà Nẵng", price: "From $179", image: "/images/destination3.jpg" },
+  ];
 
   return (
     <div className="pt-20">
@@ -50,46 +61,10 @@ export default function Home({ user }) {
 
       {/* Featured Destinations */}
       <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-6">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Featured Destinations
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="rounded-lg overflow-hidden shadow-lg">
-              <img
-                src="/images/destination1.jpg"
-                alt="Destination"
-                className="w-full h-56 object-cover"
-              />
-              <div className="p-4">
-                <h3 className="font-semibold text-lg">Hạ Long Bay</h3>
-                <p className="text-gray-500">From $199</p>
-              </div>
-            </div>
-            <div className="rounded-lg overflow-hidden shadow-lg">
-              <img
-                src="/images/destination2.jpg"
-                alt="Destination"
-                className="w-full h-56 object-cover"
-              />
-              <div className="p-4">
-                <h3 className="font-semibold text-lg">Phú Quốc</h3>
-                <p className="text-gray-500">From $249</p>
-              </div>
-            </div>
-            <div className="rounded-lg overflow-hidden shadow-lg">
-              <img
-                src="/images/destination3.jpg"
-                alt="Destination"
-                className="w-full h-56 object-cover"
-              />
-              <div className="p-4">
-                <h3 className="font-semibold text-lg">Đà Nẵng</h3>
-                <p className="text-gray-500">From $179</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <FeaturedDestinations
+          title="Featured Destinations"
+          destinations={destinations}
+        />
       </section>
 
       {/* Call to Action */}

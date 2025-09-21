@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
+import FeaturedDestinations from "../components/FeaturedDestinations";
 import Navbar from "../components/Navbar";
 import {
   FaHome,
@@ -14,25 +15,32 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { format } from "date-fns";
 
-export default function DashboardLayout({ user, setUser }) {
+export default function HotelDashboard({ user, setUser }) {
   const [expanded, setExpanded] = useState(false);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [adults, setAdults] = useState(1);
-  const [children, setChildren] = useState(0);
-  const [infants, setInfants] = useState(0);
-  const [ticketClass, setTicketClass] = useState("Economy");
-  const [departure, setDeparture] = useState(null);
-  const [returnDate, setReturnDate] = useState(null);
-  const [openTravelers, setOpenTravelers] = useState(false);
+  const [destination, setDestination] = useState("");
+  const [checkIn, setCheckIn] = useState(null);
+  const [checkOut, setCheckOut] = useState(null);
+  const [rooms, setRooms] = useState(1);
+  const [guests, setGuests] = useState(2);
+  const [openRooms, setOpenRooms] = useState(false);
 
-  const travelersRef = useRef();
+  const roomsRef = useRef();
   const navigate = useNavigate();
+
+  const destinations = [
+    {
+      name: "Hạ Long Bay",
+      price: "From $199",
+      image: "/images/destination1.jpg",
+    },
+    { name: "Phú Quốc", price: "From $249", image: "/images/destination2.jpg" },
+    { name: "Đà Nẵng", price: "From $179", image: "/images/destination3.jpg" },
+  ];
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (travelersRef.current && !travelersRef.current.contains(e.target)) {
-        setOpenTravelers(false);
+      if (roomsRef.current && !roomsRef.current.contains(e.target)) {
+        setOpenRooms(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -40,7 +48,6 @@ export default function DashboardLayout({ user, setUser }) {
   }, []);
 
   const handleLogout = () => setUser(null);
-  const totalPersons = adults + children + infants;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -124,153 +131,52 @@ export default function DashboardLayout({ user, setUser }) {
         <main className="flex-1 p-8 overflow-y-auto">
           {/* Tabs */}
           <div className="flex gap-6 mb-6">
-            <button className="px-4 py-2 rounded-t-lg font-medium bg-white shadow text-blue-600">
-              Flights
-            </button>
             <button
-              onClick={() => navigate("/hotel")}
+              onClick={() => navigate("/dashboard")}
               className="px-4 py-2 rounded-t-lg font-medium text-gray-500 hover:text-blue-600"
             >
+              Flights
+            </button>
+            <button className="px-4 py-2 rounded-t-lg font-medium bg-white shadow text-blue-600">
               Hotels
             </button>
           </div>
 
-          {/* Flight Search */}
+          {/* Hotel Search */}
           <section className="bg-white shadow rounded-lg p-6 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-stretch">
-              {/* From */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-stretch">
+              {/* Destination */}
               <div className="border rounded-lg p-3 flex flex-col justify-center">
-                <label className="text-xs uppercase text-gray-400">From</label>
-                <input
-                  type="text"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                  placeholder="Enter departure city"
-                  className="font-semibold text-gray-800 outline-none"
-                />
-              </div>
-              {/* To */}
-              <div className="border rounded-lg p-3 flex flex-col justify-center">
-                <label className="text-xs uppercase text-gray-400">To</label>
-                <input
-                  type="text"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                  placeholder="Enter destination city"
-                  className="font-semibold text-gray-800 outline-none"
-                />
-              </div>
-              {/* Travelers */}
-              <div
-                ref={travelersRef}
-                className="relative border rounded-lg p-3 flex flex-col cursor-pointer"
-                onClick={() => setOpenTravelers(!openTravelers)}
-              >
                 <label className="text-xs uppercase text-gray-400">
-                  Travelers
+                  Destination
                 </label>
-                <span className="font-semibold text-gray-800">
-                  {totalPersons} Persons
-                </span>
-                <span className="text-xs text-gray-500">{ticketClass}</span>
-                {openTravelers && (
-                  <div className="absolute top-full mt-2 left-0 w-80 bg-white shadow-lg rounded-lg p-4 z-10">
-                    <h4 className="font-semibold mb-2">Class</h4>
-                    <div className="grid grid-cols-2 gap-2 mb-4">
-                      {[
-                        "Economy",
-                        "Premium Economy",
-                        "Business",
-                        "First Class",
-                      ].map((c) => (
-                        <label
-                          key={c}
-                          className="flex items-center gap-2 text-sm"
-                        >
-                          <input
-                            type="radio"
-                            name="class"
-                            checked={ticketClass === c}
-                            onChange={() => setTicketClass(c)}
-                          />
-                          {c}
-                        </label>
-                      ))}
-                    </div>
-                    <h4 className="font-semibold mb-2">Travelers</h4>
-                    {[
-                      {
-                        label: "Adults",
-                        desc: "12 years and older",
-                        value: adults,
-                        set: setAdults,
-                      },
-                      {
-                        label: "Children",
-                        desc: "2 - 11 years",
-                        value: children,
-                        set: setChildren,
-                      },
-                      {
-                        label: "Infants",
-                        desc: "Under 2 years",
-                        value: infants,
-                        set: setInfants,
-                      },
-                    ].map((item, i) => (
-                      <div
-                        key={i}
-                        className="flex justify-between items-center py-2"
-                      >
-                        <div>
-                          <p className="font-medium text-sm">{item.label}</p>
-                          <p className="text-xs text-gray-500">{item.desc}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              item.set(Math.max(0, item.value - 1));
-                            }}
-                            className="px-2 py-1 border rounded"
-                          >
-                            −
-                          </button>
-                          <span>{item.value}</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              item.set(item.value + 1);
-                            }}
-                            className="px-2 py-1 border rounded"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <input
+                  type="text"
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                  placeholder="City, Country"
+                  className="font-semibold text-gray-800 outline-none"
+                />
               </div>
-              {/* Departure */}
+              {/* Check In */}
               <div className="border rounded-lg p-3 flex flex-col justify-center">
                 <label className="text-xs uppercase text-gray-400">
-                  Departure
+                  Check In
                 </label>
                 <DatePicker
-                  selected={departure}
+                  selected={checkIn}
                   onChange={(date) => {
-                    setDeparture(date);
-                    if (returnDate && date > returnDate) setReturnDate(null);
+                    setCheckIn(date);
+                    if (checkOut && date > checkOut) setCheckOut(null);
                   }}
                   minDate={new Date()}
                   customInput={
                     <div className="cursor-pointer font-semibold text-gray-800">
-                      {departure ? (
+                      {checkIn ? (
                         <>
-                          <div>{format(departure, "dd MMM yy")}</div>
+                          <div>{format(checkIn, "dd MMM yy")}</div>
                           <div className="text-xs text-gray-500">
-                            {format(departure, "EEEE")}
+                            {format(checkIn, "EEEE")}
                           </div>
                         </>
                       ) : (
@@ -280,22 +186,22 @@ export default function DashboardLayout({ user, setUser }) {
                   }
                 />
               </div>
-              {/* Return */}
+              {/* Check Out */}
               <div className="border rounded-lg p-3 flex flex-col justify-center">
                 <label className="text-xs uppercase text-gray-400">
-                  Return
+                  Check Out
                 </label>
                 <DatePicker
-                  selected={returnDate}
-                  onChange={(date) => setReturnDate(date)}
-                  minDate={departure || new Date()}
+                  selected={checkOut}
+                  onChange={(date) => setCheckOut(date)}
+                  minDate={checkIn || new Date()}
                   customInput={
                     <div className="cursor-pointer font-semibold text-gray-800">
-                      {returnDate ? (
+                      {checkOut ? (
                         <>
-                          <div>{format(returnDate, "dd MMM yy")}</div>
+                          <div>{format(checkOut, "dd MMM yy")}</div>
                           <div className="text-xs text-gray-500">
-                            {format(returnDate, "EEEE")}
+                            {format(checkOut, "EEEE")}
                           </div>
                         </>
                       ) : (
@@ -304,26 +210,95 @@ export default function DashboardLayout({ user, setUser }) {
                     </div>
                   }
                 />
+              </div>
+              {/* Rooms & Guests */}
+              <div
+                ref={roomsRef}
+                className="relative border rounded-lg p-3 flex flex-col cursor-pointer"
+                onClick={() => setOpenRooms(!openRooms)}
+              >
+                <label className="text-xs uppercase text-gray-400">
+                  Rooms & Guests
+                </label>
+                <p className="font-semibold">
+                  {rooms} Room • {guests} Guests
+                </p>
+                {openRooms && (
+                  <div className="absolute top-full mt-2 left-0 w-72 bg-white shadow-lg rounded-lg p-4 z-10">
+                    <h4 className="font-semibold mb-2">Rooms & Guests</h4>
+                    {/* Rooms */}
+                    <div className="flex justify-between items-center py-2">
+                      <div>
+                        <p className="font-medium text-sm">Rooms</p>
+                        <p className="text-xs text-gray-500">How many rooms?</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRooms(Math.max(1, rooms - 1));
+                          }}
+                          className="px-2 py-1 border rounded"
+                        >
+                          −
+                        </button>
+                        <span>{rooms}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRooms(rooms + 1);
+                          }}
+                          className="px-2 py-1 border rounded"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    {/* Guests */}
+                    <div className="flex justify-between items-center py-2">
+                      <div>
+                        <p className="font-medium text-sm">Guests</p>
+                        <p className="text-xs text-gray-500">
+                          How many guests?
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setGuests(Math.max(1, guests - 1));
+                          }}
+                          className="px-2 py-1 border rounded"
+                        >
+                          −
+                        </button>
+                        <span>{guests}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setGuests(guests + 1);
+                          }}
+                          className="px-2 py-1 border rounded"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               {/* Search */}
               <button className="bg-red-600 text-white font-bold rounded-lg flex items-center justify-center hover:bg-red-700">
-                SEARCH FLIGHT
+                SEARCH HOTEL
               </button>
             </div>
           </section>
 
-          {/* Special Offer + Best Offer */}
+          {/* Trip package + Best Offer */}
           <section className="mb-8">
-            <h3 className="text-lg font-semibold mb-2">Special Offer</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white shadow rounded-lg p-4">
-                <p className="font-semibold">Up to $100 Discount</p>
-                <p className="text-sm text-gray-500">Code: SAVE100</p>
-              </div>
-              <div className="bg-white shadow rounded-lg p-4">
-                <p className="font-semibold">Up to $50 Discount</p>
-                <p className="text-sm text-gray-500">Code: SAVE50</p>
-              </div>
+            <h3 className="text-lg font-semibold mb-2">Trip Package</h3>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <FeaturedDestinations destinations={destinations} />
             </div>
           </section>
           <section>
