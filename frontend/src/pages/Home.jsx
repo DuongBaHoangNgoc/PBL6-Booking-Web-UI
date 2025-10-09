@@ -18,26 +18,47 @@ export default function Home({ user }) {
       price: "From $199",
       image: "/images/destination1.jpg",
     },
-    { name: "Phú Quốc", price: "From $249", image: "/images/destination2.jpg" },
-    { name: "Đà Nẵng", price: "From $179", image: "/images/destination3.jpg" },
+    {
+      name: "Phú Quốc",
+      price: "From $249",
+      image: "/images/destination2.jpg",
+    },
+    {
+      name: "Đà Nẵng",
+      price: "From $179",
+      image: "/images/destination3.jpg",
+    },
+    {
+      name: "Nha Trang",
+      price: "From $159",
+      image: "/images/destination4.jpg",
+    },
+    {
+      name: "Hội An",
+      price: "From $189",
+      image: "/images/destination5.jpg",
+    },
   ];
 
   return (
-    <div className="pt-20">
+    <div className>
       {/* Hero Section */}
       <section
         className="relative h-screen bg-cover bg-center flex items-center justify-center text-center"
         style={{ backgroundImage: "url('/backgrounds/hero-bg.png')" }}
       >
+        {/* overlay */}
         <div className="bg-black bg-opacity-50 absolute inset-0"></div>
-        <div className="relative z-10 text-white px-6">
+
+        {/* content */}
+        <div className="relative z-10 text-white px-6 max-w-3xl mx-auto">
           <h1 className="text-5xl md:text-6xl font-bold mb-4">LIVE & TRAVEL</h1>
           <p className="text-lg md:text-2xl mb-8">
             Special offers to suit your plan
           </p>
 
           {/* Search Box */}
-          <div className="bg-white rounded-lg shadow-lg p-4 flex flex-col md:flex-row gap-4 max-w-3xl mx-auto">
+          <div className="bg-white rounded-lg shadow-lg p-4 flex flex-col md:flex-row gap-4">
             <input
               type="text"
               placeholder="Where are you going?"
@@ -52,7 +73,7 @@ export default function Home({ user }) {
               placeholder="Guests"
               className="w-28 border rounded-lg px-4 py-2 focus:outline-none"
             />
-            <button className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600">
+            <button className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition">
               Search
             </button>
           </div>
@@ -75,7 +96,7 @@ export default function Home({ user }) {
         <p className="mb-6">Book your dream vacation with the best deals</p>
         <button
           onClick={handleGetStarted}
-          className="bg-white text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100"
+          className="bg-white text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition"
         >
           Get Started
         </button>

@@ -4,18 +4,21 @@ import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import DashboardLayout from "./pages/DashboardLayout";
-import HotelDashboard from "./pages/HotelDashboard"; // 👈 thêm file mới
+import HotelDashboard from "./pages/HotelDashboard";
+import { getProfile } from "./services/auth";
 
 function App() {
-  const [user, setUser] = useState(() => {
-    const raw = localStorage.getItem("fake_user");
-    return raw ? JSON.parse(raw) : null;
-  });
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    if (user) localStorage.setItem("fake_user", JSON.stringify(user));
-    else localStorage.removeItem("fake_user");
-  }, [user]);
+    // 🔹 Khi reload trang, nếu có token thì gọi lại profile
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      getProfile(token)
+        .then((res) => setUser(res.data))
+        .catch(() => setUser(null));
+    }
+  }, []);
 
   return (
     <Router>
@@ -46,7 +49,7 @@ function App() {
           }
         />
 
-        {/* Dashboard (Flights) */}
+        {/* Dashboard */}
         <Route
           path="/dashboard"
           element={<DashboardLayout user={user} setUser={setUser} />}

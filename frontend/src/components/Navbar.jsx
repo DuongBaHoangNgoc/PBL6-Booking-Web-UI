@@ -6,7 +6,7 @@ export default function Navbar({ user, setUser }) {
   const navRef = useRef();
   const navigate = useNavigate();
 
-  // close dropdown khi click ngoài
+  // 🔹 Đóng dropdown khi click ngoài
   useEffect(() => {
     function onDoc(e) {
       if (navRef.current && !navRef.current.contains(e.target)) setOpen(false);
@@ -15,8 +15,11 @@ export default function Navbar({ user, setUser }) {
     return () => document.removeEventListener("click", onDoc);
   }, []);
 
+  // 🔹 Logout
   const handleLogout = () => {
     setUser(null);
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
     navigate("/"); // về home
   };
 
@@ -25,20 +28,20 @@ export default function Navbar({ user, setUser }) {
       <div className="container mx-auto flex items-center justify-between px-6 py-4">
         {/* Logo */}
         <div className="flex items-center gap-4">
-          <Link to="/" className="text-lg font-bold">
+          <Link to="/" className="text-lg font-bold tracking-wide">
             BOOKING
           </Link>
         </div>
 
         {/* Menu giữa */}
         <div className="hidden md:flex items-center gap-8">
-          <Link to="/" className="hover:text-green-300">
+          <Link to="/" className="hover:text-green-300 transition">
             Home
           </Link>
-          <Link to="/about" className="hover:text-green-300">
+          <Link to="/about" className="hover:text-green-300 transition">
             About
           </Link>
-          <Link to="/tours" className="hover:text-green-300">
+          <Link to="/tours" className="hover:text-green-300 transition">
             Tours
           </Link>
         </div>
@@ -49,13 +52,16 @@ export default function Navbar({ user, setUser }) {
             <>
               <Link
                 to="/login"
-                className="hidden md:inline-block hover:text-green-300"
+                className="hidden md:inline-block hover:text-green-300 transition"
               >
                 Login
               </Link>
-              <button className="hidden md:inline-block border px-3 py-1 rounded hover:bg-white hover:text-gray-800">
+              <Link
+                to="/signup"
+                className="hidden md:inline-block border px-3 py-1 rounded hover:bg-white hover:text-gray-800 transition"
+              >
                 Sign Up
-              </button>
+              </Link>
             </>
           ) : (
             <div className="relative">
@@ -65,7 +71,7 @@ export default function Navbar({ user, setUser }) {
                 className="flex items-center gap-2 focus:outline-none"
                 aria-label="Open user menu"
               >
-                <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white font-semibold">
+                <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white font-semibold overflow-hidden">
                   {user.avatar ? (
                     <img
                       src={user.avatar}
@@ -73,23 +79,33 @@ export default function Navbar({ user, setUser }) {
                       className="w-full h-full object-cover rounded-full"
                     />
                   ) : (
-                    user.name?.charAt(0).toUpperCase() || "U"
+                    user.fullName?.charAt(0).toUpperCase() || "U"
                   )}
                 </div>
                 <span className="hidden md:inline font-medium">
-                  {user.name}
+                  {user.fullName || "User"}
                 </span>
               </button>
 
               {/* Dropdown menu */}
               {open && (
-                <div className="absolute right-0 mt-2 w-56 bg-white text-gray-800 rounded-lg shadow-lg overflow-hidden">
+                <div className="absolute right-0 mt-2 w-56 bg-white text-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-100">
                   <div className="p-4 flex items-center gap-3 border-b">
-                    <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white font-semibold">
-                      {user.name?.charAt(0).toUpperCase()}
+                    <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white font-semibold overflow-hidden">
+                      {user.avatar ? (
+                        <img
+                          src={user.avatar}
+                          alt="avatar"
+                          className="w-full h-full object-cover rounded-full"
+                        />
+                      ) : (
+                        user.fullName?.charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div>
-                      <div className="font-semibold">{user.name}</div>
+                      <div className="font-semibold">
+                        {user.fullName || "User"}
+                      </div>
                       <div className="text-sm text-green-500">Online</div>
                     </div>
                   </div>
@@ -97,37 +113,37 @@ export default function Navbar({ user, setUser }) {
                   <div>
                     <Link
                       to="/profile"
-                      className="block px-4 py-2 hover:bg-gray-100"
+                      className="block px-4 py-2 hover:bg-gray-100 transition"
                     >
                       Profile
                     </Link>
                     <Link
                       to="/bookings"
-                      className="block px-4 py-2 hover:bg-gray-100"
+                      className="block px-4 py-2 hover:bg-gray-100 transition"
                     >
                       My Bookings
                     </Link>
                     <Link
                       to="/payments"
-                      className="block px-4 py-2 hover:bg-gray-100"
+                      className="block px-4 py-2 hover:bg-gray-100 transition"
                     >
                       Payments
                     </Link>
                     <Link
                       to="/settings"
-                      className="block px-4 py-2 hover:bg-gray-100"
+                      className="block px-4 py-2 hover:bg-gray-100 transition"
                     >
                       Settings
                     </Link>
                     <Link
                       to="/support"
-                      className="block px-4 py-2 hover:bg-gray-100"
+                      className="block px-4 py-2 hover:bg-gray-100 transition"
                     >
                       Support
                     </Link>
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100"
+                      className="w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100 transition"
                     >
                       Logout
                     </button>
