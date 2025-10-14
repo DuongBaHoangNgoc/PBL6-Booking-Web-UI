@@ -1,19 +1,56 @@
-import api from "../api/axios";
+// src/services/tours.js
+import axios from "axios";
 
-export const getTours = async (params) => {
-  const { data } = await api.get("/tours", { params });
-  return data;
-};
+// Dùng ENV nếu có, mặc định localhost:3000
+const BASE = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(
+  /\/+$/,
+  ""
+);
 
-export const getTourDetail = async (id) => {
-  const { data } = await api.get(`/tours/${id}`);
-  return data;
-};
+// Tạo axios instance, baseURL = root server (KHÔNG kèm /tours)
+const api = axios.create({
+  baseURL: BASE,
+  // withCredentials: true, // nếu server cần cookie
+});
 
-// Upload ảnh tour nếu backend yêu cầu form-data:
-export const createTour = async (formData) => {
-  const { data } = await api.post("/tours/createTour", formData, {
+// Helper unwrap ResponseData
+const unwrap = (res) => res?.data?.data;
+
+// --------------------- APIs ---------------------
+
+// GET /tours  (danh sách)
+export async function getTours(params) {
+  const res = await api.get("/tours", { params });
+  return unwrap(res) ?? [];
+}
+
+// GET /tours/:id  (chi tiết + relations do BE trả)
+export async function getTourById(id) {
+  const res = await api.get(`/tours/${id}`);
+  return unwrap(res) ?? null;
+}
+
+// Alias nếu bạn cần tên khác
+export const getTourDetail = getTourById;
+
+// POST /tours/createTour  (form-data upload ảnh)
+export async function createTour(formData) {
+  const res = await api.post("/tours/createTour", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-  return data;
-};
+  return unwrap(res) ?? null;
+}
+
+// GET /tours/search?keyword=...
+export async function searchTours(keyword) {
+  if (!keyword || !keyword.trim()) return [];
+  try {
+    const res = await api.get("/tours/search", {
+      params: { keyword },
+    });
+    return unwrap(res) ?? [];
+  } catch (err) {
+    console.error("Lỗi API searchTours:", err);
+    return [];
+  }
+}

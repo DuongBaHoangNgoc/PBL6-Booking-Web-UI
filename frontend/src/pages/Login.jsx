@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { login, getProfile } from "../services/auth"; // 👈 gọi API backend
+import { useNavigate, Link } from "react-router-dom";
+import { login, getProfile } from "../services/auth";
 
 export default function Login({ setUser }) {
   const [email, setEmail] = useState("");
@@ -15,27 +15,34 @@ export default function Login({ setUser }) {
     setLoading(true);
 
     try {
-      // 🔹 Gọi API đăng nhập tới backend NestJS
+      // 🔹 Gọi API login
       const res = await login(email, password);
+      const { access_token, refresh_token } = res.data || {};
 
-      // Backend trả về: { access_token, refresh_token }
-      const { access_token, refresh_token } = res.data;
-
-      if (access_token) {
-        localStorage.setItem("access_token", access_token);
-      }
-      if (refresh_token) {
-        localStorage.setItem("refresh_token", refresh_token);
+      if (!access_token) {
+        throw new Error("Access token not found in response");
       }
 
-      // 🔹 Gọi tiếp API /auth/Profile để lấy thông tin user
+      localStorage.setItem("access_token", access_token);
+      if (refresh_token) localStorage.setItem("refresh_token", refresh_token);
+
+      // 🔹 Lấy thông tin user từ Profile
       const profileRes = await getProfile(access_token);
+      console.log("Profile:", profileRes.data);
       setUser(profileRes.data);
 
-      navigate("/dashboard"); // Chuyển đến trang dashboard sau khi login
+      navigate("/dashboard");
     } catch (error) {
       console.error("Login error:", error);
-      setErr("Đăng nhập thất bại. Vui lòng kiểm tra lại email hoặc mật khẩu.");
+      if (error.response?.status === 401) {
+        setErr("Sai email hoặc mật khẩu.");
+      } else if (error.code === "ERR_NETWORK") {
+        setErr(
+          "Không thể kết nối tới máy chủ. Kiểm tra backend có đang chạy không?"
+        );
+      } else {
+        setErr("Đăng nhập thất bại. Vui lòng thử lại sau.");
+      }
     } finally {
       setLoading(false);
     }
@@ -64,7 +71,6 @@ export default function Login({ setUser }) {
           {err && <div className="mb-4 text-sm text-red-600">{err}</div>}
 
           <form onSubmit={handleLogin} className="space-y-4">
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Email
@@ -79,7 +85,6 @@ export default function Login({ setUser }) {
               />
             </div>
 
-            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Password
@@ -111,18 +116,10 @@ export default function Login({ setUser }) {
 
           <p className="mt-4 text-center text-gray-600">
             Don’t have an account?{" "}
-            <span className="text-green-500">Sign up</span>
+            <Link to="/signup" className="text-green-500 hover:underline">
+              Sign up
+            </Link>
           </p>
-
-          <div className="flex justify-center mt-4 space-x-4">
-            <button className="border px-4 py-2 rounded-lg w-32 flex items-center justify-center transition-colors duration-300 hover:bg-blue-600 hover:border-blue-600">
-              <img src="/logos/fb.png" alt="Facebook" className="h-6" />
-            </button>
-
-            <button className="border px-4 py-2 rounded-lg w-32 flex items-center justify-center transition-colors duration-300 hover:bg-red-500 hover:border-red-500">
-              <img src="/logos/google.png" alt="Google" className="h-6" />
-            </button>
-          </div>
         </div>
       </div>
     </div>

@@ -3,9 +3,13 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 import DashboardLayout from "./pages/DashboardLayout";
 import HotelDashboard from "./pages/HotelDashboard";
+import TourDashboard from "./pages/TourDashboard";
 import { getProfile } from "./services/auth";
+import TourSearchResult from "./pages/TourSearchResult";
+import TourDetail from "./pages/TourDetail";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -49,6 +53,19 @@ function App() {
           }
         />
 
+        {/* Signup */}
+        <Route
+          path="/signup"
+          element={
+            <>
+              <Navbar user={user} setUser={setUser} />
+              <div className="pt-20">
+                <Signup />
+              </div>
+            </>
+          }
+        />
+
         {/* Dashboard */}
         <Route
           path="/dashboard"
@@ -59,6 +76,20 @@ function App() {
         <Route
           path="/hotel"
           element={<HotelDashboard user={user} setUser={setUser} />}
+        />
+
+        {/* Tour Dashboard */}
+        <Route
+          path="/tour"
+          element={<TourDashboard user={user} setUser={setUser} />}
+        />
+        <Route
+          path="/tour-search"
+          element={<TourSearchResult user={user} setUser={setUser} />}
+        />
+        <Route
+          path="/tours/:id"
+          element={<TourDetail user={user} setUser={setUser} />}
         />
       </Routes>
     </Router>

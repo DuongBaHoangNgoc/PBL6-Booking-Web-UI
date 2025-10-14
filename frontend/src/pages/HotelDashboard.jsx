@@ -14,6 +14,7 @@ import {
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { format } from "date-fns";
+import SideBar from "../components/SideBar";
 
 export default function HotelDashboard({ user, setUser }) {
   const [expanded, setExpanded] = useState(false);
@@ -61,7 +62,7 @@ export default function HotelDashboard({ user, setUser }) {
         <img
           src="/backgrounds/login-bg.png"
           alt="plane"
-          className="w-full h-[40%] object-cover"
+          className="w-full h-full object-cover"
         />
       </div>
 
@@ -70,62 +71,12 @@ export default function HotelDashboard({ user, setUser }) {
 
       <div className="flex flex-1 pt-20">
         {/* Sidebar */}
-        <aside
-          className={`bg-blue-600 text-white flex flex-col transition-all duration-300 ${
-            expanded ? "w-64" : "w-16"
-          }`}
-        >
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="p-4 text-lg focus:outline-none"
-          >
-            ☰
-          </button>
-          <nav className="flex-1 space-y-4 mt-6">
-            <Link
-              to="/dashboard"
-              className="flex items-center gap-3 px-4 py-2 hover:bg-blue-700 rounded"
-            >
-              <FaHome /> {expanded && <span>Home</span>}
-            </Link>
-            <Link
-              to="/wallet"
-              className="flex items-center gap-3 px-4 py-2 hover:bg-blue-700 rounded"
-            >
-              <FaWallet /> {expanded && <span>Wallet</span>}
-            </Link>
-            <Link
-              to="/booking"
-              className="flex items-center gap-3 px-4 py-2 hover:bg-blue-700 rounded"
-            >
-              <FaBook /> {expanded && <span>Booking</span>}
-            </Link>
-            <Link
-              to="/business"
-              className="flex items-center gap-3 px-4 py-2 hover:bg-blue-700 rounded"
-            >
-              <FaBriefcase /> {expanded && <span>Business</span>}
-            </Link>
-            <Link
-              to="/explore"
-              className="flex items-center gap-3 px-4 py-2 hover:bg-blue-700 rounded"
-            >
-              <FaGlobe /> {expanded && <span>Explore</span>}
-            </Link>
-            <Link
-              to="/support"
-              className="flex items-center gap-3 px-4 py-2 hover:bg-blue-700 rounded"
-            >
-              <FaQuestionCircle /> {expanded && <span>Support</span>}
-            </Link>
-          </nav>
-          <button
-            onClick={handleLogout}
-            className="m-4 bg-red-500 flex items-center justify-center gap-2 px-3 py-2 rounded-lg hover:bg-red-600"
-          >
-            <FaSignOutAlt /> {expanded && <span>Logout</span>}
-          </button>
-        </aside>
+        <SideBar
+          expanded={expanded}
+          setExpanded={setExpanded}
+          user={user}
+          handleLogout={handleLogout}
+        />
 
         {/* Main content */}
         <main className="flex-1 p-8 overflow-y-auto">
@@ -139,6 +90,12 @@ export default function HotelDashboard({ user, setUser }) {
             </button>
             <button className="px-4 py-2 rounded-t-lg font-medium bg-white shadow text-blue-600">
               Hotels
+            </button>
+            <button
+              onClick={() => navigate("/tour")}
+              className="px-4 py-2 rounded-t-lg font-medium text-gray-500 hover:text-blue-600"
+            >
+              Tours
             </button>
           </div>
 

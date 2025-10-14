@@ -1,15 +1,40 @@
 import { useNavigate } from "react-router-dom";
 import FeaturedDestinations from "../components/FeaturedDestinations";
+import TourSearchBar from "../components/TourSearchBar";
+import { useState } from "react";
 
 export default function Home({ user }) {
   const navigate = useNavigate();
 
+  const [destination, setDestination] = useState("");
+  const [departure, setDeparture] = useState("Hồ Chí Minh");
+  const [date, setDate] = useState(null);
+
   const handleGetStarted = () => {
-    if (user) {
-      navigate("/dashboard"); // nếu đã login thì sang dashboard
-    } else {
-      navigate("/login"); // nếu chưa login thì sang login
-    }
+    navigate(user ? "/dashboard" : "/login");
+  };
+
+  // yyyy-MM-dd
+  const formatDate = (d) => {
+    if (!d) return "";
+    const dt = d instanceof Date ? d : new Date(d);
+    const yyyy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const dd = String(dt.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  // Điều hướng sang trang tìm kiếm tour
+  const handleSearch = () => {
+    if (!destination.trim()) return;
+
+    const params = new URLSearchParams({
+      keyword: destination,
+      departure,
+      from: date ? formatDate(date) : "",
+    }).toString();
+
+    navigate(`/tour-search?${params}`);
   };
 
   const destinations = [
@@ -18,30 +43,18 @@ export default function Home({ user }) {
       price: "From $199",
       image: "/images/destination1.jpg",
     },
-    {
-      name: "Phú Quốc",
-      price: "From $249",
-      image: "/images/destination2.jpg",
-    },
-    {
-      name: "Đà Nẵng",
-      price: "From $179",
-      image: "/images/destination3.jpg",
-    },
+    { name: "Phú Quốc", price: "From $249", image: "/images/destination2.jpg" },
+    { name: "Đà Nẵng", price: "From $179", image: "/images/destination3.jpg" },
     {
       name: "Nha Trang",
       price: "From $159",
       image: "/images/destination4.jpg",
     },
-    {
-      name: "Hội An",
-      price: "From $189",
-      image: "/images/destination5.jpg",
-    },
+    { name: "Hội An", price: "From $189", image: "/images/destination5.jpg" },
   ];
 
   return (
-    <div className>
+    <div className="min-h-screen">
       {/* Hero Section */}
       <section
         className="relative h-screen bg-cover bg-center flex items-center justify-center text-center"
@@ -58,25 +71,15 @@ export default function Home({ user }) {
           </p>
 
           {/* Search Box */}
-          <div className="bg-white rounded-lg shadow-lg p-4 flex flex-col md:flex-row gap-4">
-            <input
-              type="text"
-              placeholder="Where are you going?"
-              className="flex-1 border rounded-lg px-4 py-2 focus:outline-none"
-            />
-            <input
-              type="date"
-              className="border rounded-lg px-4 py-2 focus:outline-none"
-            />
-            <input
-              type="number"
-              placeholder="Guests"
-              className="w-28 border rounded-lg px-4 py-2 focus:outline-none"
-            />
-            <button className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition">
-              Search
-            </button>
-          </div>
+          <TourSearchBar
+            destination={destination}
+            setDestination={setDestination}
+            departure={departure}
+            setDeparture={setDeparture}
+            date={date}
+            setDate={setDate}
+            onSearch={handleSearch}
+          />
         </div>
       </section>
 
