@@ -31,7 +31,7 @@ export default function Login({ setUser }) {
       console.log("Profile:", profileRes.data);
       setUser(profileRes.data);
 
-      navigate("/dashboard");
+      navigate("/tour");
     } catch (error) {
       console.error("Login error:", error);
       if (error.response?.status === 401) {

@@ -22,8 +22,6 @@ const toDay = (v) => {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 };
 
-// lấy lịch có startDate gần nhất so với baseDate (ưu tiên tương lai).
-// Không có tương lai -> lấy lịch gần nhất (quá khứ gần nhất).
 export const pickNearestStartAndPrice = (tour, baseDate) => {
   const dates =
     tour?.startEndDates || tour?.start_end_dates || tour?.dates || [];

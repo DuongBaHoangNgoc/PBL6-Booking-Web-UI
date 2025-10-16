@@ -35,7 +35,7 @@ export default function Navbar({ user, setUser }) {
 
         {/* Menu giữa */}
         <div className="hidden md:flex items-center gap-8">
-          <Link to="/" className="hover:text-green-300 transition">
+          <Link to="/tour" className="hover:text-green-300 transition">
             Home
           </Link>
           <Link to="/about" className="hover:text-green-300 transition">

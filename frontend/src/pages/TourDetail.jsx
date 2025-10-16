@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import SideBar from "../components/SideBar";
 import { getTourById } from "../services/tours";
 import {
   FaMapMarkerAlt,
@@ -103,7 +102,6 @@ export default function TourDetail({ user, setUser }) {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tour, setTour] = useState(null);
 
@@ -192,13 +190,6 @@ export default function TourDetail({ user, setUser }) {
       <Navbar user={user} setUser={setUser} />
 
       <div className="flex flex-1 pt-20">
-        <SideBar
-          expanded={expanded}
-          setExpanded={setExpanded}
-          user={user}
-          handleLogout={() => setUser(null)}
-        />
-
         <main className="flex-1 p-6 md:p-8 overflow-y-auto">
           <div className="max-w-6xl mx-auto">
             {/* Header */}

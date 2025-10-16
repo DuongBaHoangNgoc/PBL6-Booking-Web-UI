@@ -2,22 +2,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import FeaturedDestinations from "../components/FeaturedDestinations";
 import Navbar from "../components/Navbar";
-import {
-  FaHome,
-  FaWallet,
-  FaBook,
-  FaBriefcase,
-  FaGlobe,
-  FaQuestionCircle,
-  FaSignOutAlt,
-} from "react-icons/fa";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { format } from "date-fns";
-import SideBar from "../components/SideBar";
 
 export default function HotelDashboard({ user, setUser }) {
-  const [expanded, setExpanded] = useState(false);
   const [destination, setDestination] = useState("");
   const [checkIn, setCheckIn] = useState(null);
   const [checkOut, setCheckOut] = useState(null);
@@ -70,14 +59,6 @@ export default function HotelDashboard({ user, setUser }) {
       <Navbar user={user} setUser={setUser} />
 
       <div className="flex flex-1 pt-20">
-        {/* Sidebar */}
-        <SideBar
-          expanded={expanded}
-          setExpanded={setExpanded}
-          user={user}
-          handleLogout={handleLogout}
-        />
-
         {/* Main content */}
         <main className="flex-1 p-8 overflow-y-auto">
           {/* Tabs */}

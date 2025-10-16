@@ -11,7 +11,7 @@ export default function Home({ user }) {
   const [date, setDate] = useState(null);
 
   const handleGetStarted = () => {
-    navigate(user ? "/dashboard" : "/login");
+    navigate(user ? "/tour" : "/login");
   };
 
   // yyyy-MM-dd

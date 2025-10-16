@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import SideBar from "../components/SideBar";
 import TourCard from "../components/TourCard";
 import TourSearchBar from "../components/TourSearchBar";
 import { searchTours } from "../services/tours";
 import { parse, isValid } from "date-fns";
+import { slugify } from "../utils/slugify";
 
 function parseDateParam(raw) {
   if (!raw) return null;
@@ -35,7 +35,6 @@ export default function TourSearchResult({ user, setUser }) {
 
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
 
   const handleLogout = () => setUser(null);
 
@@ -77,7 +76,6 @@ export default function TourSearchResult({ user, setUser }) {
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  // 👇 baseDate dùng cho chọn lịch gần nhất (nếu null => hôm nay)
   const baseDate = date || new Date();
 
   return (
@@ -98,13 +96,6 @@ export default function TourSearchResult({ user, setUser }) {
       <Navbar user={user} setUser={setUser} />
 
       <div className="flex flex-1 pt-20">
-        <SideBar
-          expanded={expanded}
-          setExpanded={setExpanded}
-          user={user}
-          handleLogout={handleLogout}
-        />
-
         <main className="flex-1 p-8 overflow-y-auto">
           <div className="max-w-[640px] mx-auto w-full">
             <TourSearchBar
@@ -142,7 +133,9 @@ export default function TourSearchResult({ user, setUser }) {
                     key={tour.tourId}
                     tour={tour}
                     baseDate={baseDate}
-                    onView={() => navigate(`/tours/${tour.tourId}`)}
+                    onView={() =>
+                      navigate(`/du-lich/${slugify(tour.title)}/${tour.tourId}`)
+                    }
                   />
                 ))}
               </div>

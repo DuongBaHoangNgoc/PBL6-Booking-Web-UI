@@ -4,12 +4,11 @@ import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
-import DashboardLayout from "./pages/DashboardLayout";
-import HotelDashboard from "./pages/HotelDashboard";
 import TourDashboard from "./pages/TourDashboard";
 import { getProfile } from "./services/auth";
 import TourSearchResult from "./pages/TourSearchResult";
 import TourDetail from "./pages/TourDetail";
+import Profile from "./pages/Profile";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -66,18 +65,6 @@ function App() {
           }
         />
 
-        {/* Dashboard */}
-        <Route
-          path="/dashboard"
-          element={<DashboardLayout user={user} setUser={setUser} />}
-        />
-
-        {/* Hotel Dashboard */}
-        <Route
-          path="/hotel"
-          element={<HotelDashboard user={user} setUser={setUser} />}
-        />
-
         {/* Tour Dashboard */}
         <Route
           path="/tour"
@@ -88,8 +75,12 @@ function App() {
           element={<TourSearchResult user={user} setUser={setUser} />}
         />
         <Route
-          path="/tours/:id"
+          path="/du-lich/:slug/:id"
           element={<TourDetail user={user} setUser={setUser} />}
+        />
+        <Route
+          path="/profile"
+          element={<Profile user={user} setUser={setUser} />}
         />
       </Routes>
     </Router>
