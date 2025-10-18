@@ -7,7 +7,8 @@ const sqlFile = "./database_pbl6.sql";
 // Lệnh tạo database nếu chưa có
 const createDbCmd = `mysql -h ${DB_HOST} -u ${DB_USER} ${
   DB_PASS ? `-p${DB_PASS}` : ""
-} -e "CREATE DATABASE IF NOT EXISTS \\\`${DB_NAME}\\\`;"`;
+} -e "CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`;"`
+
 
 // Lệnh import file SQL (dùng cmd /c để hoạt động trên Windows)
 const importCmd = `cmd /c "mysql -h ${DB_HOST} -u ${DB_USER} ${
