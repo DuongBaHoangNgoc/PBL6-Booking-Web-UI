@@ -13,8 +13,7 @@ export default function Home({ user }) {
   const handleGetStarted = () => {
     navigate(user ? "/tour" : "/login");
   };
-
-  // yyyy-MM-dd
+  
   const formatDate = (d) => {
     if (!d) return "";
     const dt = d instanceof Date ? d : new Date(d);

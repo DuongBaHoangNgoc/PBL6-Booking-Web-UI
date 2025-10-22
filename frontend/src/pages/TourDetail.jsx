@@ -49,7 +49,8 @@ const collectImages = (tour) => {
   );
   const extra = sameTour
     .map((i) => i.imageURL || i.imageUrl || i.url)
-    .filter(Boolean);
+    .filter(Boolean)
+    .map(u => String(u).trim());
   return [...main, ...extra];
 };
 
@@ -148,8 +149,15 @@ export default function TourDetail({ user, setUser }) {
     return dateOptions.find((x) => String(x.id) === id) || null;
   }, [dateOptions, chosenDateId]);
 
-  const timelines = Array.isArray(tour?.timelines) ? tour.timelines : [];
-  const richTimeline = useMemo(() => pickRichTimeline(timelines), [timelines]);
+  const timelinesCompat = useMemo(() => {
+  const arr = Array.isArray(tour?.timelines) ? tour.timelines : [];
+  return arr.map(t => ({
+    title: t.title ?? t.tl_title ?? 'Lịch trình',
+    description: t.description ?? t.tl_description ?? '',
+  }));
+}, [tour]);
+
+const richTimeline = useMemo(() => pickRichTimeline(timelinesCompat), [timelinesCompat]);
 
   const total = useMemo(() => {
     if (!chosen) return 0;
@@ -237,13 +245,13 @@ export default function TourDetail({ user, setUser }) {
                 )}
 
                 {/* Timelines */}
-                {timelines.length > 1 ? (
-                  <TourScheduleAccordion timelines={timelines} />
+                {timelinesCompat.length > 1 ? (
+                  <TourScheduleAccordion timelines={timelinesCompat} />
                 ) : (
                   richTimeline && (
                     <div className="mt-4 bg-white rounded-lg shadow p-4">
                       <h3 className="font-semibold mb-2">
-                        {richTimeline.title || "Chương trình tour"}
+                        {richTimeline.title}
                       </h3>
                       {hasHtml(richTimeline.description) ? (
                         <HtmlBlock html={richTimeline.description} />

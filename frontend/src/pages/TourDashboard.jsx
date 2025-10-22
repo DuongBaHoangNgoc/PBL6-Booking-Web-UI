@@ -1,10 +1,8 @@
-// TourDashboard.jsx
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import Navbar from "../components/Navbar";
 import "react-datepicker/dist/react-datepicker.css";
-import { format } from "date-fns";
-
+import { toSlug } from "../utils/slug";
 import TourSearchBar from "../components/TourSearchBar";
 
 export default function TourDashboard({ user, setUser }) {
@@ -16,20 +14,15 @@ export default function TourDashboard({ user, setUser }) {
   const handleLogout = () => setUser(null);
 
   const handleSearch = () => {
-    if (!destination.trim()) return;
-
-    const baseDate = date ?? new Date(); // 👈 logic yêu cầu
-    const params = new URLSearchParams({
-      keyword: destination.trim(),
-      departure,
-      baseDate: format(baseDate, "yyyy-MM-dd"), // 👈 gửi lên query
-    }).toString();
-
-    navigate(`/tour-search?${params}`);
+    const slug = toSlug(destination);
+    if (!slug) return;
+    // Điều hướng sang trang kết quả với slug làm tham số truy vấn
+    navigate(`/tour-search?slug=${encodeURIComponent(slug)}&page=1&limit=10`);
   };
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Nền trang */}
       <div
         className="absolute inset-0 -z-10"
         style={{
