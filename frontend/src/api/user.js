@@ -1,5 +1,5 @@
 // src/services/user.js
-import api from "../api/axios";
+import api from "./axiosInstance";
 
 /**
  * Lấy thông tin người dùng theo ID

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Navbar from "../components/Navbar";
-import { getTourById } from "../services/tours";
+import Navbar from "../components/layout/Navbar";
+import { getTourById } from "../api/tours";
 import {
   FaMapMarkerAlt,
   FaClock,

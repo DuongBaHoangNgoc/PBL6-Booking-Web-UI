@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import FeaturedDestinations from "../components/FeaturedDestinations";
-import TourSearchBar from "../components/TourSearchBar";
+import FeaturedDestinations from "../../components/FeaturedDestinations";
+import TourSearchBar from "../../components/TourSearchBar";
 import { useState } from "react";
 
 export default function Home({ user }) {

@@ -1,15 +1,14 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Navbar from "./components/Navbar";
-import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import TourDashboard from "./pages/TourDashboard";
-import { getProfile } from "./services/auth";
+import Navbar from "./components/layout/Navbar";
+import Home from "./pages/client/Home";
+import Login from "./pages/auth/Login";
+import Signup from "./pages/auth/Signup";
+import TourDashboard from "./pages/admin/TourDashboard";
+import { getProfile } from "./api/auth";
 import TourSearchResult from "./pages/TourSearchResult";
 import TourDetail from "./pages/TourDetail";
-import Profile from "./pages/Profile";
-
+import { Profile } from "./pages/client/profile/Profile";
 function App() {
   const [user, setUser] = useState(null);
 

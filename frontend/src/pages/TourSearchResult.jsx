@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import Navbar from "../components/Navbar";
+import Navbar from "../components/layout/Navbar";
 import TourCard from "../components/TourCard";
 import TourSearchBar from "../components/TourSearchBar";
-import { filterToursBySlug } from "../services/tours";
+import { filterToursBySlug } from "../api/tours";
 import { toSlug } from "../utils/slug";
 
 export default function TourSearchResult({ user, setUser }) {
