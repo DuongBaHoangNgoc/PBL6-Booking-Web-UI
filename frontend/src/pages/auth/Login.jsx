@@ -1,13 +1,14 @@
-import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { login, getProfile } from "../services/auth";
+import { useState } from "react";
+import { useAuth } from "@/context/useAuth"; // 1. Import useAuth từ Context
 
-export default function Login({ setUser }) {
+export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login, user } = useAuth();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -15,23 +16,14 @@ export default function Login({ setUser }) {
     setLoading(true);
 
     try {
-      // 🔹 Gọi API login
-      const res = await login(email, password);
-      const { access_token, refresh_token } = res.data || {};
-
-      if (!access_token) {
-        throw new Error("Access token not found in response");
+      await login(email, password);
+      if (user) {
+        if(user.role === "admin") {
+          navigate("/admin");
+          return;
+        }
       }
-
-      localStorage.setItem("access_token", access_token);
-      if (refresh_token) localStorage.setItem("refresh_token", refresh_token);
-
-      // 🔹 Lấy thông tin user từ Profile
-      const profileRes = await getProfile(access_token);
-      console.log("Profile:", profileRes.data);
-      setUser(profileRes.data);
-
-      navigate("/tour");
+      navigate("/tours"); 
     } catch (error) {
       console.error("Login error:", error);
       if (error.response?.status === 401) {
@@ -100,9 +92,10 @@ export default function Login({ setUser }) {
             </div>
 
             <div className="flex justify-between items-center">
-              <a href="#" className="text-sm text-red-500 hover:underline">
+              {/* TODO: Implement Forgot Password link */}
+              <Link to="/forgot-password" className="text-sm text-red-500 hover:underline">
                 Forgot Password?
-              </a>
+              </Link>
             </div>
 
             <button
