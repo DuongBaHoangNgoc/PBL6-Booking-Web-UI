@@ -46,7 +46,7 @@ export default function Signup() {
 
       console.log("Signup success:", res.data);
       alert("Đăng ký thành công! Vui lòng đăng nhập.");
-      navigate("/login");
+      navigate("/auth/login");
     } catch (error) {
       console.error("Signup error:", error);
       setErr(error.response?.data?.message || "Đăng ký thất bại!");
@@ -199,7 +199,7 @@ export default function Signup() {
           <p className="mt-4 text-center text-gray-600">
             Already have an account?{" "}
             <span
-              onClick={() => navigate("/login")}
+              onClick={() => navigate("/auth/login")}
               className="text-green-500 cursor-pointer hover:underline"
             >
               Login

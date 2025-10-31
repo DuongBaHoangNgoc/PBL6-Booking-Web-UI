@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import Navbar from "../../components/layout/Navbar";
+import Navbar from "../../components/layout/Header";
 import "react-datepicker/dist/react-datepicker.css";
 import { toSlug } from "../../utils/slug";
 import TourSearchBar from "../../components/TourSearchBar";

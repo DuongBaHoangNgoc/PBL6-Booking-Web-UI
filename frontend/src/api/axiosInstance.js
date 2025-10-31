@@ -1,9 +1,17 @@
 import axios from "axios";
+import { getProfile } from "./auth";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL, // đọc từ .env
-  headers: { "Content-Type": "application/json" },
+  // headers: { "Content-Type": "application/json" },
 });
+
+let contextSetters = {};
+
+export const injectContextSetters = (setToken, logout) => {
+  contextSetters.setToken = setToken;
+  contextSetters.logout = logout;
+}
 
 // Đính kèm access token nếu có
 api.interceptors.request.use((config) => {
@@ -14,28 +22,49 @@ api.interceptors.request.use((config) => {
 
 // Tự refresh token nếu 401
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    return res;
+  },
   async (err) => {
     const original = err.config;
-    if (err.response?.status === 401 && !original._retry) {
+    const refreshToken = localStorage.getItem("refresh_token");
+
+    // Nếu lỗi là 401, token hết hạn và chúng ta có refresh token
+    // và request chưa được thử lại
+    if (err.response?.status === 401 && refreshToken && !original._retry) {
       original._retry = true;
       const refresh = localStorage.getItem("refresh_token");
       if (!refresh) return Promise.reject(err);
+
       try {
         const r = await axios.post(
           `${import.meta.env.VITE_API_URL}/auth/refresh-token`,
           { refresh_token: refresh }
         );
+
         const newAccess = r.data?.access_token;
-        if (newAccess) {
-          localStorage.setItem("access_token", newAccess);
-          original.headers.Authorization = `Bearer ${newAccess}`;
-          return api(original);
+
+        localStorage.setItem("access_token", newAccess);
+        if (contextSetters.setToken) {
+          contextSetters.setToken(newAccess);
         }
+
+        // Thử lại request ban đầu với access token mới
+        api.defaults.headers.common["Authorization"] = `Bearer ${newAccess}`;
+        original.headers.Authorization = `Bearer ${newAccess}`;
+        return api(original);
+
       } catch (e) {
         // refresh thất bại -> buộc logout
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
+        // localStorage.removeItem("access_token");
+        // localStorage.removeItem("refresh_token");
+
+        // Nếu refresh token cũng thất bại (ví dụ: hết hạn)
+        console.error("Refresh token failed, logging out.", refreshError);
+        if (contextSetters.logout) {
+          contextSetters.logout();
+        }
+        return Promise.reject(refreshError);
       }
     }
     return Promise.reject(err);
