@@ -1,22 +1,23 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from "react-router-dom";
 
 // Layouts
-import { ClientLayout } from '@/components/layout/ClientLayout';
+import { ClientLayout } from "@/components/layout/ClientLayout";
 
 // Guards
-import { ProtectedRoute } from './ProtectedRoute'; 
-import { AdminRoute } from './AdminRoute';
+import { ProtectedRoute } from "./ProtectedRoute";
+import { AdminRoute } from "./AdminRoute";
 
 // Pages
-import Home from '@/pages/Home';
-import Login from '@/pages/auth/Login';
-import Signup from '@/pages/auth/Signup';
-import TourSearchResult from '@/components/pages/tours/ToursList';
-import TourDetail from '@/components/pages/tours/TourDetail';
-import { Profile } from '../pages/client/Profile';
-import { BookingsPage } from '@/components/pages/bookings/MyBookings';
-import { TourDashboard } from '@/components/TourDashBoard';
-import { ManageUsersPage } from '@/components/pages/users/ManageUsersPage';
+import Home from "@/pages/Home";
+import Login from "@/pages/auth/Login";
+import Signup from "@/pages/auth/Signup";
+import TourSearchResult from "@/components/pages/tours/ToursList";
+import TourDetail from "@/components/pages/tours/TourDetail";
+import TourDetailTest from "@/components/pages/tours/TourDetailTest";
+import { Profile } from "../pages/client/Profile";
+import { BookingsPage } from "@/components/pages/bookings/MyBookings";
+import { TourDashboard } from "@/components/TourDashBoard";
+import { ManageUsersPage } from "@/components/pages/users/ManageUsersPage";
 
 export const AppRoutes = () => {
   return (
@@ -26,11 +27,12 @@ export const AppRoutes = () => {
         =========================================
       */}
       <Route element={<ClientLayout />}>
-
         {/* --- 1.1: Public Pages --- */}
         <Route path="/" element={<Home />} />
         <Route path="/tours" element={<TourSearchResult />} />
         <Route path="/tours/:slug/:id" element={<TourDetail />} />
+
+        <Route path="/tour-test/:slug/:id" element={<TourDetailTest />} />
 
         {/* --- 1.2: Authenticating Pages --- */}
         <Route path="/auth/login" element={<Login />} />
@@ -41,7 +43,7 @@ export const AppRoutes = () => {
         <Route element={<ProtectedRoute />}>
           <Route path="/profile" element={<Profile />} />
         </Route>
-      </Route>   
+      </Route>
 
       {/* =========================================
         AREA 2: ADMIN ROUTES
@@ -52,7 +54,7 @@ export const AppRoutes = () => {
           <Route path="/admin" element={<TourDashboard />} />
           <Route path="/admin/users" element={<ManageUsersPage />} />
         </Route>
-      </Route> 
+      </Route>
     </Routes>
   );
 };

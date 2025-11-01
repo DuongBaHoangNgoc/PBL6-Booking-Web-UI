@@ -1,93 +1,82 @@
-"use client"
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Star, MapPin, Clock, Users } from "lucide-react";
+import { Link } from "react-router-dom";
 
-import { useMemo } from "react"
-import { FaStar, FaClock, FaRegCalendarAlt } from "react-icons/fa"
-
-/* ===== Helpers ===== */
-export const fmtVND = (n) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(Number(n || 0)).replace(/\s?₫/, " đ")
-
-export const fmtDateDashed = (dateLike) => {
-  const d = new Date(dateLike)
-  if (isNaN(d)) return "—"
-  const dd = String(d.getDate()).padStart(2, "0")
-  const mm = String(d.getMonth() + 1).padStart(2, "0")
-  const yyyy = d.getFullYear()
-  return `${dd}-${mm}-${yyyy}`
-}
-
-const toDay = (v) => {
-  const d = new Date(v)
-  if (isNaN(d)) return null
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
-}
-
-export const pickNearestStartAndPrice = (tour, baseDate) => {
-  const dates = tour?.startEndDates || tour?.start_end_dates || tour?.dates || []
-  if (!Array.isArray(dates) || !dates.length) return undefined
-
-  const base = baseDate ? new Date(baseDate) : new Date()
-  const byAsc = (a, b) => new Date(a.startDate) - new Date(b.startDate)
-  const byDesc = (a, b) => new Date(b.startDate) - new Date(a.startDate)
-
-  const upcoming = dates.filter((d) => new Date(d.startDate) >= base)
-  const chosen = (upcoming.length ? [...upcoming].sort(byAsc)[0] : [...dates].sort(byDesc)[0]) || {}
-
-  const priceAdult = Number(chosen?.priceAdult ?? chosen?.price_adult ?? chosen?.price)
-
-  return {
-    startDate: chosen?.startDate,
-    priceAdult: Number.isFinite(priceAdult) ? priceAdult : undefined,
-  }
-}
-
-/* ===== Component ===== */
-export default function TourCard({ tour, onView, baseDate }) {
-  const near = useMemo(() => pickNearestStartAndPrice(tour, baseDate), [tour, baseDate])
+export default function TourCard({ tour }) {
+  // Hàm tạo slug đơn giản
+  const slugify = (text) =>
+    text
+      .toLowerCase()
+      .replace(/ /g, "-")
+      .replace(/[^\w-]+/g, "");
 
   return (
-    <div className="flex items-center bg-white border rounded-lg p-4 shadow hover:shadow-md transition-all">
-      <img
-        src={tour.image || "/images/default-tour.jpg"}
-        alt={tour.title}
-        className="w-48 h-32 object-cover rounded-md mr-4"
-      />
-
-      <div className="flex-1">
-        <h3 className="font-semibold text-lg text-[#1a5f7a]">{tour.title}</h3>
-
-        <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-          <span className="inline-flex items-center gap-1">
-            <FaStar className="text-yellow-500" />
-            {tour.reviews || "Chưa có đánh giá"}
-          </span>
-          <span className="inline-block h-4 w-px bg-gray-300" />
-          <span className="inline-flex items-center gap-1">
-            <FaClock />
-            {tour.time || "—"}
-          </span>
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+      {/* Image */}
+      <div className="relative h-48 bg-muted overflow-hidden">
+        <img
+          src={tour.image || "https://placehold.co/600x400"}
+          alt={tour.title}
+          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+        />
+        <div className="absolute top-3 right-3 bg-accent text-accent-foreground px-3 py-1 rounded-full text-sm font-semibold">
+          Save ${tour.originalPrice - tour.price}
         </div>
-
-        <div className="mt-1 text-sm text-gray-700 inline-flex items-center gap-2">
-          <FaRegCalendarAlt className="text-[#1a5f7a]" />
-          <span>{near?.startDate ? fmtDateDashed(near.startDate) : "Chưa có lịch khởi hành"}</span>
+        <div className="absolute top-3 left-3 bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-semibold">
+          {tour.category}
         </div>
       </div>
 
-      <div className="flex flex-col items-end gap-2 ml-4">
-        <div className="text-right">
-          <div className="text-lg font-bold text-[#ff6b6b]">
-            {near?.priceAdult !== undefined ? fmtVND(near.priceAdult) : "—"}
+      {/* Content */}
+      <div className="p-4">
+        <h3 className="font-bold text-lg text-foreground mb-2">{tour.title}</h3>
+
+        {/* Destination */}
+        <div className="flex items-center gap-1 text-sm text-muted-foreground mb-3">
+          <MapPin className="w-4 h-4" />
+          <span>{tour.destination}</span>
+        </div>
+
+        {/* Details */}
+        <div className="space-y-2 mb-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            <span>{tour.time}</span>
           </div>
         </div>
 
-        <button
-          onClick={() => onView?.(tour)}
-          className="bg-[#5dd9c1] hover:bg-[#4bc9b0] text-[#1a5f7a] px-4 py-2 rounded font-semibold transition-all active:scale-95"
-        >
-          Xem Tour
-        </button>
+        {/* Rating */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-1">
+            {[...Array(5)].map((_, i) => (
+              <Star
+                key={i}
+                className={`w-4 h-4 ${
+                  i < Math.floor(tour.starAvg) ? "fill-accent text-accent" : "text-muted"
+                }`}
+              />
+            ))}
+          </div>
+          <span className="text-sm font-medium text-foreground">{tour.starAvg}</span>
+          <span className="text-sm text-muted-foreground">({tour.reviewCount})</span>
+        </div>
+
+        {/* Price */}
+        <div className="flex items-baseline gap-2 mb-4">
+          <span className="text-2xl font-bold text-primary">${tour.price}</span>
+          <span className="text-sm text-muted-foreground line-through">
+            ${tour.originalPrice}
+          </span>
+        </div>
+
+        {/* Button */}
+        <Link to={`/tours/${tour.slug}/${tour.tourId}`} className="block">
+          <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+            View Details
+          </Button>
+        </Link>
       </div>
-    </div>
-  )
+    </Card>
+  );
 }

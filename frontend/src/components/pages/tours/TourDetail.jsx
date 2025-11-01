@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"; 
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,322 +9,566 @@ import {
   Heart,
   Share2,
   Check,
-  AlertCircle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
-import { useParams, Link } from "react-router-dom"; // Thêm useParams, Link
-// import { getTourById } from "@/api/tours"; // (Sẽ dùng sau)
+import { useParams } from "react-router-dom";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/dist/style.css";
 
-// Mock tour data - (Sẽ được thay bằng API)
-const mockTour = {
-  id: "1", // Sẽ bị ghi đè
-  title: "Bali Paradise Escape",
-  destination: "Bali, Indonesia",
-  price: 1299,
-  originalPrice: 1599,
-  duration: "7 days",
-  travelers: "2-4 people",
-  rating: 4.8,
-  reviewCount: 324,
-  description:
-    "Experience the magic of Bali with our carefully curated 7-day escape. From pristine beaches to ancient temples, discover the best of this tropical paradise.",
-  highlights: [
-    "Luxury beachfront resort accommodation",
-    "Daily breakfast and dinner included",
-    "Guided tours to Ubud temples",
-    "Spa and wellness treatments",
-    "Water sports activities",
-    "Traditional Balinese cooking class",
-  ],
-  itinerary: [
-    {
-      day: 1,
-      title: "Arrival in Bali",
-      description: "Arrive at Denpasar Airport and transfer to your resort. Evening beach walk and dinner.",
-    },
-    {
-      day: 2,
-      title: "Ubud Cultural Tour",
-      description: "Visit ancient temples, rice terraces, and local markets. Traditional lunch included.",
-    },
-    {
-      day: 3,
-      title: "Beach Day & Water Sports",
-      description: "Relax on pristine beaches. Optional surfing, snorkeling, or jet skiing.",
-    },
-  ],
-  included: [
-    "7 nights accommodation in 5-star resort",
-    "Daily breakfast and dinner",
-    "Airport transfers",
-    "Guided tours and activities",
-  ],
-  notIncluded: ["International flights", "Visa fees", "Personal expenses"],
-  reviews: [
-    {
-      author: "Sarah Johnson",
-      rating: 5,
-      text: "Amazing experience! Everything was perfectly organized. Highly recommended!",
-      date: "2 weeks ago",
-    },
-  ],
-};
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+async function getTourById(id) {
+  const res = await fetch(`${API_URL}/tours/${id}`);
+  if (!res.ok) throw new Error(`Lỗi ${res.status}: ${res.statusText}`);
+  const data = await res.json();
+  return data.data || data;
+}
+
+async function getTourPriceById(tourId) {
+  const res = await fetch(`${API_URL}/start-end-dates/priceTour/${tourId}`);
+  if (!res.ok) throw new Error(`Lỗi ${res.status}: ${res.statusText}`);
+  const data = await res.json();
+  return data.data;
+}
+
+async function getTimelineByTourId(tourId) {
+  const url = `${API_URL}/timelines/FilterPagination?tourId=${tourId}&limit=100&page=1`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Lỗi ${res.status}: ${res.statusText}`);
+  const data = await res.json();
+  return data.data?.timelines || [];
+}
+
+async function getReviewsByTourId(tourId) {
+  const url = `${API_URL}/reviews/FilterPagination?tourId=${tourId}&limit=100&page=1`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Lỗi ${res.status}: ${res.statusText}`);
+  const data = await res.json();
+  return data.data?.reviews || [];
+}
+
+// 🆕 API lấy danh sách ngày khởi hành
+async function getStartDatesByTourId(tourId) {
+  const url = `${API_URL}/start-end-dates/FilterPagination?page=1&limit=100&tourId=${tourId}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Lỗi ${res.status}: ${res.statusText}`);
+  const data = await res.json();
+  return data.data?.startEndDates || [];
+}
 
 export default function TourDetail() {
-  const { id, slug } = useParams(); // Lấy id và slug từ URL
-  const [tour, setTour] = useState(null); // State để chứa data
-  const [loading, setLoading] = useState(true);
-
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  const { id } = useParams();
+  const [tour, setTour] = useState(null);
+  const [timeline, setTimeline] = useState([]);
+  const [expandedDay, setExpandedDay] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
-  const [travelers, setTravelers] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [travelers, setTravelers] = useState({
+    adults: 2,
+    children: 0,
+  });
 
-  // Giả lập việc fetch data (sau này thay bằng API)
   useEffect(() => {
-    setLoading(true);
-    // (Sau này) const data = await getTourById(id);
-    // Giả lập:
-    const data = { ...mockTour, id: id, title: slug.replace(/-/g, " ").toUpperCase() }; // Dùng id và slug từ URL
-    setTour(data);
-    setLoading(false);
-  }, [id, slug]); // Chạy lại khi id hoặc slug thay đổi
+    async function fetchTourData() {
+      try {
+        setLoading(true);
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading tour details...</div>;
-  }
+        const tourData = await getTourById(id);
+        const priceData = await getTourPriceById(tourData.tourId);
+        const timelineData = await getTimelineByTourId(tourData.tourId);
+        const reviewData = await getReviewsByTourId(tourData.tourId);
+        const startDatesData = await getStartDatesByTourId(tourData.tourId);
 
-  if (!tour) {
-    return <div className="min-h-screen flex items-center justify-center">Tour not found.</div>;
-  }
+        const mergedTour = {
+          ...tourData,
+          price: Number(priceData?.minPriceAdult) || 0,
+          originalPrice: Number(priceData?.maxPriceAdult) || 0,
+        };
+        console.log("Tour itinerary data:", tourData.itinerary);
+        setTour(mergedTour);
+        setTimeline(timelineData);
+        setAvailableDates(startDatesData);
+        setReviews(reviewData);
+      } catch (err) {
+        console.error("❌ Lỗi khi tải tour:", err);
+        setError("Không thể tải dữ liệu tour từ server.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTourData();
+  }, [id]);
+
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        Đang tải chi tiết tour...
+      </div>
+    );
+
+  if (error || !tour)
+    return (
+      <div className="min-h-screen flex items-center justify-center text-red-500">
+        {error || "Không tìm thấy tour."}
+      </div>
+    );
+
+  const toggleAll = (expand) => {
+    setExpandedDay(expand ? "all" : null);
+  };
 
   return (
-    // Component này render bên trong ClientLayout
     <section className="p-6 md:p-14">
       <div className="container mx-auto px-4">
-        {/* Hero Image */}
+        {/* Ảnh chính */}
         <div className="mb-8 rounded-lg overflow-hidden h-96 bg-muted">
           <img
-            src="https://placehold.co/1200x400/0D9488/FFFFFF?text=Tour+Detail+Hero"
+            src={
+              tour.image ||
+              "https://placehold.co/1200x400/0D9488/FFFFFF?text=Tour+Image"
+            }
             alt={tour.title}
             className="w-full h-full object-cover"
           />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
+          {/* Nội dung chính */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Header */}
             <div>
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h1 className="text-4xl font-bold text-foreground mb-2">{tour.title}</h1>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="w-4 h-4" />
-                    <span>{tour.destination}</span>
-                  </div>
+              <h1 className="text-4xl font-bold text-foreground mb-2">
+                {tour.title}
+              </h1>
+              <div className="flex items-center gap-2 text-muted-foreground mb-4">
+                <MapPin className="w-4 h-4" />
+                <span>{tour.destination}</span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground mb-4">
+                {/* ⭐ Hiển thị sao */}
+                <div className="flex items-center">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-4 h-4 ${
+                        i < Math.round(tour.starAvg || 0)
+                          ? "text-yellow-400 fill-yellow-400"
+                          : "text-gray-300"
+                      }`}
+                    />
+                  ))}
                 </div>
-                <button
-                  onClick={() => setIsWishlisted(!isWishlisted)}
-                  className="p-2 rounded-lg border border-border hover:bg-muted transition-colors"
-                >
-                  <Heart
-                    className={`w-6 h-6 ${
-                      isWishlisted ? "fill-accent text-accent" : "text-muted-foreground"
-                    }`}
-                  />
-                </button>
+
+                {/* 🔢 Hiển thị điểm trung bình & số đánh giá */}
+                <span className="font-semibold text-foreground">
+                  {Number(tour.starAvg || 0).toFixed(1)}
+                </span>
+
+                {tour.reviewCount && (
+                  <span className="text-sm text-muted-foreground">
+                    ({tour.reviewCount} reviews)
+                  </span>
+                )}
               </div>
 
-              {/* Rating */}
-              <div className="flex items-center gap-4 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`w-4 h-4 ${
-                          i < Math.floor(tour.rating) ? "fill-accent text-accent" : "text-muted"
-                        }`}
-                      />
+              <p className="text-lg text-muted-foreground whitespace-pre-line">
+                {tour.description || "Không có mô tả cho tour này."}
+              </p>
+            </div>
+
+            {/* Tour bao gồm */}
+            {tour.itinerary && (
+              <div>
+                <h2 className="text-2xl font-bold text-foreground mb-4">
+                  Tour bao gồm
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {tour.itinerary
+                    .split("\n")
+                    .filter((line) => line.trim() !== "")
+                    .map((item, index) => (
+                      <div key={index} className="flex items-start gap-3">
+                        <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                        <span className="text-foreground">
+                          {item.replace(/^-/, "").trim()}
+                        </span>
+                      </div>
                     ))}
-                  </div>
-                  <span className="font-medium text-foreground">{tour.rating}</span>
-                  <span className="text-muted-foreground">({tour.reviewCount} reviews)</span>
                 </div>
-                <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-                  <Share2 className="w-4 h-4" />
-                  Share
-                </Button>
               </div>
+            )}
 
-              {/* Description */}
-              <p className="text-lg text-muted-foreground">{tour.description}</p>
-            </div>
-
-            {/* Highlights */}
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-4">Tour Highlights</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {tour.highlights.map((highlight, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                    <span className="text-foreground">{highlight}</span>
+            {/* Chương trình tour */}
+            {timeline.length > 0 && (
+              <div id="tour-schedule">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold text-foreground">
+                    Chương trình tour
+                  </h2>
+                  <div className="flex gap-4 text-primary cursor-pointer">
+                    <span onClick={() => toggleAll(true)}>Xem tất cả</span>
+                    <span onClick={() => toggleAll(false)}>Thu gọn</span>
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            {/* Itinerary */}
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-4">Itinerary</h2>
-              <div className="space-y-4">
-                {tour.itinerary.map((item) => (
-                  <Card key={item.day} className="p-4">
-                    <h3 className="font-bold text-lg text-foreground mb-2">
-                      Day {item.day}: {item.title}
-                    </h3>
-                    <p className="text-muted-foreground">{item.description}</p>
-                  </Card>
-                ))}
-              </div>
-            </div>
-
-            {/* What's Included */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div>
-                <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-                  <Check className="w-5 h-5 text-primary" />
-                  Included
-                </h3>
-                <ul className="space-y-2">
-                  {tour.included.map((item, index) => (
-                    <li key={index} className="flex items-start gap-2 text-foreground">
-                      <Check className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-muted-foreground" />
-                  Not Included
-                </h3>
-                <ul className="space-y-2">
-                  {tour.notIncluded.map((item, index) => (
-                    <li key={index} className="flex items-start gap-2 text-muted-foreground">
-                      <span>•</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            {/* Reviews */}
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-4">Guest Reviews</h2>
-              <div className="space-y-4">
-                {tour.reviews.map((review, index) => (
-                  <Card key={index} className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="font-semibold text-foreground">{review.author}</p>
-                        <p className="text-sm text-muted-foreground">{review.date}</p>
+                <div className="space-y-4">
+                  {timeline.map((item, index) => (
+                    <Card key={item.timeLineId} className="overflow-hidden">
+                      <div
+                        className="flex justify-between items-center cursor-pointer p-4 bg-muted hover:bg-muted/50 transition"
+                        onClick={() =>
+                          setExpandedDay(expandedDay === index ? null : index)
+                        }
+                      >
+                        <div className="flex items-center gap-4">
+                          {item.imageTimeLine && (
+                            <img
+                              src={item.imageTimeLine}
+                              alt={item.tl_title}
+                              className="w-20 h-16 object-cover rounded-md"
+                            />
+                          )}
+                          <div>
+                            <h3 className="font-semibold text-lg text-foreground">
+                              {item.tl_title}
+                            </h3>
+                          </div>
+                        </div>
+                        {expandedDay === index || expandedDay === "all" ? (
+                          <ChevronUp className="w-5 h-5 text-primary" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-primary" />
+                        )}
                       </div>
-                      <div className="flex gap-1">
-                        {[...Array(review.rating)].map((_, i) => (
-                          <Star key={i} className="w-4 h-4 fill-accent text-accent" />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-foreground">{review.text}</p>
-                  </Card>
-                ))}
+
+                      {(expandedDay === index || expandedDay === "all") && (
+                        <div className="p-4 border-t border-border">
+                          <p
+                            className="text-muted-foreground"
+                            dangerouslySetInnerHTML={{
+                              __html: item.tl_description,
+                            }}
+                          />
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+            {/* Đánh giá & Nhận xét */}
+            {reviews.length > 0 && (
+              <div id="reviews-section">
+                <h2 className="text-2xl font-bold text-foreground mb-4">
+                  Đánh giá & Nhận xét ({reviews.length})
+                </h2>
+                <div className="space-y-4">
+                  {reviews.map((review) => (
+                    <Card key={review.reviewId} className="p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <div>
+                          <h3 className="font-semibold text-lg text-foreground">
+                            {review.userName || "Người dùng ẩn danh"}
+                          </h3>
+                          <div className="flex items-center gap-1">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`w-4 h-4 ${
+                                  i < review.rating
+                                    ? "text-yellow-400 fill-yellow-400"
+                                    : "text-muted"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(review.createdAt).toLocaleDateString(
+                            "vi-VN"
+                          )}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground whitespace-pre-line">
+                        {review.comment || "Không có nội dung đánh giá."}
+                      </p>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Booking Sidebar */}
+          {/* Sidebar đặt tour */}
           <div>
             <Card className="p-6 sticky top-20 space-y-6">
-              {/* Price */}
+              {/* 💰 Giá tour */}
               <div>
                 <div className="flex items-baseline gap-2 mb-2">
-                  <span className="text-3xl font-bold text-primary">${tour.price}</span>
-                  <span className="text-lg text-muted-foreground line-through">
-                    ${tour.originalPrice}
+                  <span className="text-3xl font-bold text-primary">
+                    {tour.price.toLocaleString("vi-VN")}₫
                   </span>
+                  {tour.originalPrice > 0 && (
+                    <span className="text-lg text-muted-foreground line-through">
+                      {tour.originalPrice.toLocaleString("vi-VN")}₫
+                    </span>
+                  )}
                 </div>
-                <p className="text-sm text-accent font-medium">
-                  Save ${tour.originalPrice - tour.price}
-                </p>
               </div>
 
-              {/* Tour Info */}
+              {/* 🗓️ Lịch khởi hành */}
               <div className="space-y-3 pb-6 border-b border-border">
-                <div className="flex items-center gap-3">
-                  <Clock className="w-5 h-5 text-primary" />
-                  <span className="text-foreground">{tour.duration}</span>
+                <label className="text-sm font-medium text-foreground block">
+                  Chọn Lịch Trình và Xem Giá:
+                </label>
+
+                {/* 3 ngày gần nhất + ngày được chọn + Tất cả */}
+                <div className="flex flex-wrap gap-3">
+                  {[
+                    ...availableDates
+                      .filter((d) => new Date(d.startDate) >= new Date())
+                      .sort(
+                        (a, b) => new Date(a.startDate) - new Date(b.startDate)
+                      )
+                      .slice(0, 3),
+                    // 👇 nếu ngày chọn từ lịch không có trong 3 ngày gần nhất, thêm vào
+                    ...availableDates.filter((d) => {
+                      const formatted = new Date(
+                        d.startDate
+                      ).toLocaleDateString("vi-VN", {
+                        day: "2-digit",
+                        month: "2-digit",
+                      });
+                      return formatted === selectedDate;
+                    }),
+                  ]
+                    // loại trùng ngày (nếu có)
+                    .filter(
+                      (v, i, self) =>
+                        i ===
+                        self.findIndex(
+                          (x) =>
+                            new Date(x.startDate).toDateString() ===
+                            new Date(v.startDate).toDateString()
+                        )
+                    )
+                    .map((d) => {
+                      const date = new Date(d.startDate);
+                      const formatted = date.toLocaleDateString("vi-VN", {
+                        day: "2-digit",
+                        month: "2-digit",
+                      });
+
+                      return (
+                        <button
+                          key={d.dateId}
+                          onClick={() => {
+                            setSelectedDate(formatted);
+                            setTour((prev) => ({
+                              ...prev,
+                              price: Number(d.priceAdult),
+                            }));
+                          }}
+                          className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
+                            selectedDate === formatted
+                              ? "border-primary text-primary bg-primary/10"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          <div>{formatted}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {(Number(d.priceAdult) / 1000).toFixed(0)}k
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                  {/* Nút mở DatePicker */}
+                  <button
+                    onClick={() =>
+                      setSelectedDate((prev) =>
+                        prev === "datepicker" ? "" : "datepicker"
+                      )
+                    }
+                    className={`px-4 py-2 rounded-lg border flex items-center justify-center gap-1 transition ${
+                      selectedDate === "datepicker"
+                        ? "border-primary text-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M8 7V3m8 4V3m-9 8h10m-9 6h4m-8 4h12a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                    <span>Tất cả</span>
+                  </button>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Users className="w-5 h-5 text-primary" />
-                  <span className="text-foreground">{tour.travelers}</span>
-                </div>
+
+                {/* 🗓️ DatePicker chỉ hiển thị khi bấm “Tất cả” */}
+                {selectedDate === "datepicker" && (
+                  <div className="mt-3 border border-border rounded-lg p-3 bg-background">
+                    <DayPicker
+                      mode="single"
+                      onSelect={(date) => {
+                        if (date) {
+                          const formatted = date.toLocaleDateString("vi-VN", {
+                            day: "2-digit",
+                            month: "2-digit",
+                          });
+
+                          const selectedTourDate = availableDates.find(
+                            (d) =>
+                              new Date(d.startDate).toDateString() ===
+                              date.toDateString()
+                          );
+
+                          if (selectedTourDate) {
+                            setSelectedDate(formatted);
+                            setTour((prev) => ({
+                              ...prev,
+                              price: Number(selectedTourDate.priceAdult),
+                            }));
+                          }
+
+                          // Ẩn lịch sau khi chọn
+                          setTimeout(() => setSelectedDate(formatted), 200);
+                        }
+                      }}
+                      disabled={(date) =>
+                        !availableDates.some(
+                          (d) =>
+                            new Date(d.startDate).toDateString() ===
+                            date.toDateString()
+                        )
+                      }
+                      modifiers={{
+                        available: availableDates.map(
+                          (d) => new Date(d.startDate)
+                        ),
+                      }}
+                      modifiersStyles={{
+                        available: { color: "#16a34a", fontWeight: "bold" },
+                      }}
+                    />
+
+                    <p className="text-xs text-muted-foreground mt-2 italic text-center">
+                      * Chỉ có thể chọn những ngày có tour khởi hành
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {/* Booking Form */}
+              {/* 👨‍👩‍👧 Số lượng khách */}
               <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground block mb-2">
-                    Select Date
-                  </label>
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground outline-none focus:ring-2 focus:ring-primary"
-                  />
+                <label className="text-sm font-medium text-foreground block mb-2">
+                  Chọn số lượng khách
+                </label>
+
+                {/* Người lớn */}
+                <div className="flex items-center justify-between border border-border rounded-lg p-2 mb-2">
+                  <div>
+                    <p className="font-medium text-foreground">Người lớn</p>
+                    <p className="text-xs text-muted-foreground">&gt; 9 tuổi</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="w-8 h-8"
+                      onClick={() =>
+                        setTravelers((prev) => ({
+                          ...prev,
+                          adults: Math.max(prev.adults - 1, 0),
+                        }))
+                      }
+                    >
+                      –
+                    </Button>
+                    <span className="w-6 text-center">{travelers.adults}</span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="w-8 h-8"
+                      onClick={() =>
+                        setTravelers((prev) => ({
+                          ...prev,
+                          adults: prev.adults + 1,
+                        }))
+                      }
+                    >
+                      +
+                    </Button>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium text-foreground block mb-2">
-                    Number of Travelers
-                  </label>
-                  <select
-                    value={travelers}
-                    onChange={(e) => setTravelers(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    {[1, 2, 3, 4, 5, 6].map((num) => (
-                      <option key={num} value={num}>
-                        {num} {num === 1 ? "Person" : "People"}
-                      </option>
-                    ))}
-                  </select>
+                {/* Trẻ em */}
+                <div className="flex items-center justify-between border border-border rounded-lg p-2">
+                  <div>
+                    <p className="font-medium text-foreground">Trẻ em</p>
+                    <p className="text-xs text-muted-foreground">5 - 9 tuổi</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="w-8 h-8"
+                      onClick={() =>
+                        setTravelers((prev) => ({
+                          ...prev,
+                          children: Math.max(prev.children - 1, 0),
+                        }))
+                      }
+                    >
+                      –
+                    </Button>
+                    <span className="w-6 text-center">
+                      {travelers.children}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="w-8 h-8"
+                      onClick={() =>
+                        setTravelers((prev) => ({
+                          ...prev,
+                          children: prev.children + 1,
+                        }))
+                      }
+                    >
+                      +
+                    </Button>
+                  </div>
                 </div>
 
+                {/* Tổng giá */}
                 <div className="bg-muted p-3 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Total Price</p>
+                  <p className="text-sm text-muted-foreground mb-1">Tổng giá</p>
                   <p className="text-2xl font-bold text-primary">
-                    ${tour.price * travelers}
+                    {(
+                      tour.price * travelers.adults +
+                      tour.price * 0.7 * travelers.children
+                    ).toLocaleString("vi-VN")}
+                    ₫
                   </p>
                 </div>
 
                 <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-lg">
-                  Book Now
+                  Đặt ngay
                 </Button>
-
-                <Button variant="outline" className="w-full bg-transparent">
-                  Add to Wishlist
-                </Button>
-              </div>
-
-              {/* Info */}
-              <div className="bg-primary/10 p-4 rounded-lg">
-                <p className="text-sm text-foreground">
-                  <span className="font-semibold">Free Cancellation</span> up to 7 days
-                  before departure
-                </p>
               </div>
             </Card>
           </div>
