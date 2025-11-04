@@ -71,7 +71,7 @@ export default function TourCard({ tour }) {
         </div>
 
         {/* Button */}
-        <Link to={`/tours/${tour.slug}/${tour.tourId}`} className="block">
+        <Link to={`/tours/${tour.tourId}/${tour.slug}`} className="block">
           <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
             View Details
           </Button>

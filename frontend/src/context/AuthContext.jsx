@@ -1,6 +1,6 @@
-import { createContext, useState, useEffect } from "react";
-import { login as apiLogin, getProfile } from "../api/auth"; // Import từ file service của bạn
-import api from "../api/axiosInstance"; // Import axios đã cấu hình
+import { createContext, useState, useEffect, useCallback } from "react";
+import { login as apiLogin, getProfile } from "../api/auth"; 
+import api from "../api/axiosInstance"; 
 
 const AuthContext = createContext(null);
 
@@ -9,6 +9,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(() => localStorage.getItem("access_token") || null);
 
+  const logout = useCallback(() => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+  }, []);
+  
   // Tự động thêm token vào header cho MỌI request
   useEffect(() => {
     if (token) {
@@ -41,7 +48,7 @@ export const AuthProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
-  }, [token, user]);
+  }, [token, user, logout]);
 
   const login = async (email, password) => {
     try {
@@ -79,7 +86,10 @@ export const AuthProvider = ({ children }) => {
         const profileRes = await getProfile();
         const profileData = profileRes?.data ?? profileRes;
         const profile = profileData?.data ?? profileData;
-        if (profile) setUser(profile);
+        if (profile) {
+          setUser(profile);
+          return {...data, user: profile};
+        }
       } catch (err) {
         // If fetching profile fails here, we don't throw — login succeeded
         // (tokens saved) but profile will be attempted again by the effect.
@@ -89,15 +99,8 @@ export const AuthProvider = ({ children }) => {
       return data;
     } catch (error) {
       console.error("Login failed:", error);
-      throw error; // Ném lỗi ra để trang Login.jsx bắt
+      throw error; 
     }
-  };
-
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
   };
 
   const value = { user, token, loading, setUser, login, logout };

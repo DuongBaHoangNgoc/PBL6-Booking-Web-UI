@@ -18,6 +18,8 @@ import { Profile } from "../pages/client/Profile";
 import { BookingsPage } from "@/components/pages/bookings/MyBookings";
 import { TourDashboard } from "@/components/TourDashBoard";
 import { ManageUsersPage } from "@/components/pages/users/ManageUsersPage";
+import { ManageToursPage } from "@/components/pages/tours/ManageToursPage";
+import { ManageTourDetailPage } from "@/components/pages/tours/ManageTourDetailPage";
 
 export const AppRoutes = () => {
   return (
@@ -30,9 +32,9 @@ export const AppRoutes = () => {
         {/* --- 1.1: Public Pages --- */}
         <Route path="/" element={<Home />} />
         <Route path="/tours" element={<TourSearchResult />} />
-        <Route path="/tours/:slug/:id" element={<TourDetail />} />
+        <Route path="/tours/:id/:slug/" element={<TourDetail />} />
 
-        <Route path="/tour-test/:slug/:id" element={<TourDetailTest />} />
+        <Route path="/tour-test/:id/:slug" element={<TourDetailTest />} />
 
         {/* --- 1.2: Authenticating Pages --- */}
         <Route path="/auth/login" element={<Login />} />
@@ -53,6 +55,8 @@ export const AppRoutes = () => {
         <Route element={<ClientLayout />}>
           <Route path="/admin" element={<TourDashboard />} />
           <Route path="/admin/users" element={<ManageUsersPage />} />
+          <Route path="/admin/tours" element={<ManageToursPage />} />
+          <Route path="/admin/tours/edit/:id" element={<ManageTourDetailPage />} />
         </Route>
       </Route>
     </Routes>

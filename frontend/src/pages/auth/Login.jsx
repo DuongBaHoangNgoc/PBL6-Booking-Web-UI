@@ -1,6 +1,6 @@
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useState } from "react";
-import { useAuth } from "@/context/useAuth"; // 1. Import useAuth từ Context
+import { useAuth } from "@/context/useAuth"; 
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -8,7 +8,8 @@ export default function Login() {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login, user } = useAuth();
+  const location = useLocation();
+  const { login } = useAuth();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -16,14 +17,19 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(email, password);
-      if (user) {
-        if(user.role === "admin") {
+      const data = await login(email, password);
+      const loggedInUser = data?.user ?? data?.data;
+
+      if (loggedInUser) {
+        if(loggedInUser.role === "admin") {
           navigate("/admin");
+          return;
+        } else {
+          navigate("/tours");
           return;
         }
       }
-      navigate("/tours"); 
+      navigate("/auth/login");
     } catch (error) {
       console.error("Login error:", error);
       if (error.response?.status === 401) {

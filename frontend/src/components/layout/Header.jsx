@@ -229,27 +229,31 @@ export default function Navbar() {
   return (
     <nav className="fixed top-0 left-0 w-full bg-gradient-to-r from-green-600 to-green-700 text-white z-50 shadow-lg">
       <div className="container mx-auto flex items-center justify-between px-4 md:px-6 py-4">
-        {/* Logo */}
-        <Link to="/" className="text-xl md:text-2xl font-bold tracking-wider hover:text-green-100 transition">
-          ✈ BOOKING
-        </Link>
-
         {/* =========================================
           MENU GIỮA (DESKTOP) - ĐÃ PHÂN QUYỀN
         ========================================= */}
         <div className="hidden md:flex items-center gap-8">
-          <Link to="/" className="hover:text-green-100 transition font-medium">
-            Home
-          </Link>
-          <Link to="/tours" className="hover:text-green-100 transition font-medium">
-            Tours
-          </Link>
+          {user === null && (
+            <>
+              <Link to="/" className="hover:text-green-100 transition font-medium">
+                Home
+              </Link>
+              <Link to="/tours" className="hover:text-green-100 transition font-medium">
+                Tours
+              </Link>
+            </>
+          )}
           
           {/* === CHỈ USER & ADMIN THẤY === */}
-          {user && (
-            <Link to="/bookings" className="hover:text-green-100 transition font-medium">
-              My Bookings
-            </Link>
+          {user && user.role !== 'admin' && (
+            <>
+              <Link to="/tours" className="hover:text-green-100 transition font-medium">
+                Tours
+              </Link>
+              <Link to="/bookings" className="hover:text-green-100 transition font-medium">
+                My Bookings
+              </Link>
+            </>
           )}
 
           {/* === CHỈ ADMIN THẤY === */}
@@ -261,9 +265,17 @@ export default function Navbar() {
               <Link to="/admin/users" className="hover:text-green-100 transition font-medium">
                 User Management
               </Link>
+              <Link to="/admin/tours" className="hover:text-green-100 transition font-medium">
+                Tour Management
+              </Link>
             </>
           )}
         </div>
+
+        {/* Logo */}
+        <Link to="/" className="text-xl md:text-2xl font-bold tracking-wider hover:text-green-100 transition">
+          ✈ BOOKING
+        </Link>
 
         {/* =========================================
           PHẦN LOGIN / USER MENU (DESKTOP)

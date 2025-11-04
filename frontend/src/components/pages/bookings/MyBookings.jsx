@@ -76,8 +76,6 @@ export function BookingsPage() {
   }
 
   return (
-    // Không dùng h-screen (chiếm nguyên viewport) vì sẽ gây tràn và
-    // chồng lấn với footer; để main/layout điều khiển chiều cao.
     <section className="p-6 md:p-14">
       <div className="container mx-auto px-4">
         <div className="flex gap-8">

@@ -1,4 +1,4 @@
-import api from "../api/axios";
+import api from "./axiosInstance";
 
 export const createBooking = async (payload) => {
   const { data } = await api.post("/bookings", payload);

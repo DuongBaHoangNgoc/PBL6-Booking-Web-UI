@@ -150,7 +150,7 @@ export default function TourSearchResult() {
         {/* Tours Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sortedTours.length > 0 ? (
-            sortedTours.map((tour) => <TourCard key={tour.id} tour={tour} />)
+            sortedTours.map((tour) => <TourCard key={tour.tourId} tour={tour} />)
           ) : (
             <p className="col-span-full text-center text-muted-foreground py-10">
               Không có tour nào trong danh mục này.
