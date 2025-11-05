@@ -14,12 +14,18 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Phone
 } from "lucide-react";
-import { useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import { getTourById, getReviewsByTourId, getStartDatesByTourId, getTimelineByTourId, getTourPriceById, getImagesByTourId } from "@/api/tours";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { format, formatDistanceToNow } from "date-fns";
+import { vi } from "date-fns/locale"; 
+import { useAuth } from "@/context/useAuth";
+import { createBooking } from "@/api/bookings";
+
 
 function ImageLightbox({ images, startIndex, open, onOpenChange }) {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
@@ -93,17 +99,21 @@ function ImageLightbox({ images, startIndex, open, onOpenChange }) {
 
 export default function TourDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const {user} = useAuth();
   const [tour, setTour] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [expandedDay, setExpandedDay] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
-  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedDate, setSelectedDate] = useState(null);
 
   const [images, setImages] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
 
   const [loading, setLoading] = useState(true);
+  const [isBooking, setIsBooking] = useState(false);
   const [error, setError] = useState(null);
   const [travelers, setTravelers] = useState({
     adults: 2,
@@ -132,6 +142,8 @@ export default function TourDetail() {
         };
 
         setTour(mergedTour);
+
+        console.log("XP-DEBUGGGGG MERGED TOUR: ", mergedTour);
         setTimeline(timelineData);
         setAvailableDates(startDatesData);
         setReviews(reviewData);
@@ -144,8 +156,6 @@ export default function TourDetail() {
         const galleryImages = Array.isArray(imagesData) ? imagesData : [];
 
         const filteredGallery = galleryImages.filter(img => img.imageURL !== coverImage.imageURL);
-
-        console.log("DEBUGZZZ: ", imagesData);
 
         const allImages = [coverImage, ...filteredGallery];
 
@@ -161,6 +171,62 @@ export default function TourDetail() {
 
     fetchTourData();
   }, [id]);
+
+  // Function handleBookNow, calculateTotalPrice
+  const handleBookNow = async () => {
+    if(!user) {
+      alert("Bạn cần đăng nhập để đặt tour.");
+      navigate("/auth/login", {state: { from: location} });
+      return;
+    }
+    if(!selectedDate) {
+      alert("Vui lòng chọn ngày khởi hành.");
+      return;
+    }
+    if(travelers.adults === 0) {
+      alert("Vui long chọn ít nhất 1 người lớn.");
+      return;
+    }
+    setIsBooking(true);
+    try {
+      const totalPrice = 
+        selectedDate.priceAdult * travelers.adults +
+        selectedDate.priceChildren * travelers.children;
+        
+        const bookingData = {
+          tourId: tour.tourId,
+          userId: user.userId,
+          dateId: selectedDate.dateId,
+          fullName: user.fullName,
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+          address: user.address || "",
+          numAdults: travelers.adults,
+          numChildren: travelers.children,
+          codeCoupon: "",
+          bookingStatus: "pending",
+          receiveEmail: true,
+        };
+
+        console.log("XP-DEBUG-ZZZZZ: ", bookingData);
+        const newBooking = await createBooking(bookingData);
+        alert("Đặt tour thành công! Đang chuyển đến trang booking của bạn...");
+        navigate("/bookings");
+    } catch (err) {
+      console.error("Lỗi khi đặt tour:", err);
+      alert("Đã xảy ra lỗi khi đặt tour. Vui lòng thử lại.");
+    } finally {
+      setIsBooking(false);
+    }
+  }
+
+  const calculateTotalPrice = () => {
+    if (!selectedDate) return 0;
+    return (
+      selectedDate.priceAdult * travelers.adults +
+      selectedDate.priceChildren * travelers.children
+    );
+  };
 
   if (loading)
     return (
@@ -369,10 +435,23 @@ export default function TourDetail() {
                 <div className="space-y-4">
                   {reviews.map((review) => (
                     <Card key={review.reviewId} className="p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <div>
+                        <div className="flex items-start gap-4 mb-2">
+                          <div className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0">
+                          <img
+                            src={
+                              review.user.avatar ||
+                              `https://placehold.co/60x60/0D9488/FFFFFF?text=${
+                                review.user.fullName?.charAt(0) || "U"
+                              }`
+                            }
+                            alt={review.user.fullName || "avatar"}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex-1">
                           <h3 className="font-semibold text-lg text-foreground">
-                            {review.userName || "Người dùng ẩn danh"}
+                            {review.user?.fullName || "Người dùng ẩn danh"}
                           </h3>
                           <div className="flex items-center gap-1">
                             {[...Array(5)].map((_, i) => (
@@ -387,10 +466,11 @@ export default function TourDetail() {
                             ))}
                           </div>
                         </div>
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(review.createdAt).toLocaleDateString(
-                            "vi-VN"
-                          )}
+                        <span className="text-sm text-muted-foreground flex-shrink-0">
+                          {formatDistanceToNow(new Date(review.timestamp), {
+                            addSuffix: true,
+                            locale: vi,
+                          })}
                         </span>
                       </div>
                       <p className="text-muted-foreground whitespace-pre-line">
@@ -408,15 +488,21 @@ export default function TourDetail() {
             <Card className="p-6 sticky top-20 space-y-6">
               {/* 💰 Giá tour */}
               <div>
+                <p className="text-sm text-muted-foreground">Giá tour từ</p>
                 <div className="flex items-baseline gap-2 mb-2">
                   <span className="text-3xl font-bold text-primary">
-                    {tour.price.toLocaleString("vi-VN")}₫
+                    {(selectedDate?.priceAdult || tour.price).toLocaleString(
+                      "vi-VN"
+                    )}
+                    ₫
                   </span>
-                  {tour.originalPrice > 0 && (
-                    <span className="text-lg text-muted-foreground line-through">
-                      {tour.originalPrice.toLocaleString("vi-VN")}₫
-                    </span>
-                  )}
+                  {tour.originalPrice > 0 &&
+                    tour.originalPrice >
+                      (selectedDate?.priceAdult || tour.price) && (
+                      <span className="text-lg text-muted-foreground line-through">
+                        {tour.originalPrice.toLocaleString("vi-VN")}₫
+                      </span>
+                    )}
                 </div>
               </div>
 
@@ -435,7 +521,6 @@ export default function TourDetail() {
                         (a, b) => new Date(a.startDate) - new Date(b.startDate)
                       )
                       .slice(0, 3),
-                    // 👇 nếu ngày chọn từ lịch không có trong 3 ngày gần nhất, thêm vào
                     ...availableDates.filter((d) => {
                       const formatted = new Date(
                         d.startDate
@@ -467,7 +552,7 @@ export default function TourDetail() {
                         <button
                           key={d.dateId}
                           onClick={() => {
-                            setSelectedDate(formatted);
+                            setSelectedDate(d);
                             setTour((prev) => ({
                               ...prev,
                               price: Number(d.priceAdult),
@@ -666,9 +751,54 @@ export default function TourDetail() {
                   </p>
                 </div>
 
-                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-lg">
+                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-lg" onClick={handleBookNow}>
                   Đặt ngay
                 </Button>
+
+                {/* Thông tin chủ tour */}
+                {
+                tour.user && (
+                  <div className="space-y-3 pt-6 border-t border-border">
+                  <label className="text-sm font-medium text-foreground block">
+                    Người tổ chức
+                  </label>
+                  {/* Áp dụng style giống các ô chọn số lượng */}
+                  <div className="border border-border rounded-lg p-3">
+                    <div className="flex items-center gap-3">
+                      {/* Avatar */}
+                      <div className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0">
+                        <img
+                          src={
+                            tour.user.avatar ||
+                            `https://placehold.co/60x60/0D9488/FFFFFF?text=${
+                              tour.user.fullName?.charAt(0) || "U"
+                            }`
+                          }
+                          alt={tour.user.fullName}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      {/* Info */}
+                      <div>
+                        <p className="font-semibold text-foreground">
+                          {tour.user.fullName}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          @{tour.user.userName}
+                        </p>
+                      </div>
+                    </div>
+                    {/* Phone Number */}
+                    {tour.user.phoneNumber && (
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground mt-3 pt-3 border-t border-border">
+                        <Phone className="w-4 h-4 text-primary" />
+                        <span>{tour.user.phoneNumber}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                )
+              }
               </div>
             </Card>
           </div>

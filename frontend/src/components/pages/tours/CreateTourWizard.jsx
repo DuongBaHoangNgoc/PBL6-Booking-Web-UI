@@ -134,7 +134,6 @@ function Step2Form({ tourId, onSubmit, onBack, loading }) {
       for (const file of files) {
         formData.append("files", file);
       }
-      
       onSubmit(formData);
     } catch (err) {
       alert("Lỗi khi tải ảnh lên.");

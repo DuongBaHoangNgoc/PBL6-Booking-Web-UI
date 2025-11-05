@@ -41,7 +41,7 @@ export default function TourSearchResult() {
 
         // 3️⃣ Ghép dữ liệu 2 bảng theo id
         const merged = await Promise.all(
-          toursData.data.map(async (tour) => {
+          toursData?.data.map(async (tour) => {
             const resPrice = await fetch(
               `${API_URL}/start-end-dates/priceTour/${tour.tourId}`
             );

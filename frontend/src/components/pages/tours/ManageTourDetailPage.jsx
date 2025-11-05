@@ -117,7 +117,8 @@ function EditTourInfo({ tour, onTourUpdated }) {
 
 // Dialog Add Timeline
 function AddTimelineForm({ tourId, open, onOpenChange, onSuccess }) {
-  const [formData, setFormData] = useState({ tourId: tourId, tl_title: '', tl_description: '' });
+  const [formData, setFormData] = useState({tl_title: '', tl_description: ''});
+  const [file, setFile] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
@@ -125,12 +126,26 @@ function AddTimelineForm({ tourId, open, onOpenChange, onSuccess }) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]); // Get 1 file
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      console.log("Creating timeline with data:", formData);
-      await createTimeline(formData);
+      const apiFormData = new FormData();
+      apiFormData.append("tourId", tourId);
+      apiFormData.append("tl_title", formData.tl_title);
+      apiFormData.append("tl_description", formData.tl_description);
+      if(file) {
+        apiFormData.append("file", file);
+      }
+
+      console.log("Creating timeline with FormData:", apiFormData);
+      await createTimeline(apiFormData);
       alert("Thêm lịch trình thành công!");
       onSuccess(); // Gọi hàm refresh data ở component cha
     } catch (err) {
@@ -162,6 +177,16 @@ function AddTimelineForm({ tourId, open, onOpenChange, onSuccess }) {
               rows={10}
             />
           </div>
+          <div>
+            <Label htmlFor="images_upload">Chọn ảnh</Label>
+            <Input id="images_upload" name="files" type="file" onChange={handleFileChange} required />
+          </div>
+          {/* Hiển thị preview tên file (tùy chọn) */}
+          {file.length > 0 && (
+            <div className="text-sm text-muted-foreground">
+              Đã chọn: {file.map(f => f.name).join(', ')}
+            </div>
+          )}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Hủy</Button>
             <Button type="submit" disabled={loading}>

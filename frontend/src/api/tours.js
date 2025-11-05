@@ -1,4 +1,3 @@
-// src/services/tours.js
 import api from "./axiosInstance";
 
 // --------------------- APIs ---------------------
