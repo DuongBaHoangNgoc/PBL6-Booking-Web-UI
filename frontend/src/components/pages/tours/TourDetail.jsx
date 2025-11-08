@@ -11,66 +11,124 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Phone,
+  Tag
 } from "lucide-react";
-import { useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, Link } from "react-router-dom";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
+import { getTourById, getReviewsByTourId, getStartDatesByTourId, getTimelineByTourId, getTourPriceById, getImagesByTourId, filterTours } from "@/api/tours";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { format, formatDistanceToNow } from "date-fns";
+import { vi } from "date-fns/locale"; 
+import { useAuth } from "@/context/useAuth";
+import { createBooking } from "@/api/bookings";
+import { getHashtagsForTour } from "@/api/hashtags";
+import { Badge } from "@/components/ui/badge";
+import TourCard from "@/components/TourCard";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-async function getTourById(id) {
-  const res = await fetch(`${API_URL}/tours/${id}`);
-  if (!res.ok) throw new Error(`Lỗi ${res.status}: ${res.statusText}`);
-  const data = await res.json();
-  return data.data || data;
-}
+function ImageLightbox({ images, startIndex, open, onOpenChange }) {
+  const [currentIndex, setCurrentIndex] = useState(startIndex);
 
-async function getTourPriceById(tourId) {
-  const res = await fetch(`${API_URL}/start-end-dates/priceTour/${tourId}`);
-  if (!res.ok) throw new Error(`Lỗi ${res.status}: ${res.statusText}`);
-  const data = await res.json();
-  return data.data;
-}
+  // Cập nhật index khi mở dialog
+  useEffect(() => {
+    if (open) {
+      setCurrentIndex(startIndex);
+    }
+  }, [startIndex, open]);
 
-async function getTimelineByTourId(tourId) {
-  const url = `${API_URL}/timelines/FilterPagination?tourId=${tourId}&limit=100&page=1`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Lỗi ${res.status}: ${res.statusText}`);
-  const data = await res.json();
-  return data.data?.timelines || [];
-}
+  // Hàm điều hướng
+  const goToNext = (e) => {
+    e.stopPropagation(); // Ngăn dialog đóng
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+  };
 
-async function getReviewsByTourId(tourId) {
-  const url = `${API_URL}/reviews/FilterPagination?tourId=${tourId}&limit=100&page=1`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Lỗi ${res.status}: ${res.statusText}`);
-  const data = await res.json();
-  return data.data?.reviews || [];
-}
+  const goToPrev = (e) => {
+    e.stopPropagation(); // Ngăn dialog đóng
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+  
+  const handleThumbnailClick = (e, index) => {
+     e.stopPropagation(); // Ngăn dialog đóng
+     setCurrentIndex(index);
+  }
 
-// 🆕 API lấy danh sách ngày khởi hành
-async function getStartDatesByTourId(tourId) {
-  const url = `${API_URL}/start-end-dates/FilterPagination?page=1&limit=100&tourId=${tourId}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Lỗi ${res.status}: ${res.statusText}`);
-  const data = await res.json();
-  return data.data?.startEndDates || [];
+  if (!images || images.length === 0) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-6xl h-[90vh] bg-black border-none text-white data-[state=open]:text-white flex flex-col p-4">
+        
+        {/* Ảnh chính (Full-screen) */}
+        <div className="flex-1 flex items-center justify-center relative min-h-0">
+          <img 
+            src={images[currentIndex].imageURL} 
+            alt="Tour full view" 
+            className="max-w-full max-h-full object-contain"
+          />
+          {/* Nút Trái */}
+          <Button variant="ghost" size="icon" onClick={goToPrev} className="absolute left-2 md:left-4 h-12 w-12 bg-black/30 hover:bg-black/50 text-white">
+            <ChevronLeft className="w-8 h-8" />
+          </Button>
+          {/* Nút Phải */}
+          <Button variant="ghost" size="icon" onClick={goToNext} className="absolute right-2 md:right-4 h-12 w-12 bg-black/30 hover:bg-black/50 text-white">
+            <ChevronRight className="w-8 h-8" />
+          </Button>
+        </div>
+
+        {/* Gallery ảnh nhỏ (bên dưới) */}
+        <div className="h-24 flex-shrink-0 overflow-x-auto mt-4">
+          <div className="flex justify-center gap-2 p-2">
+            {images.map((image, index) => (
+              <button 
+                key={image.imageId} 
+                onClick={(e) => handleThumbnailClick(e, index)}
+                className={`h-20 w-28 flex-shrink-0 rounded-md overflow-hidden transition-all
+                  ${index === currentIndex ? 'ring-2 ring-white' : 'opacity-50 hover:opacity-100'}
+                `}
+              >
+                <img src={image.imageURL} alt="thumb" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default function TourDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const {user} = useAuth();
   const [tour, setTour] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [expandedDay, setExpandedDay] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
-  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [hashtags, setHashtags] = useState([]); 
+  const [relativeTour, setRelativeTour] = useState([]);
+
+
+  const [images, setImages] = useState([]);
+  const [selectedImage, setSelectedImage] = useState(null);
+
   const [loading, setLoading] = useState(true);
+  const [isBooking, setIsBooking] = useState(false);
   const [error, setError] = useState(null);
   const [travelers, setTravelers] = useState({
     adults: 2,
     children: 0,
   });
+
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxStartIndex, setLightboxStartIndex] = useState(0);
 
   useEffect(() => {
     async function fetchTourData() {
@@ -78,21 +136,52 @@ export default function TourDetail() {
         setLoading(true);
 
         const tourData = await getTourById(id);
-        const priceData = await getTourPriceById(tourData.tourId);
-        const timelineData = await getTimelineByTourId(tourData.tourId);
-        const reviewData = await getReviewsByTourId(tourData.tourId);
-        const startDatesData = await getStartDatesByTourId(tourData.tourId);
+        const priceData = await getTourPriceById(id);
+        const timelineData = await getTimelineByTourId(id);
+        const reviewData = await getReviewsByTourId(id);
+        const startDatesData = await getStartDatesByTourId(id);
+        const imagesData = await getImagesByTourId(id);
+        const hashtagData = await getHashtagsForTour(id);
 
         const mergedTour = {
           ...tourData,
           price: Number(priceData?.minPriceAdult) || 0,
           originalPrice: Number(priceData?.maxPriceAdult) || 0,
         };
-        console.log("Tour itinerary data:", tourData.itinerary);
+
+        const params = {
+          page: 1,
+          limit: 4,
+          destination: mergedTour.destination,
+        }
+
+        // Lấy các tour có cùng destination với tour hiện tại
+        const relativeTourData = await filterTours(params);
+        setRelativeTour(relativeTourData);
+
+        console.log("XP-DEGUB-Merged Tour: ", mergedTour);
+
         setTour(mergedTour);
+
+        console.log("XP-DEBUGGGGG MERGED TOUR: ", mergedTour);
         setTimeline(timelineData);
         setAvailableDates(startDatesData);
         setReviews(reviewData);
+        setHashtags(hashtagData);
+
+        const coverImage = {
+          imageId: 'cover',
+          imageURL: mergedTour.image
+        };
+
+        const galleryImages = Array.isArray(imagesData) ? imagesData : [];
+
+        const filteredGallery = galleryImages.filter(img => img.imageURL !== coverImage.imageURL);
+
+        const allImages = [coverImage, ...filteredGallery];
+
+        setImages(allImages);
+        setSelectedImage(allImages[0].imageURL);
       } catch (err) {
         console.error("❌ Lỗi khi tải tour:", err);
         setError("Không thể tải dữ liệu tour từ server.");
@@ -103,6 +192,62 @@ export default function TourDetail() {
 
     fetchTourData();
   }, [id]);
+
+  // Function handleBookNow, calculateTotalPrice
+  const handleBookNow = async () => {
+    if(!user) {
+      alert("Bạn cần đăng nhập để đặt tour.");
+      navigate("/auth/login", {state: { from: location} });
+      return;
+    }
+    if(!selectedDate) {
+      alert("Vui lòng chọn ngày khởi hành.");
+      return;
+    }
+    if(travelers.adults === 0) {
+      alert("Vui long chọn ít nhất 1 người lớn.");
+      return;
+    }
+    setIsBooking(true);
+    try {
+      const totalPrice = 
+        selectedDate.priceAdult * travelers.adults +
+        selectedDate.priceChildren * travelers.children;
+        
+        const bookingData = {
+          tourId: tour.tourId,
+          userId: user.userId,
+          dateId: selectedDate.dateId,
+          fullName: user.fullName,
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+          address: user.address || "",
+          numAdults: travelers.adults,
+          numChildren: travelers.children,
+          codeCoupon: "",
+          bookingStatus: "pending",
+          receiveEmail: true,
+        };
+
+        console.log("XP-DEBUG-ZZZZZ: ", bookingData);
+        const newBooking = await createBooking(bookingData);
+        alert("Đặt tour thành công! Đang chuyển đến trang booking của bạn...");
+        navigate("/bookings");
+    } catch (err) {
+      console.error("Lỗi khi đặt tour:", err);
+      alert("Đã xảy ra lỗi khi đặt tour. Vui lòng thử lại.");
+    } finally {
+      setIsBooking(false);
+    }
+  }
+
+  const calculateTotalPrice = () => {
+    if (!selectedDate) return 0;
+    return (
+      selectedDate.priceAdult * travelers.adults +
+      selectedDate.priceChildren * travelers.children
+    );
+  };
 
   if (loading)
     return (
@@ -122,20 +267,62 @@ export default function TourDetail() {
     setExpandedDay(expand ? "all" : null);
   };
 
+  // 5. (MỚI) HÀM MỞ LIGHTBOX
+  const openLightbox = (index) => {
+    setLightboxStartIndex(index);
+    setLightboxOpen(true);
+  };
+
   return (
     <section className="p-6 md:p-14">
       <div className="container mx-auto px-4">
         {/* Ảnh chính */}
-        <div className="mb-8 rounded-lg overflow-hidden h-96 bg-muted">
+        <div className="mb-4 rounded-lg overflow-hidden h-96 bg-muted relative group cursor-pointer">
           <img
-            src={
-              tour.image ||
-              "https://placehold.co/1200x400/0D9488/FFFFFF?text=Tour+Image"
-            }
+            src={selectedImage} 
             alt={tour.title}
             className="w-full h-full object-cover"
           />
+          {/* Lớp phủ (overlay) để mở lightbox */}
+          <div 
+            className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={() => {
+              const mainIndex = images.findIndex(img => img.imageURL === selectedImage);
+              openLightbox(mainIndex >= 0 ? mainIndex : 0);
+            }}
+          >
+            <span className="text-white font-semibold text-lg border-2 border-white rounded-lg px-4 py-2">
+              Phóng to ảnh
+            </span>
+          </div>
         </div>
+
+        {images.length > 1 && (
+          <div className="grid grid-cols-5 gap-4 mb-8">
+            {images.slice(0, 5).map((image, index) => ( // Giới hạn 5 ảnh
+              <button
+                key={image.imageId}
+                onClick={() =>  {
+                  setSelectedImage(image.imageURL); 
+                  openLightbox(index);
+                  }
+                }
+                className={`rounded-lg overflow-hidden h-24 transition-all duration-200
+                  ${selectedImage === image.imageURL 
+                    ? 'ring-4 ring-primary ring-offset-2' 
+                    : 'opacity-70 hover:opacity-100'
+                  }
+                `}
+              >
+                <img
+                  src={image.imageURL}
+                  alt="Tour thumbnail"
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Nội dung chính */}
@@ -175,19 +362,41 @@ export default function TourDetail() {
                 )}
               </div>
 
+              {hashtags.tourHashtags.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <Tag className="w-4 h-4 text-muted-foreground" />
+                  {/* Giả định API trả về: { hashtag: { name: "#danang" } } */}
+                  {hashtags.tourHashtags.map((item) => (
+                    // <Link 
+                    //   key={item.tourHashTagId} 
+                    //   // Link đến trang Search, dùng 'tag' làm query param
+                    //   // Bỏ dấu '#' khi gửi
+                    //   to={`/tours?tag=${item.hashtag.name.replace("#", "")}`}
+                    // >
+                      <Badge 
+                        variant="outline" 
+                        className="text-xl hover:bg-muted"
+                      >
+                        {item.hashtag.name}
+                      </Badge>
+                    // </Link>
+                  ))}
+                </div>
+              )}
+
               <p className="text-lg text-muted-foreground whitespace-pre-line">
                 {tour.description || "Không có mô tả cho tour này."}
               </p>
             </div>
 
             {/* Tour bao gồm */}
-            {tour.itinerary && (
+            {tour.highlight && (
               <div>
                 <h2 className="text-2xl font-bold text-foreground mb-4">
                   Tour bao gồm
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {tour.itinerary
+                  {tour.highlight
                     .split("\n")
                     .filter((line) => line.trim() !== "")
                     .map((item, index) => (
@@ -269,10 +478,23 @@ export default function TourDetail() {
                 <div className="space-y-4">
                   {reviews.map((review) => (
                     <Card key={review.reviewId} className="p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <div>
+                        <div className="flex items-start gap-4 mb-2">
+                          <div className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0">
+                          <img
+                            src={
+                              review.user.avatar ||
+                              `https://placehold.co/60x60/0D9488/FFFFFF?text=${
+                                review.user.fullName?.charAt(0) || "U"
+                              }`
+                            }
+                            alt={review.user.fullName || "avatar"}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex-1">
                           <h3 className="font-semibold text-lg text-foreground">
-                            {review.userName || "Người dùng ẩn danh"}
+                            {review.user?.fullName || "Người dùng ẩn danh"}
                           </h3>
                           <div className="flex items-center gap-1">
                             {[...Array(5)].map((_, i) => (
@@ -287,10 +509,11 @@ export default function TourDetail() {
                             ))}
                           </div>
                         </div>
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(review.createdAt).toLocaleDateString(
-                            "vi-VN"
-                          )}
+                        <span className="text-sm text-muted-foreground flex-shrink-0">
+                          {formatDistanceToNow(new Date(review.timestamp), {
+                            addSuffix: true,
+                            locale: vi,
+                          })}
                         </span>
                       </div>
                       <p className="text-muted-foreground whitespace-pre-line">
@@ -308,15 +531,21 @@ export default function TourDetail() {
             <Card className="p-6 sticky top-20 space-y-6">
               {/* 💰 Giá tour */}
               <div>
+                <p className="text-sm text-muted-foreground">Giá tour từ</p>
                 <div className="flex items-baseline gap-2 mb-2">
                   <span className="text-3xl font-bold text-primary">
-                    {tour.price.toLocaleString("vi-VN")}₫
+                    {(selectedDate?.priceAdult || tour.price).toLocaleString(
+                      "vi-VN"
+                    )}
+                    ₫
                   </span>
-                  {tour.originalPrice > 0 && (
-                    <span className="text-lg text-muted-foreground line-through">
-                      {tour.originalPrice.toLocaleString("vi-VN")}₫
-                    </span>
-                  )}
+                  {tour.originalPrice > 0 &&
+                    tour.originalPrice >
+                      (selectedDate?.priceAdult || tour.price) && (
+                      <span className="text-lg text-muted-foreground line-through">
+                        {tour.originalPrice.toLocaleString("vi-VN")}₫
+                      </span>
+                    )}
                 </div>
               </div>
 
@@ -335,7 +564,6 @@ export default function TourDetail() {
                         (a, b) => new Date(a.startDate) - new Date(b.startDate)
                       )
                       .slice(0, 3),
-                    // 👇 nếu ngày chọn từ lịch không có trong 3 ngày gần nhất, thêm vào
                     ...availableDates.filter((d) => {
                       const formatted = new Date(
                         d.startDate
@@ -367,7 +595,7 @@ export default function TourDetail() {
                         <button
                           key={d.dateId}
                           onClick={() => {
-                            setSelectedDate(formatted);
+                            setSelectedDate(d);
                             setTour((prev) => ({
                               ...prev,
                               price: Number(d.priceAdult),
@@ -566,14 +794,76 @@ export default function TourDetail() {
                   </p>
                 </div>
 
-                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-lg">
+                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-lg" onClick={handleBookNow}>
                   Đặt ngay
                 </Button>
+
+                {/* Thông tin chủ tour */}
+                {
+                tour.user && (
+                  <div className="space-y-3 pt-6 border-t border-border">
+                  <label className="text-sm font-medium text-foreground block">
+                    Người tổ chức
+                  </label>
+                  {/* Áp dụng style giống các ô chọn số lượng */}
+                  <div className="border border-border rounded-lg p-3">
+                    <div className="flex items-center gap-3">
+                      {/* Avatar */}
+                      <div className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0">
+                        <img
+                          src={
+                            tour.user.avatar ||
+                            `https://placehold.co/60x60/0D9488/FFFFFF?text=${
+                              tour.user.fullName?.charAt(0) || "U"
+                            }`
+                          }
+                          alt={tour.user.fullName}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      {/* Info */}
+                      <div>
+                        <p className="font-semibold text-foreground">
+                          {tour.user.fullName}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          @{tour.user.userName}
+                        </p>
+                      </div>
+                    </div>
+                    {/* Phone Number */}
+                    {tour.user.phoneNumber && (
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground mt-3 pt-3 border-t border-border">
+                        <Phone className="w-4 h-4 text-primary" />
+                        <span>{tour.user.phoneNumber}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                )
+              }
               </div>
             </Card>
           </div>
         </div>
+        <h2 className="text-3xl font-bold text-foreground mt-8">
+          Tour du lịch {tour.destination} liên quan
+        </h2>
+        {relativeTour.totalItems > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
+            {relativeTour.items.map((tour) => (
+              <TourCard key={tour.tourId} tour={tour} />
+            ))}
+          </div>
+        )}
       </div>
+
+      <ImageLightbox 
+        images={images}
+        startIndex={lightboxStartIndex}
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+      />
     </section>
   );
 }
