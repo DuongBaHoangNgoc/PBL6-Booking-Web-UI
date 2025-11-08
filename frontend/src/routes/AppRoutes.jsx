@@ -20,7 +20,7 @@ import { TourDashboard } from "@/components/TourDashBoard";
 import { ManageUsersPage } from "@/components/pages/users/ManageUsersPage";
 import { ManageToursPage } from "@/components/pages/tours/ManageToursPage";
 import { ManageTourDetailPage } from "@/components/pages/tours/ManageTourDetailPage";
-
+import HashtagResultPage from "@/components/pages/tours/HashtagResultPage";
 export const AppRoutes = () => {
   return (
     <Routes>
@@ -35,6 +35,7 @@ export const AppRoutes = () => {
         <Route path="/tours/:id/:slug/" element={<TourDetail />} />
 
         <Route path="/tour-test/:id/:slug" element={<TourDetailTest />} />
+        <Route path="/hashtags/:hashtagName" element={<HashtagResultPage />} />
 
         {/* --- 1.2: Authenticating Pages --- */}
         <Route path="/auth/login" element={<Login />} />

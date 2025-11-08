@@ -44,7 +44,7 @@ export default function TourCard({ tour }) {
                 <span className="text-gray-300">|</span>
                 <div className="flex items-center gap-2">
                   <Clock size={20} />
-                  <span>{tour.time.toString}</span>
+                  <span>{tour.time.toString()}</span>
                 </div>
               </div>
             </div>

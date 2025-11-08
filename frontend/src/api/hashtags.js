@@ -73,6 +73,38 @@ export async function getHashtagsForTour(tourId) {
 }
 
 /**
+ * (MỚI) Lấy danh sách TOUR theo TÊN hashtag (cho trang HashtagResultPage)
+ * API: GET /tour-hashtags/FilterPagination
+ * @param {string} hashtagName - Tên hashtag (ví dụ: "danang")
+ * @param {object} params - Ví dụ: { page: 1, limit: 9 }
+ */
+export async function getToursByHashtagName(hashtagName, params) {
+    try {
+        // Thêm lại dấu #
+        const formattedHashtag = hashtagName.startsWith('#') ? hashtagName : `#${hashtagName}`;
+
+        const allParams = {
+            ...params,
+            hashtag: formattedHashtag,
+            limit: params.limit || 9,
+            page: params.page || 1
+        };
+
+        const res = await api.get("/tour-hashtags/FilterPagination", { params: allParams });
+
+        const data = res.data?.data ?? res.data;
+
+        return {
+            items: data.tourHashtags || [],
+            totalItems: data.countTourHashtag || 0,
+        };
+    } catch (err) {
+        console.error("Lỗi khi lọc tour theo hashtag:", err);
+        return { items: [], totalItems: 0 };
+    }
+}
+
+/**
  * Xóa (unlink) một hashtag khỏi tour
  * API: DELETE /tour-hashtags/{id}
  * @param {string|number} tourHashTagId - ID của BẢN GHI LIÊN KẾT (không phải hashtagId)
