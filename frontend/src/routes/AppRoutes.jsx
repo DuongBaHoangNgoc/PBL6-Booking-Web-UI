@@ -18,11 +18,13 @@ import { Profile } from "../pages/client/Profile";
 import BookingsPage from "@/components/pages/bookings/MyBookings";
 import BookingDetailPage from "@/components/pages/bookings/BookingPageDetail";
 import AdminBookingPage from "@/pages/admin/AdminBookingPage";
+import HashtagResultPage from "@/components/pages/tours/HashtagResultPage";
+import PaymentsPage from "@/components/pages/payments/PaymentsPage";
 import { TourDashboard } from "@/components/TourDashBoard";
 import { ManageUsersPage } from "@/components/pages/users/ManageUsersPage";
 import { ManageToursPage } from "@/components/pages/tours/ManageToursPage";
 import { ManageTourDetailPage } from "@/components/pages/tours/ManageTourDetailPage";
-
+import HashtagResultPage from "@/components/pages/tours/HashtagResultPage";
 export const AppRoutes = () => {
   return (
     <Routes>
@@ -35,8 +37,10 @@ export const AppRoutes = () => {
         <Route path="/" element={<Home />} />
         <Route path="/tours" element={<TourSearchResult />} />
         <Route path="/tours/:id/:slug/" element={<TourDetail />} />
-        <Route path="/payments" element={<PaymentsPage />} />
 
+        <Route path="/tour-test/:id/:slug" element={<TourDetailTest />} />
+        <Route path="/hashtags/:hashtagName" element={<HashtagResultPage />} />
+        <Route path="/payments" element={<PaymentsPage />} />
         {/* --- 1.2: Authenticating Pages --- */}
         <Route path="/auth/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
