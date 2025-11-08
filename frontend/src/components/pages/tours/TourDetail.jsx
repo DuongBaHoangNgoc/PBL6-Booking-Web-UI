@@ -158,12 +158,7 @@ export default function TourDetail() {
         // Lấy các tour có cùng destination với tour hiện tại
         const relativeTourData = await filterTours(params);
         setRelativeTour(relativeTourData);
-
-        console.log("XP-DEGUB-Merged Tour: ", mergedTour);
-
         setTour(mergedTour);
-
-        console.log("XP-DEBUGGGGG MERGED TOUR: ", mergedTour);
         setTimeline(timelineData);
         setAvailableDates(startDatesData);
         setReviews(reviewData);
@@ -229,7 +224,6 @@ export default function TourDetail() {
           receiveEmail: true,
         };
 
-        console.log("XP-DEBUG-ZZZZZ: ", bookingData);
         const newBooking = await createBooking(bookingData);
         alert("Đặt tour thành công! Đang chuyển đến trang booking của bạn...");
         navigate("/bookings");
@@ -367,19 +361,17 @@ export default function TourDetail() {
                   <Tag className="w-4 h-4 text-muted-foreground" />
                   {/* Giả định API trả về: { hashtag: { name: "#danang" } } */}
                   {hashtags.tourHashtags.map((item) => (
-                    // <Link 
-                    //   key={item.tourHashTagId} 
-                    //   // Link đến trang Search, dùng 'tag' làm query param
-                    //   // Bỏ dấu '#' khi gửi
-                    //   to={`/tours?tag=${item.hashtag.name.replace("#", "")}`}
-                    // >
+                    <Link 
+                      key={item.tourHashTagId} 
+                      to={`/hashtags/${item.hashtag.name.replace("#", "")}`}
+                    >
                       <Badge 
                         variant="outline" 
                         className="text-xl hover:bg-muted"
                       >
                         {item.hashtag.name}
                       </Badge>
-                    // </Link>
+                    </Link>
                   ))}
                 </div>
               )}

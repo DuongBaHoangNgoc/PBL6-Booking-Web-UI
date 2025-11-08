@@ -63,10 +63,7 @@ export default function TourSearchResult() {
       // 3️⃣ Ghép dữ liệu 2 bảng theo id
       const merged = await Promise.all(
         toursData?.items.map(async (tour) => {
-          console.log("XP-DEBUG-ToursData: ", tour);
           const priceData = await getTourPriceById(tour.tourId);
-          console.log("XP-DEBUG-priceData: ", priceData);
-
           const minPriceAdult = Number(priceData.minPriceAdult) || 0;
           const maxPriceAdult = Number(priceData.maxPriceAdult) || 0;
           return {
@@ -76,7 +73,6 @@ export default function TourSearchResult() {
           };
         })
       );
-      console.log("XP-DEBUG-Merged: ",merged);
       setTours(merged);
       setPagination((prev) => ({
         ...prev,

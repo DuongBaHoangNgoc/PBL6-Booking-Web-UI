@@ -71,6 +71,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ta } from "date-fns/locale";
+import { param } from "express-validator";
 
 // (Hàm formatHashtag - nên để ở file hashtag.js, nhưng để đây cho component dùng)
 const formatHashtag = (text) => {
@@ -800,7 +801,6 @@ function EditTourImages({ tourId, images, onImagesUpdated }) {
 function EditTourHashtags({ tourId, linkedHashtags, onHashtagsUpdated }) {
 
   const safeLinkedHashtags = linkedHashtags || [];
-
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [availableHashtags, setAvailableHashtags] = useState([]);
@@ -841,10 +841,10 @@ function EditTourHashtags({ tourId, linkedHashtags, onHashtagsUpdated }) {
       setOpen(false);
       return;
     }
-    
+        
     // Gọi API để link
     try {
-      await linkTourToHashTag({ tourId, hashtagId: tag.hashtagId });
+      await linkTourToHashTag({ tourId: tourId, hashtagId: tag.hashtagId });
       onHashtagsUpdated(); // Refresh
     } catch (err) {
        alert("Lỗi khi gắn hashtag.");
@@ -1006,7 +1006,6 @@ export function ManageTourDetailPage() {
       setStartDates(startDatesData);
       setImages(imagesData);
       setHashtags(hashtagData);
-      console.log("XP-DEBUG-Hashtags: ", hashtagData);
     } catch (err) {
       console.error("Lỗi khi tải dữ liệu tour chi tiết:", err);
       setError("Không thể tải dữ liệu tour.");
