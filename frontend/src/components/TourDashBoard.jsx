@@ -17,9 +17,11 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
-import { Link } from "react-router-dom"; // Sửa: import từ react-router-dom
+import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import axios from "axios";
 
-// Dữ liệu mẫu (sau này bạn sẽ thay bằng API)
+// Dữ liệu mẫu (chart)
 const chartData = [
   { month: "Jan", bookings: 4 },
   { month: "Feb", bookings: 3 },
@@ -29,40 +31,30 @@ const chartData = [
   { month: "Jun", bookings: 6 },
 ];
 
-const recentBookings = [
-  {
-    id: 1,
-    tour: "Bali Paradise Escape",
-    destination: "Bali, Indonesia",
-    date: "2025-06-15",
-    status: "Confirmed",
-    price: 1299,
-  },
-  {
-    id: 2,
-    tour: "Tokyo Cultural Tour",
-    destination: "Tokyo, Japan",
-    date: "2025-07-20",
-    status: "Pending",
-    price: 1599,
-  },
-  {
-    id: 3,
-    tour: "Paris Romance Package",
-    destination: "Paris, France",
-    date: "2025-08-10",
-    status: "Confirmed",
-    price: 1399,
-  },
-];
-
-// Sửa: Đổi tên function Dashboard -> TourDashboard để khớp AppRoutes
 export function TourDashboard() {
+  const [recentBookings, setRecentBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // 🔹 Gọi API để lấy danh sách booking
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const res = await axios.get(
+          "http://localhost:3000/bookings/FilterPagination?page=1&limit=10"
+        );
+        setRecentBookings(res.data?.data?.bookings || []);
+      } catch (error) {
+        console.error("❌ Lỗi khi tải danh sách booking:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBookings();
+  }, []);
+
   return (
-    // Component này sẽ render bên trong <ClientLayout>
-    // ClientLayout đã có nền gray và padding top
-    // Chúng ta thêm padding cho nội dung bên trong
-    <section className="h-screen my-28">
+    <section className="min-h-screen my-28 pb-24">
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
@@ -89,7 +81,9 @@ export function TourDashboard() {
           <Card className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Total Spent</p>
+                <p className="text-sm text-muted-foreground mb-1">
+                  Total Spent
+                </p>
                 <p className="text-3xl font-bold text-foreground">$15,297</p>
               </div>
               <DollarSign className="w-8 h-8 text-primary/20" />
@@ -119,7 +113,7 @@ export function TourDashboard() {
           </Card>
         </div>
 
-        {/* Charts and Recent Bookings */}
+        {/* Charts and Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Chart */}
           <Card className="lg:col-span-2 p-6">
@@ -156,14 +150,13 @@ export function TourDashboard() {
               Quick Actions
             </h2>
             <div className="space-y-3">
-              {/* Sửa: href -> to */}
               <Link to="/tours" className="block">
                 <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground justify-start gap-2">
                   <TrendingUp className="w-4 h-4" />
                   Browse Tours
                 </Button>
               </Link>
-              {/* Sửa: href -> to */}
+
               <Link to="/bookings" className="block">
                 <Button
                   variant="outline"
@@ -173,7 +166,7 @@ export function TourDashboard() {
                   My Bookings
                 </Button>
               </Link>
-              {/* Sửa: href -> to */}
+
               <Link to="/profile" className="block">
                 <Button
                   variant="outline"
@@ -187,75 +180,85 @@ export function TourDashboard() {
           </Card>
         </div>
 
-        {/* Recent Bookings */}
+        {/* ✅ Recent Bookings */}
         <Card className="mt-8 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-foreground">
-              Recent Bookings
-            </h2>
-            {/* Sửa: href -> to */}
-            <Link to="/bookings">
-              <Button variant="outline" className="bg-transparent">
-                View All
-              </Button>
-            </Link>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">
-                    Tour
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">
-                    Destination
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">
-                    Date
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">
-                    Status
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">
-                    Price
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentBookings.map((booking) => (
-                  <tr
-                    key={booking.id}
-                    className="border-b border-border hover:bg-muted/50 transition-colors"
-                  >
-                    <td className="py-3 px-4 text-foreground">
-                      {booking.tour}
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground">
-                      {booking.destination}
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground">
-                      {booking.date}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          booking.status === "Confirmed"
-                            ? "bg-primary/10 text-primary"
-                            : "bg-accent/10 text-accent"
-                        }`}
-                      >
-                        {booking.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-foreground">
-                      ${booking.price}
-                    </td>
+          <h2 className="text-xl font-bold text-foreground mb-6">
+            Recent Bookings
+          </h2>
+          <Link to="/admin/bookings">
+            <Button
+              variant="outline"
+              className="text-primary border-primary hover:bg-primary hover:text-white transition-colors"
+            >
+              View All
+            </Button>
+          </Link>
+          {loading ? (
+            <p className="text-muted-foreground text-sm">Loading...</p>
+          ) : recentBookings.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No recent bookings found.
+            </p>
+          ) : (
+            // ✅ Giới hạn chiều cao + scroll nội bộ
+            <div className="overflow-y-scroll max-h-80 rounded-md border border-border scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-background z-10 border-b border-border">
+                  <tr>
+                    <th className="text-left py-3 px-4 font-semibold text-foreground">
+                      Tour
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-foreground">
+                      Customer
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-foreground">
+                      Date
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-foreground">
+                      Status
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-foreground">
+                      Price
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {recentBookings.map((b) => (
+                    <tr
+                      key={b.bookingId}
+                      className="border-b border-border hover:bg-muted/50 transition-colors"
+                    >
+                      <td className="py-3 px-4 text-foreground">
+                        {b.tour?.title || "N/A"}
+                      </td>
+                      <td className="py-3 px-4 text-muted-foreground">
+                        {b.fullName}
+                      </td>
+                      <td className="py-3 px-4 text-muted-foreground">
+                        {new Date(b.bookingDate).toLocaleDateString("vi-VN")}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            b.bookingStatus === "confirmed"
+                              ? "bg-green-100 text-green-700"
+                              : b.bookingStatus === "pending"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {b.bookingStatus}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-foreground">
+                        {Number(b.totalPrice).toLocaleString("vi-VN")}₫
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       </div>
     </section>

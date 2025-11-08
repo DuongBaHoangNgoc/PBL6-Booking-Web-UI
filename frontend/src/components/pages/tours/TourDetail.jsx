@@ -14,18 +14,24 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Phone
+  Phone,
 } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
-import { getTourById, getReviewsByTourId, getStartDatesByTourId, getTimelineByTourId, getTourPriceById, getImagesByTourId } from "@/api/tours";
+import {
+  getTourById,
+  getReviewsByTourId,
+  getStartDatesByTourId,
+  getTimelineByTourId,
+  getTourPriceById,
+  getImagesByTourId,
+} from "@/api/tours";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format, formatDistanceToNow } from "date-fns";
-import { vi } from "date-fns/locale"; 
+import { vi } from "date-fns/locale";
 import { useAuth } from "@/context/useAuth";
 import { createBooking } from "@/api/bookings";
-
 
 function ImageLightbox({ images, startIndex, open, onOpenChange }) {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
@@ -47,31 +53,40 @@ function ImageLightbox({ images, startIndex, open, onOpenChange }) {
     e.stopPropagation(); // Ngăn dialog đóng
     setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
   };
-  
+
   const handleThumbnailClick = (e, index) => {
-     e.stopPropagation(); // Ngăn dialog đóng
-     setCurrentIndex(index);
-  }
+    e.stopPropagation(); // Ngăn dialog đóng
+    setCurrentIndex(index);
+  };
 
   if (!images || images.length === 0) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl h-[90vh] bg-black border-none text-white data-[state=open]:text-white flex flex-col p-4">
-        
         {/* Ảnh chính (Full-screen) */}
         <div className="flex-1 flex items-center justify-center relative min-h-0">
-          <img 
-            src={images[currentIndex].imageURL} 
-            alt="Tour full view" 
+          <img
+            src={images[currentIndex].imageURL}
+            alt="Tour full view"
             className="max-w-full max-h-full object-contain"
           />
           {/* Nút Trái */}
-          <Button variant="ghost" size="icon" onClick={goToPrev} className="absolute left-2 md:left-4 h-12 w-12 bg-black/30 hover:bg-black/50 text-white">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={goToPrev}
+            className="absolute left-2 md:left-4 h-12 w-12 bg-black/30 hover:bg-black/50 text-white"
+          >
             <ChevronLeft className="w-8 h-8" />
           </Button>
           {/* Nút Phải */}
-          <Button variant="ghost" size="icon" onClick={goToNext} className="absolute right-2 md:right-4 h-12 w-12 bg-black/30 hover:bg-black/50 text-white">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={goToNext}
+            className="absolute right-2 md:right-4 h-12 w-12 bg-black/30 hover:bg-black/50 text-white"
+          >
             <ChevronRight className="w-8 h-8" />
           </Button>
         </div>
@@ -80,14 +95,22 @@ function ImageLightbox({ images, startIndex, open, onOpenChange }) {
         <div className="h-24 flex-shrink-0 overflow-x-auto mt-4">
           <div className="flex justify-center gap-2 p-2">
             {images.map((image, index) => (
-              <button 
-                key={image.imageId} 
+              <button
+                key={image.imageId}
                 onClick={(e) => handleThumbnailClick(e, index)}
                 className={`h-20 w-28 flex-shrink-0 rounded-md overflow-hidden transition-all
-                  ${index === currentIndex ? 'ring-2 ring-white' : 'opacity-50 hover:opacity-100'}
+                  ${
+                    index === currentIndex
+                      ? "ring-2 ring-white"
+                      : "opacity-50 hover:opacity-100"
+                  }
                 `}
               >
-                <img src={image.imageURL} alt="thumb" className="w-full h-full object-cover" />
+                <img
+                  src={image.imageURL}
+                  alt="thumb"
+                  className="w-full h-full object-cover"
+                />
               </button>
             ))}
           </div>
@@ -101,7 +124,7 @@ export default function TourDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const {user} = useAuth();
+  const { user } = useAuth();
   const [tour, setTour] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [expandedDay, setExpandedDay] = useState(null);
@@ -149,13 +172,15 @@ export default function TourDetail() {
         setReviews(reviewData);
 
         const coverImage = {
-          imageId: 'cover',
-          imageURL: mergedTour.image
+          imageId: "cover",
+          imageURL: mergedTour.image,
         };
 
         const galleryImages = Array.isArray(imagesData) ? imagesData : [];
 
-        const filteredGallery = galleryImages.filter(img => img.imageURL !== coverImage.imageURL);
+        const filteredGallery = galleryImages.filter(
+          (img) => img.imageURL !== coverImage.imageURL
+        );
 
         const allImages = [coverImage, ...filteredGallery];
 
@@ -174,51 +199,51 @@ export default function TourDetail() {
 
   // Function handleBookNow, calculateTotalPrice
   const handleBookNow = async () => {
-    if(!user) {
+    if (!user) {
       alert("Bạn cần đăng nhập để đặt tour.");
-      navigate("/auth/login", {state: { from: location} });
+      navigate("/auth/login", { state: { from: location } });
       return;
     }
-    if(!selectedDate) {
+    if (!selectedDate) {
       alert("Vui lòng chọn ngày khởi hành.");
       return;
     }
-    if(travelers.adults === 0) {
+    if (travelers.adults === 0) {
       alert("Vui long chọn ít nhất 1 người lớn.");
       return;
     }
     setIsBooking(true);
     try {
-      const totalPrice = 
+      const totalPrice =
         selectedDate.priceAdult * travelers.adults +
         selectedDate.priceChildren * travelers.children;
-        
-        const bookingData = {
-          tourId: tour.tourId,
-          userId: user.userId,
-          dateId: selectedDate.dateId,
-          fullName: user.fullName,
-          email: user.email,
-          phoneNumber: user.phoneNumber,
-          address: user.address || "",
-          numAdults: travelers.adults,
-          numChildren: travelers.children,
-          codeCoupon: "",
-          bookingStatus: "pending",
-          receiveEmail: true,
-        };
 
-        console.log("XP-DEBUG-ZZZZZ: ", bookingData);
-        const newBooking = await createBooking(bookingData);
-        alert("Đặt tour thành công! Đang chuyển đến trang booking của bạn...");
-        navigate("/bookings");
+      const bookingData = {
+        tourId: tour.tourId,
+        userId: user.userId,
+        dateId: selectedDate.dateId,
+        fullName: user.fullName,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        address: user.address || "",
+        numAdults: travelers.adults,
+        numChildren: travelers.children,
+        codeCoupon: "",
+        bookingStatus: "pending",
+        receiveEmail: true,
+      };
+
+      console.log("XP-DEBUG-ZZZZZ: ", bookingData);
+      const newBooking = await createBooking(bookingData);
+      alert("Đặt tour thành công! Đang chuyển đến trang booking của bạn...");
+      navigate("/bookings");
     } catch (err) {
       console.error("Lỗi khi đặt tour:", err);
       alert("Đã xảy ra lỗi khi đặt tour. Vui lòng thử lại.");
     } finally {
       setIsBooking(false);
     }
-  }
+  };
 
   const calculateTotalPrice = () => {
     if (!selectedDate) return 0;
@@ -258,15 +283,17 @@ export default function TourDetail() {
         {/* Ảnh chính */}
         <div className="mb-4 rounded-lg overflow-hidden h-96 bg-muted relative group cursor-pointer">
           <img
-            src={selectedImage} 
+            src={selectedImage}
             alt={tour.title}
             className="w-full h-full object-cover"
           />
           {/* Lớp phủ (overlay) để mở lightbox */}
-          <div 
+          <div
             className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={() => {
-              const mainIndex = images.findIndex(img => img.imageURL === selectedImage);
+              const mainIndex = images.findIndex(
+                (img) => img.imageURL === selectedImage
+              );
               openLightbox(mainIndex >= 0 ? mainIndex : 0);
             }}
           >
@@ -278,28 +305,33 @@ export default function TourDetail() {
 
         {images.length > 1 && (
           <div className="grid grid-cols-5 gap-4 mb-8">
-            {images.slice(0, 5).map((image, index) => ( // Giới hạn 5 ảnh
-              <button
-                key={image.imageId}
-                onClick={() =>  {
-                  setSelectedImage(image.imageURL); 
-                  openLightbox(index);
-                  }
-                }
-                className={`rounded-lg overflow-hidden h-24 transition-all duration-200
-                  ${selectedImage === image.imageURL 
-                    ? 'ring-4 ring-primary ring-offset-2' 
-                    : 'opacity-70 hover:opacity-100'
+            {images.slice(0, 5).map(
+              (
+                image,
+                index // Giới hạn 5 ảnh
+              ) => (
+                <button
+                  key={image.imageId}
+                  onClick={() => {
+                    setSelectedImage(image.imageURL);
+                    openLightbox(index);
+                  }}
+                  className={`rounded-lg overflow-hidden h-24 transition-all duration-200
+                  ${
+                    selectedImage === image.imageURL
+                      ? "ring-4 ring-primary ring-offset-2"
+                      : "opacity-70 hover:opacity-100"
                   }
                 `}
-              >
-                <img
-                  src={image.imageURL}
-                  alt="Tour thumbnail"
-                  className="w-full h-full object-cover"
-                />
-              </button>
-            ))}
+                >
+                  <img
+                    src={image.imageURL}
+                    alt="Tour thumbnail"
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              )
+            )}
           </div>
         )}
 
@@ -435,8 +467,8 @@ export default function TourDetail() {
                 <div className="space-y-4">
                   {reviews.map((review) => (
                     <Card key={review.reviewId} className="p-4">
-                        <div className="flex items-start gap-4 mb-2">
-                          <div className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0">
+                      <div className="flex items-start gap-4 mb-2">
+                        <div className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0">
                           <img
                             src={
                               review.user.avatar ||
@@ -751,61 +783,62 @@ export default function TourDetail() {
                   </p>
                 </div>
 
-                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-lg" onClick={handleBookNow}>
+                <Button
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-lg"
+                  onClick={handleBookNow}
+                >
                   Đặt ngay
                 </Button>
 
                 {/* Thông tin chủ tour */}
-                {
-                tour.user && (
+                {tour.user && (
                   <div className="space-y-3 pt-6 border-t border-border">
-                  <label className="text-sm font-medium text-foreground block">
-                    Người tổ chức
-                  </label>
-                  {/* Áp dụng style giống các ô chọn số lượng */}
-                  <div className="border border-border rounded-lg p-3">
-                    <div className="flex items-center gap-3">
-                      {/* Avatar */}
-                      <div className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0">
-                        <img
-                          src={
-                            tour.user.avatar ||
-                            `https://placehold.co/60x60/0D9488/FFFFFF?text=${
-                              tour.user.fullName?.charAt(0) || "U"
-                            }`
-                          }
-                          alt={tour.user.fullName}
-                          className="w-full h-full object-cover"
-                        />
+                    <label className="text-sm font-medium text-foreground block">
+                      Người tổ chức
+                    </label>
+                    {/* Áp dụng style giống các ô chọn số lượng */}
+                    <div className="border border-border rounded-lg p-3">
+                      <div className="flex items-center gap-3">
+                        {/* Avatar */}
+                        <div className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0">
+                          <img
+                            src={
+                              tour.user.avatar ||
+                              `https://placehold.co/60x60/0D9488/FFFFFF?text=${
+                                tour.user.fullName?.charAt(0) || "U"
+                              }`
+                            }
+                            alt={tour.user.fullName}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        {/* Info */}
+                        <div>
+                          <p className="font-semibold text-foreground">
+                            {tour.user.fullName}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            @{tour.user.userName}
+                          </p>
+                        </div>
                       </div>
-                      {/* Info */}
-                      <div>
-                        <p className="font-semibold text-foreground">
-                          {tour.user.fullName}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          @{tour.user.userName}
-                        </p>
-                      </div>
+                      {/* Phone Number */}
+                      {tour.user.phoneNumber && (
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground mt-3 pt-3 border-t border-border">
+                          <Phone className="w-4 h-4 text-primary" />
+                          <span>{tour.user.phoneNumber}</span>
+                        </div>
+                      )}
                     </div>
-                    {/* Phone Number */}
-                    {tour.user.phoneNumber && (
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground mt-3 pt-3 border-t border-border">
-                        <Phone className="w-4 h-4 text-primary" />
-                        <span>{tour.user.phoneNumber}</span>
-                      </div>
-                    )}
                   </div>
-                </div>
-                )
-              }
+                )}
               </div>
             </Card>
           </div>
         </div>
       </div>
 
-      <ImageLightbox 
+      <ImageLightbox
         images={images}
         startIndex={lightboxStartIndex}
         open={lightboxOpen}

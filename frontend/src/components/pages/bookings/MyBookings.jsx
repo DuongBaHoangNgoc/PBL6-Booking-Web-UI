@@ -1,313 +1,337 @@
-"use client"
+"use client";
+import { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { MapPin, Calendar, Trash2, Heart, Edit3 } from "lucide-react";
+import { useAuth } from "@/context/useAuth";
+import { getFilteredBookings, deleteBooking } from "@/api/bookings";
+import { useNavigate } from "react-router-dom";
 
-import { useState } from "react"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { MapPin, Calendar, Download, X, Heart, ChevronDown } from "lucide-react"
+export default function BookingsPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedStatus, setSelectedStatus] = useState("All");
+  const [sortBy, setSortBy] = useState("Newest");
+  const [favorites, setFavorites] = useState([]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
 
-const allBookings = [
-  {
-    id: 1,
-    tour: "Bali Paradise Escape",
-    destination: "Bali, Indonesia",
-    checkIn: "2025-06-15",
-    checkOut: "2025-06-22",
-    travelers: 2,
-    status: "Confirmed",
-    price: 2598,
-    image: "/bali-beach-resort.jpg",
-    rating: 4.8,
-    reviews: 324,
-  },
-  {
-    id: 2,
-    tour: "Tokyo Cultural Tour",
-    destination: "Tokyo, Japan",
-    checkIn: "2025-07-20",
-    checkOut: "2025-07-25",
-    travelers: 1,
-    status: "Pending",
-    price: 1599,
-    image: "/tokyo-city-night.jpg",
-    rating: 4.5,
-    reviews: 156,
-  },
-  {
-    id: 3,
-    tour: "Paris Romance Package",
-    destination: "Paris, France",
-    checkIn: "2025-08-10",
-    checkOut: "2025-08-16",
-    travelers: 2,
-    status: "Confirmed",
-    price: 2798,
-    image: "/paris-eiffel-tower.jpg",
-    rating: 4.9,
-    reviews: 287,
-  },
-  {
-    id: 4,
-    tour: "New York City Adventure",
-    destination: "New York, USA",
-    checkIn: "2025-09-05",
-    checkOut: "2025-09-09",
-    travelers: 3,
-    status: "Cancelled",
-    price: 2997,
-    image: "/new-york-skyline.jpg",
-    rating: 4.6,
-    reviews: 198,
-  },
-]
+  // 🆕 Chế độ sửa
+  const [editMode, setEditMode] = useState(false);
+  const [selectedBookings, setSelectedBookings] = useState([]);
 
-export function BookingsPage() {
-  const [selectedStatus, setSelectedStatus] = useState("All")
-  const [priceRange, setPriceRange] = useState([0, 5000])
-  const [sortBy, setSortBy] = useState("Recommended")
-  const [favorites, setFavorites] = useState([])
+  // 🧭 Gọi API bookings
+  useEffect(() => {
+    if (!user) return;
 
+    const fetchBookings = async () => {
+      try {
+        setLoading(true);
+        const data = await getFilteredBookings({
+          userId: user.userId,
+          limit,
+          page,
+        });
+
+        const bookingsNormalized = data.map((b) => ({
+          ...b,
+          date: b.date || {
+            startDate: null,
+            endDate: null,
+          },
+        }));
+
+        setBookings(bookingsNormalized);
+      } catch (err) {
+        console.error("❌ Lỗi khi tải danh sách booking:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBookings();
+  }, [user, page]);
+
+  // ⚙️ Lọc theo trạng thái
   const filteredBookings =
-    selectedStatus === "All" ? allBookings : allBookings.filter((b) => b.status === selectedStatus)
+    selectedStatus === "All"
+      ? bookings
+      : bookings.filter(
+          (b) => b.bookingStatus === selectedStatus.toLowerCase()
+        );
 
-  const bookingsInPriceRange = filteredBookings.filter((b) => b.price >= priceRange[0] && b.price <= priceRange[1])
+  // 🔄 Sắp xếp
+  const sortedBookings = [...filteredBookings].sort((a, b) => {
+    const priceA = Number(a.totalPrice) || 0;
+    const priceB = Number(b.totalPrice) || 0;
+    switch (sortBy) {
+      case "Price: Low to High":
+        return priceA - priceB;
+      case "Price: High to Low":
+        return priceB - priceA;
+      case "Newest":
+        return new Date(b.bookingDate) - new Date(a.bookingDate);
+      default:
+        return 0;
+    }
+  });
 
-  const toggleFavorite = (id) => {
-    setFavorites((prev) => (prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id]))
-  }
+  // 💖 Thêm vào yêu thích
+  const handleAddToFavorites = () => {
+    if (selectedBookings.length === 0) return alert("Chưa chọn booking nào!");
+    setFavorites((prev) => [...new Set([...prev, ...selectedBookings])]);
+    alert("Đã thêm vào yêu thích!");
+    setSelectedBookings([]);
+    setEditMode(false);
+  };
+
+  // 🗑️ Xóa booking
+  const handleDeleteBookings = async () => {
+    if (selectedBookings.length === 0) return alert("Chưa chọn booking nào!");
+    if (!window.confirm("Bạn có chắc muốn xóa những booking này không?"))
+      return;
+
+    try {
+      // Gọi API xóa từng booking
+      await Promise.all(selectedBookings.map((id) => deleteBooking(id)));
+
+      alert(`🗑️ Đã xóa ${selectedBookings.length} booking thành công!`);
+
+      // Cập nhật danh sách trên UI (lọc bỏ các booking đã xóa)
+      setBookings((prev) =>
+        prev.filter((b) => !selectedBookings.includes(b.bookingId))
+      );
+
+      // Reset chế độ chỉnh sửa
+      setSelectedBookings([]);
+      setEditMode(false);
+    } catch (err) {
+      console.error("❌ Lỗi khi xóa booking:", err);
+      alert("Không thể xóa booking. Vui lòng thử lại.");
+    }
+  };
+
+  // 🕓 Loading
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        Đang tải danh sách đặt tour...
+      </div>
+    );
 
   return (
     <section className="p-6 md:p-14">
       <div className="container mx-auto px-4">
         <div className="flex gap-8">
-          {/* Sidebar Filters */}
-          <aside className="w-64 flex-shrink-0">
-            <div className="space-y-6">
-              {/* Status Filter */}
-              <div>
-                <h3 className="font-semibold text-foreground mb-4">Status</h3>
-                <div className="space-y-2">
-                  {["All", "Confirmed", "Pending", "Cancelled"].map((status) => (
-                    <label key={status} className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="status"
-                        value={status}
-                        checked={selectedStatus === status}
-                        onChange={(e) => setSelectedStatus(e.target.value)}
-                        className="w-4 h-4 accent-primary"
-                      />
-                      <span className="text-sm text-foreground">{status}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Price Filter */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-foreground">Price</h3>
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <div className="space-y-4">
-                  <input
-                    type="range"
-                    min="0"
-                    max="5000"
-                    value={priceRange[1]}
-                    onChange={(e) => setPriceRange([priceRange[0], Number.parseInt(e.target.value)])}
-                    className="w-full accent-primary"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>${priceRange[0]}</span>
-                    <span>${priceRange[1]}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Rating Filter */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-foreground">Rating</h3>
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <div className="flex gap-2">
-                  {["0+", "1+", "2+", "3+", "4+"].map((rating) => (
-                    <button
-                      key={rating}
-                      className="px-3 py-1 text-xs border border-border rounded hover:border-primary transition-colors"
-                    >
-                      {rating}
-                    </button>
-                  ))}
-                </div>
+          {/* 🧭 Sidebar bộ lọc trạng thái */}
+          <aside className="w-64 flex-shrink-0 space-y-6">
+            <div>
+              <h3 className="font-semibold text-foreground mb-4">Trạng thái</h3>
+              <div className="space-y-2">
+                {["All", "Pending", "Confirmed", "Cancelled"].map((status) => (
+                  <label
+                    key={status}
+                    className="flex items-center gap-3 cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="status"
+                      value={status}
+                      checked={selectedStatus === status}
+                      onChange={(e) => {
+                        setSelectedStatus(e.target.value);
+                        setPage(1);
+                      }}
+                      className="w-4 h-4 accent-primary"
+                    />
+                    <span className="text-sm text-foreground">{status}</span>
+                  </label>
+                ))}
               </div>
             </div>
           </aside>
 
-          {/* Main Content */}
+          {/* 🧾 Nội dung chính */}
           <div className="flex-1">
-            {/* Header with Tabs and Sort */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex gap-8 border-b border-border">
-                  <button className="pb-3 font-medium text-foreground border-b-2 border-primary">
-                    My Bookings ({bookingsInPriceRange.length})
-                  </button>
-                </div>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-bold">
+                My Bookings ({sortedBookings.length})
+              </h2>
+
+              {/* Bên phải: Sort + Sửa */}
+              <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Sort by</span>
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="text-sm font-medium text-foreground bg-transparent border-none cursor-pointer"
+                    className="text-sm font-medium bg-transparent border-none cursor-pointer"
                   >
-                    <option>Recommended</option>
                     <option>Newest</option>
                     <option>Price: Low to High</option>
                     <option>Price: High to Low</option>
                   </select>
                 </div>
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                Showing {bookingsInPriceRange.length} of {allBookings.length} bookings
-              </p>
-            </div>
-
-            {/* Bookings Grid */}
-            <div className="space-y-4">
-              {bookingsInPriceRange.map((booking) => (
-                <Card
-                  key={booking.id}
-                  className="overflow-hidden hover:shadow-md transition-shadow border border-border"
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEditMode(!editMode);
+                    setSelectedBookings([]);
+                  }}
                 >
-                  <div className="flex gap-4 p-4">
-                    {/* Image */}
-                    <div className="relative w-48 h-40 flex-shrink-0 rounded-lg overflow-hidden group">
-                      <img
-                        src={booking.image || "/placeholder.svg"}
-                        alt={booking.tour}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                      <div className="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded text-xs font-medium text-foreground">
-                        {booking.travelers} images
-                      </div>
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h3 className="text-lg font-bold text-foreground">{booking.tour}</h3>
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                              <MapPin className="w-4 h-4" />
-                              <span>{booking.destination}</span>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-muted-foreground">starting from</p>
-                            <p className="text-xl font-bold text-accent">${booking.price}</p>
-                            <p className="text-xs text-muted-foreground">per night</p>
-                          </div>
-                        </div>
-
-                        {/* Rating and Status */}
-                        <div className="flex items-center gap-4 mt-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-foreground">{booking.rating}</span>
-                            <div className="flex gap-0.5">
-                              {[...Array(5)].map((_, i) => (
-                                <span
-                                  key={i}
-                                  className={`text-sm ${
-                                    i < Math.floor(booking.rating) ? "text-accent" : "text-muted-foreground"
-                                  }`}
-                                >
-                                  ★
-                                </span>
-                              ))}
-                            </div>
-                            <span className="text-xs text-muted-foreground">{booking.reviews} reviews</span>
-                          </div>
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${
-                              booking.status === "Confirmed"
-                                ? "bg-primary/10 text-primary"
-                                : booking.status === "Pending"
-                                  ? "bg-accent/10 text-accent"
-                                  : "bg-destructive/10 text-destructive"
-                            }`}
-                          >
-                            {booking.status}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border">
-                        <button
-                          onClick={() => toggleFavorite(booking.id)}
-                          className="p-2 hover:bg-muted rounded transition-colors"
-                        >
-                          <Heart
-                            className={`w-5 h-5 ${
-                              favorites.includes(booking.id) ? "fill-accent text-accent" : "text-muted-foreground"
-                            }`}
-                          />
-                        </button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-2 text-foreground border-border hover:bg-muted bg-transparent"
-                        >
-                          <Download className="w-4 h-4" />
-                          Invoice
-                        </Button>
-                        {booking.status === "Confirmed" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2 text-foreground border-border hover:bg-muted bg-transparent"
-                          >
-                            <X className="w-4 h-4" />
-                            Cancel
-                          </Button>
-                        )}
-                        <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground ml-auto">
-                          View Place
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+                  <Edit3 className="w-4 h-4 mr-2" />
+                  {editMode ? "Hoàn tất" : "Sửa"}
+                </Button>
+              </div>
             </div>
 
-            {/* Show More Button */}
-            {bookingsInPriceRange.length > 0 && (
-              <Button
-                variant="outline"
-                className="w-full mt-8 bg-foreground text-background hover:bg-foreground/90 border-none font-medium"
-              >
-                Show more results
-              </Button>
+            {/* Hành động khi bật chế độ sửa */}
+            {editMode && (
+              <div className="flex gap-3 mb-6">
+                <Button
+                  variant="outline"
+                  onClick={handleAddToFavorites}
+                  disabled={selectedBookings.length === 0}
+                >
+                  <Heart className="w-4 h-4 mr-2" /> Thêm vào yêu thích
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteBookings}
+                  disabled={selectedBookings.length === 0}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" /> Xóa tour
+                </Button>
+              </div>
             )}
 
-            {/* Empty State */}
-            {bookingsInPriceRange.length === 0 && (
+            {/* Danh sách bookings */}
+            {sortedBookings.length > 0 ? (
+              <div className="space-y-4">
+                {sortedBookings.map((b) => {
+                  const tour = b.tour || {};
+                  const isSelected = selectedBookings.includes(b.bookingId);
+
+                  return (
+                    <Card
+                      key={b.bookingId}
+                      onClick={() => {
+                        if (!editMode) {
+                          navigate(`/bookings/${b.bookingId}`, {
+                            state: { booking: b },
+                          });
+                        }
+                      }}
+                      className={`overflow-hidden border ${
+                        selectedBookings.includes(b.bookingId)
+                          ? "border-primary"
+                          : "border-border"
+                      } hover:shadow-md transition cursor-pointer`}
+                    >
+                      <div className="flex gap-4 p-4 items-center">
+                        {editMode && (
+                          <input
+                            type="checkbox"
+                            checked={selectedBookings.includes(b.bookingId)}
+                            onClick={(e) => e.stopPropagation()} // 🧩 Ngăn click lan ra Card
+                            onChange={(e) => {
+                              setSelectedBookings((prev) =>
+                                e.target.checked
+                                  ? [...prev, b.bookingId]
+                                  : prev.filter((id) => id !== b.bookingId)
+                              );
+                            }}
+                            className="w-5 h-5 accent-primary"
+                          />
+                        )}
+
+                        <div className="relative w-48 h-40 flex-shrink-0 rounded-lg overflow-hidden group">
+                          <img
+                            src={b.tour?.image || "/placeholder.svg"}
+                            alt={b.tour?.title || "Không có tiêu đề"}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                        </div>
+
+                        <div className="flex-1 flex flex-col justify-between">
+                          <div>
+                            <h3 className="text-lg font-bold">
+                              {b.tour?.title || "Chưa có thông tin tour"}
+                            </h3>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <MapPin className="w-4 h-4" />
+                              <span>
+                                {b.tour?.destination || "Đang cập nhật"}
+                              </span>
+                            </div>
+                            <p className="text-sm mt-1">
+                              Ngày đặt:{" "}
+                              {new Date(b.bookingDate).toLocaleDateString(
+                                "vi-VN"
+                              )}
+                            </p>
+
+                            <div className="flex justify-between items-center mt-2 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-4 h-4 text-primary" />
+                                <span>
+                                  {b.date?.startDate
+                                    ? new Date(
+                                        b.date.startDate
+                                      ).toLocaleDateString("vi-VN")
+                                    : "Chưa có ngày đi"}
+                                </span>
+                              </div>
+                              <span>→</span>
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-4 h-4 text-primary" />
+                                <span>
+                                  {b.date?.endDate
+                                    ? new Date(
+                                        b.date.endDate
+                                      ).toLocaleDateString("vi-VN")
+                                    : "Chưa có ngày về"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between items-center mt-3">
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-semibold ${
+                                b.bookingStatus === "confirmed"
+                                  ? "bg-green-100 text-green-700"
+                                  : b.bookingStatus === "pending"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {b.bookingStatus}
+                            </span>
+                            <p className="text-lg font-bold text-primary">
+                              {Number(b.totalPrice).toLocaleString("vi-VN")}₫
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
               <Card className="p-12 text-center border border-border">
                 <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">No bookings found</h3>
-                <p className="text-muted-foreground mb-6">
-                  You don't have any {selectedStatus.toLowerCase()} bookings in this price range
-                </p>
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">Browse Tours</Button>
+                <h3 className="text-lg font-semibold mb-2">
+                  Không có tour nào phù hợp
+                </h3>
               </Card>
             )}
           </div>
         </div>
       </div>
     </section>
-  )
+  );
 }

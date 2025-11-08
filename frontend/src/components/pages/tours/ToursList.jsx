@@ -20,33 +20,37 @@ export default function TourSearchResult() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState("popular");
 
+  // 🆕 Pagination
+  const [page, setPage] = useState(1);
+  const [limit] = useState(6); // số tour mỗi trang
+  const [totalPages, setTotalPages] = useState(1);
+
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
   useEffect(() => {
     async function fetchTours() {
       try {
         setLoading(true);
+        setError(null);
 
-        // 1️⃣ Lấy danh sách tour
-        const resTours = await fetch(`${API_URL}/tours`);
-        if (!resTours.ok)
-          throw new Error(`Lỗi ${resTours.status}: ${resTours.statusText}`);
-        const toursData = await resTours.json();
+        // ✅ Gọi API có phân trang
+        const res = await fetch(
+          `${API_URL}/tours/GetAllPagination?page=${page}&limit=${limit}`
+        );
+        if (!res.ok) throw new Error(`Lỗi ${res.status}: ${res.statusText}`);
 
-        // 2️⃣ Lấy bảng start_end_date
-        const resDates = await fetch(`${API_URL}/start-end-dates`);
-        if (!resDates.ok)
-          throw new Error(`Lỗi ${resDates.status}: ${resDates.statusText}`);
-        const datesData = await resDates.json();
+        const data = await res.json();
+        const tourList = data.data?.tours || data.data || [];
+        const total = data.data?.totalPages || data.totalPages || 1;
+        setTotalPages(total);
 
-        // 3️⃣ Ghép dữ liệu 2 bảng theo id
+        // ✅ Lấy giá cho từng tour
         const merged = await Promise.all(
-          toursData?.data.map(async (tour) => {
+          tourList.map(async (tour) => {
             const resPrice = await fetch(
               `${API_URL}/start-end-dates/priceTour/${tour.tourId}`
             );
             const priceData = await resPrice.json();
-
             const minPriceAdult = Number(priceData.data?.minPriceAdult) || 0;
             const maxPriceAdult = Number(priceData.data?.maxPriceAdult) || 0;
             return {
@@ -56,6 +60,7 @@ export default function TourSearchResult() {
             };
           })
         );
+
         setTours(merged);
       } catch (err) {
         console.error("Lỗi khi tải tours:", err);
@@ -66,7 +71,7 @@ export default function TourSearchResult() {
     }
 
     fetchTours();
-  }, [API_URL]);
+  }, [API_URL, page, limit]);
 
   // Loading UI
   if (loading)
@@ -95,7 +100,7 @@ export default function TourSearchResult() {
   const sortedTours = [...filteredTours].sort((a, b) => {
     if (sortBy === "price-low") return a.price - b.price;
     if (sortBy === "price-high") return b.price - a.price;
-    if (sortBy === "rating") return b.rating - a.rating;
+    if (sortBy === "rating") return b.starAvg - a.starAvg;
     return 0;
   });
 
@@ -150,12 +155,37 @@ export default function TourSearchResult() {
         {/* Tours Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sortedTours.length > 0 ? (
-            sortedTours.map((tour) => <TourCard key={tour.tourId} tour={tour} />)
+            sortedTours.map((tour) => (
+              <TourCard key={tour.tourId} tour={tour} />
+            ))
           ) : (
             <p className="col-span-full text-center text-muted-foreground py-10">
               Không có tour nào trong danh mục này.
             </p>
           )}
+        </div>
+
+        {/* 🧭 Pagination */}
+        <div className="flex justify-center items-center mt-10 gap-2">
+          <button
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(p - 1, 1))}
+            className="px-4 py-2 border rounded-lg disabled:opacity-50 hover:bg-primary/10"
+          >
+            ← Previous
+          </button>
+
+          <span className="px-3 py-2">
+            Trang <strong>{page}</strong> / {totalPages}
+          </span>
+
+          <button
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+            className="px-4 py-2 border rounded-lg disabled:opacity-50 hover:bg-primary/10"
+          >
+            Next →
+          </button>
         </div>
       </div>
     </section>

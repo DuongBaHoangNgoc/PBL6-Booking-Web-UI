@@ -13,9 +13,11 @@ import Login from "@/pages/auth/Login";
 import Signup from "@/pages/auth/Signup";
 import TourSearchResult from "@/components/pages/tours/ToursList";
 import TourDetail from "@/components/pages/tours/TourDetail";
-import TourDetailTest from "@/components/pages/tours/TourDetailTest";
+import PaymentsPage from "@/components/pages/payments/PaymentsPage";
 import { Profile } from "../pages/client/Profile";
-import { BookingsPage } from "@/components/pages/bookings/MyBookings";
+import BookingsPage from "@/components/pages/bookings/MyBookings";
+import BookingDetailPage from "@/components/pages/bookings/BookingPageDetail";
+import AdminBookingPage from "@/pages/admin/AdminBookingPage";
 import { TourDashboard } from "@/components/TourDashBoard";
 import { ManageUsersPage } from "@/components/pages/users/ManageUsersPage";
 import { ManageToursPage } from "@/components/pages/tours/ManageToursPage";
@@ -33,13 +35,13 @@ export const AppRoutes = () => {
         <Route path="/" element={<Home />} />
         <Route path="/tours" element={<TourSearchResult />} />
         <Route path="/tours/:id/:slug/" element={<TourDetail />} />
-
-        <Route path="/tour-test/:id/:slug" element={<TourDetailTest />} />
+        <Route path="/payments" element={<PaymentsPage />} />
 
         {/* --- 1.2: Authenticating Pages --- */}
         <Route path="/auth/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/bookings" element={<BookingsPage />} />
+        <Route path="/bookings/:bookingId" element={<BookingDetailPage />} />
 
         {/* --- 1.3: Protected Pages (User & Admin) --- */}
         <Route element={<ProtectedRoute />}>
@@ -56,7 +58,11 @@ export const AppRoutes = () => {
           <Route path="/admin" element={<TourDashboard />} />
           <Route path="/admin/users" element={<ManageUsersPage />} />
           <Route path="/admin/tours" element={<ManageToursPage />} />
-          <Route path="/admin/tours/edit/:id" element={<ManageTourDetailPage />} />
+          <Route path="admin/bookings" element={<AdminBookingPage />} />
+          <Route
+            path="/admin/tours/edit/:id"
+            element={<ManageTourDetailPage />}
+          />
         </Route>
       </Route>
     </Routes>
