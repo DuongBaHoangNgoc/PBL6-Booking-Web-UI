@@ -14,17 +14,21 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Phone
+  Phone,
+  Tag
 } from "lucide-react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, Link } from "react-router-dom";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
-import { getTourById, getReviewsByTourId, getStartDatesByTourId, getTimelineByTourId, getTourPriceById, getImagesByTourId } from "@/api/tours";
+import { getTourById, getReviewsByTourId, getStartDatesByTourId, getTimelineByTourId, getTourPriceById, getImagesByTourId, filterTours } from "@/api/tours";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format, formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale"; 
 import { useAuth } from "@/context/useAuth";
 import { createBooking } from "@/api/bookings";
+import { getHashtagsForTour } from "@/api/hashtags";
+import { Badge } from "@/components/ui/badge";
+import TourCard from "@/components/TourCard";
 
 
 function ImageLightbox({ images, startIndex, open, onOpenChange }) {
@@ -108,6 +112,9 @@ export default function TourDetail() {
   const [reviews, setReviews] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [hashtags, setHashtags] = useState([]); 
+  const [relativeTour, setRelativeTour] = useState([]);
+
 
   const [images, setImages] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -134,6 +141,7 @@ export default function TourDetail() {
         const reviewData = await getReviewsByTourId(id);
         const startDatesData = await getStartDatesByTourId(id);
         const imagesData = await getImagesByTourId(id);
+        const hashtagData = await getHashtagsForTour(id);
 
         const mergedTour = {
           ...tourData,
@@ -141,12 +149,25 @@ export default function TourDetail() {
           originalPrice: Number(priceData?.maxPriceAdult) || 0,
         };
 
+        const params = {
+          page: 1,
+          limit: 4,
+          destination: mergedTour.destination,
+        }
+
+        // Lấy các tour có cùng destination với tour hiện tại
+        const relativeTourData = await filterTours(params);
+        setRelativeTour(relativeTourData);
+
+        console.log("XP-DEGUB-Merged Tour: ", mergedTour);
+
         setTour(mergedTour);
 
         console.log("XP-DEBUGGGGG MERGED TOUR: ", mergedTour);
         setTimeline(timelineData);
         setAvailableDates(startDatesData);
         setReviews(reviewData);
+        setHashtags(hashtagData);
 
         const coverImage = {
           imageId: 'cover',
@@ -340,6 +361,28 @@ export default function TourDetail() {
                   </span>
                 )}
               </div>
+
+              {hashtags.tourHashtags.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <Tag className="w-4 h-4 text-muted-foreground" />
+                  {/* Giả định API trả về: { hashtag: { name: "#danang" } } */}
+                  {hashtags.tourHashtags.map((item) => (
+                    // <Link 
+                    //   key={item.tourHashTagId} 
+                    //   // Link đến trang Search, dùng 'tag' làm query param
+                    //   // Bỏ dấu '#' khi gửi
+                    //   to={`/tours?tag=${item.hashtag.name.replace("#", "")}`}
+                    // >
+                      <Badge 
+                        variant="outline" 
+                        className="text-xl hover:bg-muted"
+                      >
+                        {item.hashtag.name}
+                      </Badge>
+                    // </Link>
+                  ))}
+                </div>
+              )}
 
               <p className="text-lg text-muted-foreground whitespace-pre-line">
                 {tour.description || "Không có mô tả cho tour này."}
@@ -803,6 +846,16 @@ export default function TourDetail() {
             </Card>
           </div>
         </div>
+        <h2 className="text-3xl font-bold text-foreground mt-8">
+          Tour du lịch {tour.destination} liên quan
+        </h2>
+        {relativeTour.totalItems > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
+            {relativeTour.items.map((tour) => (
+              <TourCard key={tour.tourId} tour={tour} />
+            ))}
+          </div>
+        )}
       </div>
 
       <ImageLightbox 

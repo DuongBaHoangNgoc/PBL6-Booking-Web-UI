@@ -36,6 +36,9 @@ import {
   Edit,
   Trash2,
   Save,
+  ChevronsUpDown,
+  X,
+  Check,
 } from "lucide-react";
 import {
   getTourById,
@@ -53,7 +56,30 @@ import {
   deleteImage,
   getImagesByTourId,
 } from "@/api/tours";
+import { getHashtagsForTour, filterHashtags, createHashtag, linkTourToHashTag, deleteTourHashtag } from "@/api/hashtags";
 import { format, set } from "date-fns";
+import slugify from "slugify";
+import { 
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+ } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { ta } from "date-fns/locale";
+
+// (Hàm formatHashtag - nên để ở file hashtag.js, nhưng để đây cho component dùng)
+const formatHashtag = (text) => {
+  const cleaned = text.replace(/#/g, "").trim();
+  if (!cleaned) return null;
+  const slug = slugify(cleaned, { lower: true, strict: true, locale: 'vi' });
+  const formatted = slug.replace(/-/g, '');
+  return `#${formatted}`;
+};
 
 // --- Component Form Sửa Tour Cơ Bản ---
 function EditTourInfo({ tour, onTourUpdated }) {
@@ -96,12 +122,16 @@ function EditTourInfo({ tour, onTourUpdated }) {
             <Input id="title" name="title" value={formData.title} onChange={handleChange} />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="title">Điểm đến</Label>
+            <Input id="destination" name="destination" value={formData.destination} onChange={handleChange} />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="description">Mô tả chi tiết</Label>
-            <Textarea id="description" name="description" value={formData.description} onChange={handleChange} />
+            <Textarea id="description" name="description" value={formData.description || ""} onChange={handleChange} />
           </div>
           <div className="space-y-4">
             <Label htmlFor="highlight">Tour highlight</Label>
-            <Textarea id="highlight" name="highlight" value={formData.highlight} onChange={handleChange} />
+            <Textarea id="highlight" name="highlight" value={formData.highlight || ""} onChange={handleChange} />
           </div>
         </CardContent>
         <CardFooter>
@@ -144,7 +174,6 @@ function AddTimelineForm({ tourId, open, onOpenChange, onSuccess }) {
         apiFormData.append("file", file);
       }
 
-      console.log("Creating timeline with FormData:", apiFormData);
       await createTimeline(apiFormData);
       alert("Thêm lịch trình thành công!");
       onSuccess(); // Gọi hàm refresh data ở component cha
@@ -358,7 +387,7 @@ function EditTimelines({ tourId, timelines, onTimelinesUpdated }) {
 
 // Dialog Add Start Date
 function AddStartDateForm({ tourId, open, onOpenChange, onSuccess }) {
-  const [formData, setFormData] = useState({ tourId: tourId, startDate: '', endDate: '', adultPrice: 1000000, childPrice: 500000, quantity: 10 });
+  const [formData, setFormData] = useState({ tourId: tourId, startDate: '', endDate: '', priceAdult: 1000000, priceChildren: 500000, quantity: 10 });
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
@@ -373,8 +402,8 @@ function AddStartDateForm({ tourId, open, onOpenChange, onSuccess }) {
       const payload = {
         ...formData,
         tourId: tourId,
-        priceAdult: Number(formData.adultPrice),
-        priceChildren: Number(formData.childPrice),
+        priceAdult: Number(formData.priceAdult),
+        priceChildren: Number(formData.priceChildren),
         quantity: Number(formData.quantity),
         availability: 1,
       }
@@ -435,7 +464,7 @@ function AddStartDateForm({ tourId, open, onOpenChange, onSuccess }) {
 }
 
 // --- (MỚI) Component Form Sửa Ngày/Giá (Dialog) ---
-function EditStartDateForm({ startDate, open, onOpenChange, onSuccess }) {
+function EditStartDateForm({ tourId, startDate, open, onOpenChange, onSuccess }) {
   const [formData, setFormData] = useState({
     startDate: "",
     endDate: "",
@@ -460,6 +489,7 @@ function EditStartDateForm({ startDate, open, onOpenChange, onSuccess }) {
         priceAdult: startDate.priceAdult,
         priceChildren: startDate.priceChildren,
         quantity: startDate.quantity,
+        tourId: tourId,
       });
     }
   }, [startDate]);
@@ -479,6 +509,7 @@ function EditStartDateForm({ startDate, open, onOpenChange, onSuccess }) {
         priceAdult: Number(formData.priceAdult),
         priceChildren: Number(formData.priceChildren),
         quantity: Number(formData.quantity),
+        tourId: formData.tourId,
       };
       await updateStartDate(startDate.dateId, payload);
       alert("Cập nhật ngày khởi hành thành công!");
@@ -541,6 +572,7 @@ function EditStartDateForm({ startDate, open, onOpenChange, onSuccess }) {
 // Component Quản lý Ngày khởi hành & Giá
 function EditStartDates({ tourId, startDates, onStartDatesUpdated }) {
   // (Logic quản lý Ngày/Giá: Thêm/Sửa/Xóa)
+
   const [editingStartDate, setEditingStartDate] = useState(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const handleDelete = async (dateId) => {
@@ -610,6 +642,7 @@ function EditStartDates({ tourId, startDates, onStartDatesUpdated }) {
     />   
 
     <EditStartDateForm
+      tourId={tourId}
       startDate={editingStartDate}
       open={!!editingStartDate} // Chuyển object thành boolean (true nếu có object, false nếu null)
       onOpenChange={() => setEditingStartDate(null)} // Hàm để đóng dialog
@@ -651,7 +684,6 @@ function AddImagesForm({ tourId, open, onOpenChange, onSuccess }) {
       }
       
       const response = await createImages(formData);
-      console.log("DEBUGzzzzzz: ", response);
       alert("Thêm ảnh thành công!");
       onSuccess();
     } catch (err) {
@@ -765,6 +797,186 @@ function EditTourImages({ tourId, images, onImagesUpdated }) {
   );
 }
 
+function EditTourHashtags({ tourId, linkedHashtags, onHashtagsUpdated }) {
+
+  const safeLinkedHashtags = linkedHashtags || [];
+
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [availableHashtags, setAvailableHashtags] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Lấy danh sách hashtag (để tìm kiếm) khi gõ
+  useEffect(() => {
+    const fetchTags = async () => {
+      setLoading(true);
+      const formattedQuery = formatHashtag(searchQuery);
+      const params = { hashtag: formattedQuery || undefined, limit: 20, page: 1 };
+      const tags = await filterHashtags(params);
+      setAvailableHashtags(tags?.hashtags);
+      setLoading(false);
+    };
+    
+    const timer = setTimeout(fetchTags, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Xóa (Unlink) một hashtag khỏi tour
+  const handleDelete = async (tourHashTagId) => {
+    if (window.confirm("Bạn chắc chắn muốn gỡ hashtag này khỏi tour?")) {
+      try {
+        await deleteTourHashtag(tourHashTagId);
+        onHashtagsUpdated(); // Refresh lại list
+      } catch (err) {
+        alert("Lỗi khi gỡ hashtag.");
+      }
+    }
+  };
+
+  // Chọn 1 tag từ Combobox (để link)
+  const handleSelect = async (tag) => {
+    // Kiểm tra xem đã link chưa
+    if (safeLinkedHashtags.find(item => item.hashtag.hashtagId === tag.hashtagId)) {
+      setSearchQuery("");
+      setOpen(false);
+      return;
+    }
+    
+    // Gọi API để link
+    try {
+      await linkTourToHashTag({ tourId, hashtagId: tag.hashtagId });
+      onHashtagsUpdated(); // Refresh
+    } catch (err) {
+       alert("Lỗi khi gắn hashtag.");
+    } finally {
+      setSearchQuery("");
+      setOpen(false);
+    }
+  };
+
+  // Tạo tag mới (và link)
+  const handleCreate = async () => {
+    const formattedName = formatHashtag(searchQuery);
+    if (!formattedName) return;
+
+    // Kiểm tra xem tag (đã format) có trong API trả về không
+    const existing = availableHashtags.find(t => t.name === formattedName);
+    if (existing) {
+      handleSelect(existing); // Nếu có, chỉ cần chọn
+      return;
+    }
+
+    // Nếu không có, tạo mới
+    setLoading(true);
+    try {
+      const newTag = await createHashtag({ 
+        name: formattedName, 
+        description: searchQuery 
+      });
+      await handleSelect(newTag); // Chọn (link) tag mới tạo
+    } catch (err) {
+      alert("Lỗi khi tạo tag mới.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault(); 
+      handleCreate();
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Quản lý Hashtags</CardTitle>
+        <CardDescription>
+          Gắn các hashtag liên quan. Gõ để tìm kiếm hoặc tạo mới.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Combobox Tìm/Thêm */}
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              className="w-full justify-between"
+            >
+              Tìm hoặc tạo hashtag...
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+            <Command>
+              <CommandInput 
+                placeholder="Gõ tag (ví dụ: Đà Nẵng) rồi Enter..." 
+                value={searchQuery}
+                onValueChange={setSearchQuery}
+                onKeyDown={handleKeyDown}
+              />
+              <CommandList>
+                {loading && <CommandItem disabled>Đang tải...</CommandItem>}
+                <CommandEmpty>
+                  <Button variant="outline" size="sm" onClick={handleCreate} className="w-full">
+                    Tạo mới tag: "{formatHashtag(searchQuery) || searchQuery}"
+                  </Button>
+                </CommandEmpty>
+                <CommandGroup>
+                  {availableHashtags?.map((tag) => (
+                    <CommandItem
+                      key={tag.hashtagId}
+                      value={tag.name}
+                      onSelect={() => handleSelect(tag)}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          safeLinkedHashtags.some(item => item.hashtag.hashtagId === tag.hashtagId) ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {tag.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+
+        {/* Danh sách tag đã gắn */}
+        <div className="space-y-2">
+          <Label>Các tag đã gắn:</Label>
+          <div className="flex flex-wrap gap-2">
+            {safeLinkedHashtags.length === 0 && (
+              <p className="text-sm text-muted-foreground">Chưa có tag nào.</p>
+            )}
+            {/* Giả định API trả về: { tourHashTagId: 123, hashtag: { ... } } */}
+            {safeLinkedHashtags.map((item) => (
+              <Badge
+                key={item.tourHashTagId}
+                variant="secondary"
+                className="pl-2 pr-1"
+              >
+                {item.hashtag.name}
+                <button
+                  onClick={() => handleDelete(item.tourHashTagId)}
+                  className="ml-1 rounded-full p-0.5 hover:bg-destructive/20"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // --- Trang Cha (Page) ---
 export function ManageTourDetailPage() {
   const { id } = useParams();
@@ -775,23 +987,26 @@ export function ManageTourDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [images, setImages] = useState([]);
+  const [hashtags, setHashtags] = useState([]); 
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
       // Chạy song song 3 API
-      const [tourData, timelineData, startDatesData, imagesData] = await Promise.all([
+      const [tourData, timelineData, startDatesData, imagesData, hashtagData] = await Promise.all([
         getTourById(id),
         getTimelineByTourId(id),
         getStartDatesByTourId(id),
         getImagesByTourId(id),
+        getHashtagsForTour(id),
       ]);
       setTour(tourData);
       setTimelines(timelineData);
       setStartDates(startDatesData);
       setImages(imagesData);
-      console.log("DebugZZZZZZ: ", images);
+      setHashtags(hashtagData);
+      console.log("XP-DEBUG-Hashtags: ", hashtagData);
     } catch (err) {
       console.error("Lỗi khi tải dữ liệu tour chi tiết:", err);
       setError("Không thể tải dữ liệu tour.");
@@ -816,6 +1031,17 @@ export function ManageTourDetailPage() {
        setError("Không thể tải ảnh gallery.");
     }
   };
+
+  const fetchHashtags = async () => {
+     try {
+       const hashtagData = await getHashtagsForTour(id);
+       setHashtags(hashtagData); 
+    } catch (err) {
+       console.error("Lỗi tải hashtags:", err);
+       setError("Không thể tải hashtags.");
+    }
+  };
+
 
   if (loading)
     return (
@@ -855,6 +1081,13 @@ export function ManageTourDetailPage() {
         tourId={tour.tourId}
         images={images}
         onImagesUpdated={fetchImages} // Tải lại CHỈ ảnh
+      />
+
+      {/* Form Quản lý Hashtags */}
+      <EditTourHashtags 
+        tourId={tour.tourId}
+        linkedHashtags={hashtags.tourHashtags}
+        onHashtagsUpdated={fetchHashtags} // Tải lại CHỈ hashtag
       />
       
       {/* Form Quản lý Lịch trình */}

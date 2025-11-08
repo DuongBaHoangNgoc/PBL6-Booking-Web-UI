@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,9 +11,195 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Loader2, Plus, Trash2, Check, X, ChevronsUpDown } from "lucide-react";
 import { useAuth } from "@/context/useAuth"; // Import useAuth
 import { createTour, createTimeline, createStartDate, createImages } from "@/api/tours";
+import { filterHashtags, createHashtag, linkTourToHashTag } from "@/api/hashtags";
+import slugify from "slugify";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput, 
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {Badge} from "@/components/ui/badge"
+
+// Function Format Hashtag
+const formatHashtag = (text) => {
+  // Bỏ dấu '#', ' ', v.v.
+  const cleaned = text.replace(/#/g, "").trim();
+  if (!cleaned) return null;
+
+  // "5 ngày 4 đêm" -> "5-ngay-4-dem"
+  const slug = slugify(cleaned, { 
+    lower: true,      // Chữ thường
+    strict: true,     // Bỏ ký tự đặc biệt
+    locale: 'vi'      // Xử lý tiếng Việt
+  });
+  
+  // "5-ngay-4-dem" -> "5ngay4dem" (Bỏ dấu gạch ngang)
+  const formatted = slug.replace(/-/g, '');
+  
+  return `#${formatted}`; // Trả về #5ngay4dem
+};
+
+function HashtagCombobox({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [availableHashtags, setAvailableHashtags] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Lấy danh sách hashtag khi gõ
+  useEffect(() => {
+    const fetchTags = async () => {
+      setLoading(true);
+      // Format từ khóa tìm kiếm (ví dụ: gõ "Đà Nẵng" -> tìm "#danang")
+      const formattedQuery = formatHashtag(searchQuery);
+      const params = { 
+        hashtag: formattedQuery || undefined, // Gửi #danang
+        limit: 20, 
+        page: 1 
+      };
+      const tags = await filterHashtags(params);
+      setAvailableHashtags(tags.hashtags);
+      setLoading(false);
+    };
+    
+    // Dùng setTimeout (debounce) để tránh gọi API liên tục
+    const timer = setTimeout(fetchTags, 300);
+    return () => clearTimeout(timer);
+    
+  }, [searchQuery]);
+
+  // Hàm chọn một tag (từ danh sách)
+  const handleSelect = (tag) => {
+    if (!value.find(item => item.hashtagId === tag.hashtagId)) {
+      onChange([...value, tag]);
+    }
+    setSearchQuery("");
+    setOpen(false);
+  };
+
+  // Hàm tạo tag mới
+  const handleCreate = async () => {
+    const formattedName = formatHashtag(searchQuery);
+    if (!formattedName) return;
+
+    // Kiểm tra xem tag (đã format) có trong danh sách đã chọn chưa
+    if (value.some(tag => tag.name === formattedName)) {
+      setSearchQuery("");
+      setOpen(false);
+      return;
+    }
+    
+    // Kiểm tra xem tag (đã format) có trong API trả về không
+    const existing = availableHashtags.find(t => t.name === formattedName);
+    if (existing) {
+      handleSelect(existing); // Nếu có, chỉ cần chọn nó
+      return;
+    }
+
+    // Nếu không có, tạo mới
+    setLoading(true);
+    try {
+      const newTag = await createHashtag({ 
+        name: formattedName, // Gửi đi: #danang
+        description: searchQuery // Gửi đi: Đà Nẵng
+      });
+      handleSelect(newTag); // Chọn tag mới tạo
+    } catch (err) {
+      alert("Lỗi khi tạo tag mới.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Hàm bỏ chọn 1 tag
+  const handleUnselect = (tagToRemove) => {
+    onChange(value.filter(tag => tag.hashtagId !== tagToRemove.hashtagId));
+  };
+  
+  // (SỬA) Xử lý khi bấm Enter (hoặc Space)
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault(); // Ngăn submit form / gõ dấu cách
+      handleCreate();
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label>Hashtags (Gắn thẻ)</Label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between h-auto min-h-[40px]" // Sửa: Thêm min-h
+          >
+            <div className="flex flex-wrap gap-1">
+              {value.length === 0 && <span className="text-muted-foreground">Chọn hoặc tạo hashtag...</span>}
+              {value.map((tag) => (
+                <Badge
+                  key={tag.hashtagId}
+                  variant="secondary"
+                  className="pl-2 pr-1"
+                  onClick={(e) => {
+                     e.stopPropagation(); // Ngăn popover mở
+                     handleUnselect(tag);
+                  }}
+                >
+                  {tag.name}
+                  <X className="w-3 h-3 ml-1 cursor-pointer" />
+                </Badge>
+              ))}
+            </div>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+          <Command>
+            <CommandInput 
+              placeholder="Gõ tag (ví dụ: Đà Nẵng) rồi Enter..." 
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+              onKeyDown={handleKeyDown} // <-- Bắt sự kiện Enter/Space
+            />
+            <CommandList>
+              {loading && <CommandItem disabled>Đang tải...</CommandItem>}
+              <CommandEmpty>
+                <Button variant="outline" size="sm" onClick={handleCreate} className="w-full">
+                  Tạo mới tag: "{formatHashtag(searchQuery) || searchQuery}"
+                </Button>
+              </CommandEmpty>
+              <CommandGroup>
+                {availableHashtags?.map((tag) => (
+                  <CommandItem
+                    key={tag.hashtagId}
+                    value={tag.name}
+                    onSelect={() => handleSelect(tag)}
+                  >
+                    <Check
+                      className={(
+                        "mr-2 h-4 w-4",
+                        value.some(item => item.hashtagId === tag.hashtagId) ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {tag.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
 
 // --- Form cho Step 1: Tour cơ bản ---
 function Step1Form({ onSubmit, loading }) {
@@ -24,15 +210,20 @@ function Step1Form({ onSubmit, loading }) {
     days: "3",
     nights: "2",
     quantity: 30,
-    itinerary: "", // Mô tả ngắn/Tour bao gồm
-    description: "", // Mô tả chi tiết
-    file: null, // Ảnh chính
+    description: "", 
+    file: null, 
+    hashtags: [],
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleHashtagChange = (newHashtags) => {
+     setFormData((prev) => ({ ...prev, hashtags: newHashtags }));
+  };
+
 
   const handleFileChange = (e) => {
     if (e.target.files) {
@@ -59,7 +250,9 @@ function Step1Form({ onSubmit, loading }) {
     apiFormData.append("file", formData.file);
     apiFormData.append("userId", user.userId); // Lấy userId từ AuthContext
 
-    onSubmit(apiFormData);
+    console.log("XP-DEBUG-apiFormData: ", apiFormData);
+
+    onSubmit(apiFormData, formData.hashtags);
   };
 
   return (
@@ -89,6 +282,12 @@ function Step1Form({ onSubmit, loading }) {
           <Input id="quantity" name="quantity" type="number" value={formData.quantity} onChange={handleChange} required />
         </div>
       </div>
+
+      <HashtagCombobox
+        value={formData.hashtags}
+        onChange={handleHashtagChange}
+      />
+
       <div>
         <Label htmlFor="description">Mô tả chi tiết</Label>
         <Textarea id="description" name="description" value={formData.description} onChange={handleChange} />
@@ -358,11 +557,21 @@ export function CreateTourWizard({ open, onOpenChange, onSuccess }) {
     }, 300);
   };
 
-  const handleStep1Submit = async (formData) => {
+  const handleStep1Submit = async (formData, hashtags) => {
     try {
       setLoading(true);
-      const newTour = await createTour(formData); // API đã dùng FormData
+      const newTour = await createTour(formData); 
+      console.log("XP-DEBUG-NewTour: ", newTour);
       setNewTourId(newTour.tourId);
+
+      if (hashtags && hashtags.length > 0) {
+        for (const tag of hashtags) {
+          await linkTourToHashTag({
+            tourId: newTourId,
+            hashtagId: tag.hashtagId
+          });
+        }
+      }
       setStep(2);
     } catch (err) {
       alert("Lỗi tạo tour. Vui lòng thử lại.");
@@ -377,7 +586,6 @@ export function CreateTourWizard({ open, onOpenChange, onSuccess }) {
       const res = await createImages(formData);
       console.log("createImages response:", res);
       alert("Tải ảnh lên gallery thành công!");
-      onSuccess();
       setStep(3);
     } catch {
       alert("Lỗi khi thêm ảnh vào gallery. Vui lòng thử lại.");
