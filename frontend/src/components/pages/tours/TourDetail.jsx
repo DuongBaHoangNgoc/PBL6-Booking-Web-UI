@@ -15,20 +15,11 @@ import {
   ChevronRight,
   X,
   Phone,
-  Phone,
   Tag,
 } from "lucide-react";
 import { useLocation, useNavigate, useParams, Link } from "react-router-dom";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
-import {
-  getTourById,
-  getReviewsByTourId,
-  getStartDatesByTourId,
-  getTimelineByTourId,
-  getTourPriceById,
-  getImagesByTourId,
-} from "@/api/tours";
 import {
   getTourById,
   getReviewsByTourId,
@@ -259,9 +250,6 @@ export default function TourDetail() {
       };
 
       console.log("XP-DEBUG-ZZZZZ: ", bookingData);
-      const newBooking = await createBooking(bookingData);
-      alert("Đặt tour thành công! Đang chuyển đến trang booking của bạn...");
-      navigate("/bookings");
       const newBooking = await createBooking(bookingData);
       alert("Đặt tour thành công! Đang chuyển đến trang booking của bạn...");
       navigate("/bookings");

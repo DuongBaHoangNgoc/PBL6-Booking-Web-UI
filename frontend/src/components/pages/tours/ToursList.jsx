@@ -108,9 +108,6 @@ export default function TourSearchResult() {
   }, [debouncedSlug]);
 
   // 3. THÊM HÀM: Xử lý bấm nút phân trang
-  const totalPages = useMemo(() => {
-    return Math.ceil(pagination.totalItems / pagination.limit);
-  }, [pagination.totalItems, pagination.limit]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
