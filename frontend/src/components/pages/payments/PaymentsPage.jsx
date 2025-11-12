@@ -36,6 +36,10 @@ export default function PaymentsPage() {
   const [paymentId, setPaymentId] = useState(null);
   const [eventSource, setEventSource] = useState(null);
 
+  // ⏱️ Đồng hồ đếm ngược (giữ lại qua reload)
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [startTime, setStartTime] = useState(null);
+
   // 🧾 Thông tin thẻ mới
   const [newAccount, setNewAccount] = useState({
     accountNumber: "",
@@ -95,6 +99,28 @@ export default function PaymentsPage() {
     }
   };
 
+  // ✅ 1. Khôi phục QR khi load trang (chỉ chạy 1 lần)
+  useEffect(() => {
+    const saved = localStorage.getItem("qrPayment");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const elapsed = Math.floor((Date.now() - parsed.startTime) / 1000);
+      const remaining = 300 - elapsed;
+
+      if (remaining > 0 && parsed.status === "PENDING") {
+        setPaymentId(parsed.paymentId);
+        setQrUrl(parsed.qrUrl);
+        setPaymentStatus("PENDING");
+        setTimeLeft(remaining);
+        setStartTime(parsed.startTime);
+        startSseStream(parsed.paymentId);
+      } else {
+        localStorage.removeItem("qrPayment");
+      }
+    }
+  }, []);
+
+  // ✅ 2. Khi user có dữ liệu → fetch tài khoản
   useEffect(() => {
     if (user) fetchAccounts();
   }, [user]);
@@ -187,6 +213,22 @@ export default function PaymentsPage() {
       setQrUrl(qr);
       setPaymentId(data.paymentId);
       setPaymentStatus("PENDING");
+
+      // Bắt đầu đếm ngược 5 phút (300 giây)
+      const now = Date.now();
+      setTimeLeft(300);
+      setStartTime(now);
+
+      // Lưu vào localStorage để giữ khi reload
+      localStorage.setItem(
+        "qrPayment",
+        JSON.stringify({
+          paymentId: data.paymentId,
+          qrUrl: qr,
+          startTime: now,
+          status: "PENDING",
+        })
+      );
 
       setMessage({
         type: "success",
@@ -294,6 +336,15 @@ export default function PaymentsPage() {
     };
   };
 
+  // ⏱️ Đếm ngược thời gian QR
+  useEffect(() => {
+    if (timeLeft <= 0 || paymentStatus !== "PENDING") return;
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [timeLeft, paymentStatus]);
+
   useEffect(() => {
     return () => {
       if (eventSource) eventSource.close();
@@ -388,6 +439,23 @@ export default function PaymentsPage() {
                   alt="QR thanh toán"
                   className="mx-auto w-48 border p-2 rounded-md mb-2"
                 />
+                {paymentStatus === "PENDING" && timeLeft > 0 && (
+                  <p className="text-sm text-muted-foreground mb-1">
+                    Còn lại:{" "}
+                    <span
+                      className={`font-semibold ${
+                        timeLeft < 30
+                          ? "text-red-500 animate-pulse"
+                          : "text-blue-600"
+                      }`}
+                    >
+                      {Math.floor(timeLeft / 60)
+                        .toString()
+                        .padStart(2, "0")}
+                      :{(timeLeft % 60).toString().padStart(2, "0")}
+                    </span>
+                  </p>
+                )}
                 <p className="text-sm text-muted-foreground">
                   Trạng thái:{" "}
                   <span
