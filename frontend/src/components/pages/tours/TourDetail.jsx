@@ -15,8 +15,9 @@ import {
   ChevronRight,
   X,
   Phone,
+  Tag,
 } from "lucide-react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, Link } from "react-router-dom";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import {
@@ -26,6 +27,7 @@ import {
   getTimelineByTourId,
   getTourPriceById,
   getImagesByTourId,
+  filterTours,
 } from "@/api/tours";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format, formatDistanceToNow } from "date-fns";
@@ -485,6 +487,26 @@ export default function TourDetail() {
                   </span>
                 )}
               </div>
+
+              {hashtags.tourHashtags.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <Tag className="w-4 h-4 text-muted-foreground" />
+                  {/* Giả định API trả về: { hashtag: { name: "#danang" } } */}
+                  {hashtags.tourHashtags.map((item) => (
+                    <Link
+                      key={item.tourHashTagId}
+                      to={`/hashtags/${item.hashtag.name.replace("#", "")}`}
+                    >
+                      <Badge
+                        variant="outline"
+                        className="text-xl hover:bg-muted"
+                      >
+                        {item.hashtag.name}
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              )}
 
               <p className="text-lg text-muted-foreground whitespace-pre-line">
                 {tour.description || "Không có mô tả cho tour này."}
@@ -949,6 +971,16 @@ export default function TourDetail() {
             </Card>
           </div>
         </div>
+        <h2 className="text-3xl font-bold text-foreground mt-8">
+          Tour du lịch {tour.destination} liên quan
+        </h2>
+        {relativeTour.totalItems > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
+            {relativeTour.items.map((tour) => (
+              <TourCard key={tour.tourId} tour={tour} />
+            ))}
+          </div>
+        )}
       </div>
 
       <ImageLightbox

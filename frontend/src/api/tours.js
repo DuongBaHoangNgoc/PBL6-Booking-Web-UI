@@ -2,11 +2,15 @@ import api from "./axiosInstance";
 
 // --------------------- APIs ---------------------
 
+// GET /tour
+
 // GET /tours
-export async function getTours(params) {
+export async function getTours() {
   try {
-    const res = await api.get("/tours", { params });
-    return res.data?.data ?? res.data;
+    const res = await api.get("/tours");
+    return {
+      data: res.data?.data ?? res.data
+    };
   } catch (err) {
     console.error("Lỗi API getTours:", err);
     return [];
@@ -101,6 +105,22 @@ export async function getReviewsByTourId(tourId) {
 }
 
 /**
+ * Lấy toàn bộ danh sách ngày khởi hành 
+ * API: GET /start-end-dates
+ */
+export async function getAllStartDates() {
+  try {
+    const res = await api.get("/start-end-dates");
+    return {
+      data: res.data?.data ?? res.data
+    };
+  } catch (err) {
+    console.error("Lỗi API getAllStartDates:", err);
+    return [];
+  }
+}
+
+/**
  * Lấy danh sách ngày khởi hành của tour
  * API: GET /start-end-dates/FilterPagination
  */
@@ -132,7 +152,7 @@ export async function getTourPriceById(tourId) {
 /**
  * Tạo tour cơ bản (Step 1)
  * API: POST /tours/createTour (dùng FormData)
- * @param {FormData} formData - FormData chứa (title, description, file, itinerary, ...)
+ * @param {FormData} formData - FormData chứa (title, description, file, ...)
  */
 export async function createTour(formData) {
   try {

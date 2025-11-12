@@ -160,7 +160,6 @@ export function ManageToursPage() {
   };
 
   const handleEditTour = (tourId) => {
-    // Điều hướng đến route /admin/tours/edit/ID_CUA_TOUR
     navigate(`/admin/tours/edit/${tourId}`);
   };
 
