@@ -30,7 +30,13 @@ export default function PaymentsPage() {
   const [isFetching, setIsFetching] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
-  // 🧾 Form thêm thẻ mới
+  // 💳 SSE states
+  const [paymentStatus, setPaymentStatus] = useState("");
+  const [qrUrl, setQrUrl] = useState("");
+  const [paymentId, setPaymentId] = useState(null);
+  const [eventSource, setEventSource] = useState(null);
+
+  // 🧾 Thông tin thẻ mới
   const [newAccount, setNewAccount] = useState({
     accountNumber: "",
     accountName: "",
@@ -41,7 +47,7 @@ export default function PaymentsPage() {
   const [topupAmount, setTopupAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
 
-  // 🟢 Lấy danh sách thẻ ngân hàng & số dư
+  // 🟢 Lấy danh sách tài khoản
   const fetchAccounts = async () => {
     if (!user) return;
     try {
@@ -65,17 +71,16 @@ export default function PaymentsPage() {
     }
   };
 
-  // 📜 Lấy lịch sử giao dịch thực tế
+  // 📜 Lấy lịch sử giao dịch
   const fetchTransactions = async () => {
-    if (!user) return;
+    if (!user || accounts.length === 0) return;
     try {
       setIsFetching(true);
       const res = await getTransactions({
-        accountId: accounts[0]?.id, // ✅ đúng theo API
+        accountId: accounts[0]?.id,
         limit: 10,
         page: 1,
       });
-
       const data =
         res?.data?.transactions || res?.transactions || res?.data || [];
       setTransactions(Array.isArray(data) ? data : []);
@@ -91,19 +96,14 @@ export default function PaymentsPage() {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchAccounts();
-    }
+    if (user) fetchAccounts();
   }, [user]);
 
-  // Khi danh sách account thay đổi thì load giao dịch tương ứng
   useEffect(() => {
-    if (accounts.length > 0) {
-      fetchTransactions();
-    }
+    if (accounts.length > 0) fetchTransactions();
   }, [accounts]);
 
-  // 🟣 Tạo tài khoản mới
+  // 🟣 Thêm tài khoản mới
   const handleAddAccount = async () => {
     const { accountNumber, accountName, bankName } = newAccount;
     if (!accountNumber || !accountName || !bankName) {
@@ -131,10 +131,7 @@ export default function PaymentsPage() {
         setNewAccount({ accountNumber: "", accountName: "", bankName: "" });
         fetchAccounts();
       } else {
-        setMessage({
-          type: "error",
-          text: res?.message || "Không thể thêm tài khoản.",
-        });
+        throw new Error(res?.message || "Không thể thêm tài khoản");
       }
     } catch (err) {
       console.error("❌ Lỗi khi tạo tài khoản:", err);
@@ -147,7 +144,7 @@ export default function PaymentsPage() {
     }
   };
 
-  // 💸 Nạp xu
+  // 💸 Nạp xu có SSE realtime
   const handleTopUp = async () => {
     if (!topupAmount || Number(topupAmount) <= 0) {
       setMessage({ type: "error", text: "Vui lòng nhập số xu hợp lệ!" });
@@ -166,36 +163,50 @@ export default function PaymentsPage() {
       const account = accounts[0];
       const amount = Number(topupAmount);
 
-      const res = await createTransaction({
-        userWalletAccountId: account.id,
-        amount,
-        type: "NAP_TIEN",
+      const res = await fetch(
+        `${
+          import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"
+        }/transactions/InOutcoin`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userWalletAccountId: account.id,
+            amount,
+            type: "NAP_TIEN",
+          }),
+        }
+      );
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const result = await res.json();
+      const data = result.data;
+
+      // ✅ Hiển thị QR thanh toán
+      const qr = `https://qr.sepay.vn/img?acc=96247H06JB&bank=BIDV&amount=${amount}&des=${data.transaction_content}`;
+      setQrUrl(qr);
+      setPaymentId(data.paymentId);
+      setPaymentStatus("PENDING");
+
+      setMessage({
+        type: "success",
+        text: "Giao dịch được tạo, vui lòng quét mã QR để thanh toán.",
       });
 
-      if (res?.statusCode === 201 || res?.status === "SUCCESS") {
-        setMessage({
-          type: "success",
-          text: `Đã nạp ${amount.toLocaleString("vi-VN")} xu thành công!`,
-        });
-        setBalance((prev) => prev + amount);
-        await fetchTransactions();
-      } else {
-        throw new Error(res?.message || "Nạp xu thất bại");
-      }
-
-      setTopupAmount("");
+      // 🔹 Lắng nghe SSE
+      startSseStream(data.paymentId);
     } catch (err) {
       console.error("❌ Lỗi khi nạp xu:", err);
       setMessage({
         type: "error",
-        text: "Không thể nạp xu. Vui lòng thử lại!",
+        text: "Không thể tạo giao dịch. Vui lòng thử lại!",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  // 💵 Rút xu
+  // 💵 Rút xu (không cần QR)
   const handleWithdraw = async () => {
     if (!withdrawAmount || Number(withdrawAmount) <= 0) {
       setMessage({ type: "error", text: "Vui lòng nhập số xu muốn rút!" });
@@ -246,6 +257,48 @@ export default function PaymentsPage() {
       setLoading(false);
     }
   };
+
+  // 🔄 SSE stream listener
+  const startSseStream = (paymentId) => {
+    if (eventSource) eventSource.close();
+
+    const sseUrl = `${
+      import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"
+    }/transactions/stream/${paymentId}`;
+    console.log("🔌 SSE connect:", sseUrl);
+
+    const sse = new EventSource(sseUrl);
+    setEventSource(sse);
+
+    sse.onmessage = async (event) => {
+      const data = JSON.parse(event.data);
+      console.log("📩 SSE event:", data);
+      const newStatus = data.status;
+      setPaymentStatus(newStatus);
+
+      if (newStatus === "SUCCESS") {
+        setMessage({ type: "success", text: "Giao dịch thành công ✅" });
+        setBalance((prev) => prev + Number(data.amount || 0));
+        await fetchTransactions();
+        sse.close();
+      } else if (newStatus === "EXPIRED") {
+        setMessage({ type: "error", text: "Giao dịch hết hạn ❌" });
+        sse.close();
+      }
+    };
+
+    sse.onerror = (err) => {
+      console.error("SSE Error:", err);
+      setPaymentStatus("Lỗi kết nối SSE");
+      sse.close();
+    };
+  };
+
+  useEffect(() => {
+    return () => {
+      if (eventSource) eventSource.close();
+    };
+  }, [eventSource]);
 
   if (!user)
     return (
@@ -323,6 +376,34 @@ export default function PaymentsPage() {
                 {loading ? "Đang xử lý..." : "Nạp Ngay"}
               </Button>
             </div>
+
+            {/* QR hiển thị khi nạp tiền */}
+            {qrUrl && (
+              <div className="mt-6 text-center border p-4 rounded-lg bg-muted/30">
+                <h3 className="text-lg font-semibold mb-2">
+                  Quét mã QR để thanh toán
+                </h3>
+                <img
+                  src={qrUrl}
+                  alt="QR thanh toán"
+                  className="mx-auto w-48 border p-2 rounded-md mb-2"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Trạng thái:{" "}
+                  <span
+                    className={
+                      paymentStatus === "SUCCESS"
+                        ? "text-green-600 font-semibold"
+                        : paymentStatus === "EXPIRED"
+                        ? "text-red-600 font-semibold"
+                        : "text-yellow-600"
+                    }
+                  >
+                    {paymentStatus || "Chờ quét QR..."}
+                  </span>
+                </p>
+              </div>
+            )}
           </Card>
 
           {/* Rút xu */}
@@ -352,54 +433,90 @@ export default function PaymentsPage() {
         {/* Lịch sử giao dịch */}
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Lịch sử giao dịch</h2>
+
           {transactions.length === 0 ? (
             <p className="text-muted-foreground text-center py-6">
               Chưa có giao dịch nào.
             </p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 font-semibold">Mã</th>
-                  <th className="text-left py-3 px-4 font-semibold">Loại</th>
-                  <th className="text-left py-3 px-4 font-semibold">Số xu</th>
-                  <th className="text-left py-3 px-4 font-semibold">Ngày</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((t) => (
-                  <tr
-                    key={t.transactionId || t.id}
-                    className="border-b border-border hover:bg-muted/50 transition-colors"
-                  >
-                    <td className="py-3 px-4">
-                      {t.transactionId || t.id || "-"}
-                    </td>
-                    <td className="py-3 px-4">
-                      {t.type === "NAP_TIEN"
-                        ? "Nạp xu"
-                        : t.type === "RUT_TIEN"
-                        ? "Rút xu"
-                        : "Khác"}
-                    </td>
-                    <td
-                      className={`py-3 px-4 font-semibold ${
-                        t.type === "RUT_TIEN"
-                          ? "text-red-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      {Number(t.amount).toLocaleString("vi-VN")} xu
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground">
-                      {new Date(t.createDate || t.createdAt).toLocaleString(
-                        "vi-VN"
-                      )}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border border-border rounded-lg">
+                <thead className="bg-muted/30">
+                  <tr className="border-b border-border">
+                    <th className="py-3 px-4 text-left font-semibold">Mã GD</th>
+                    <th className="py-3 px-4 text-left font-semibold">
+                      Mã Thanh Toán
+                    </th>
+                    <th className="py-3 px-4 text-left font-semibold">Loại</th>
+                    <th className="py-3 px-4 text-left font-semibold">
+                      Số Tiền
+                    </th>
+                    <th className="py-3 px-4 text-left font-semibold">
+                      Trạng Thái
+                    </th>
+                    <th className="py-3 px-4 text-left font-semibold">
+                      Ngân Hàng
+                    </th>
+                    <th className="py-3 px-4 text-left font-semibold">
+                      Số Tài Khoản
+                    </th>
+                    <th className="py-3 px-4 text-left font-semibold">Ngày</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {transactions.map((t) => {
+                    // 🔍 Xác định loại giao dịch từ nội dung
+                    const isDeposit =
+                      t.transaction_content?.includes("NAPTIEN");
+                    const typeText = isDeposit ? "Nạp tiền" : "Rút tiền";
+
+                    // 🔍 Lấy số tiền từ nội dung (ví dụ: “NAPTIEN 50000”)
+                    const matchAmount = t.transaction_content?.match(
+                      /(\d+)(?=\s*paymentCode)/
+                    );
+                    const amount = matchAmount ? Number(matchAmount[1]) : 0;
+
+                    return (
+                      <tr
+                        key={t.transactionId}
+                        className="border-b border-border hover:bg-muted/50 transition-colors"
+                      >
+                        <td className="py-3 px-4">{t.transactionId}</td>
+                        <td className="py-3 px-4">{t.paymentId}</td>
+                        <td className="py-3 px-4">{typeText}</td>
+                        <td
+                          className={`py-3 px-4 font-semibold ${
+                            isDeposit ? "text-green-600" : "text-red-600"
+                          }`}
+                        >
+                          {amount.toLocaleString("vi-VN")} VND
+                        </td>
+                        <td
+                          className={`py-3 px-4 font-semibold ${
+                            t.status === "SUCCESS"
+                              ? "text-green-600"
+                              : t.status === "EXPIRED"
+                              ? "text-red-600"
+                              : "text-yellow-600"
+                          }`}
+                        >
+                          {t.status}
+                        </td>
+                        <td className="py-3 px-4">
+                          {t.account?.bankName || "-"}
+                        </td>
+                        <td className="py-3 px-4">
+                          {t.account?.accountNumber || "-"}
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {new Date(t.transaction_date).toLocaleString("vi-VN")}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
       </div>

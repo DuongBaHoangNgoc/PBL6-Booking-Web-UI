@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,180 +9,371 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
-import {
-  MapPin,
-  Calendar,
-  DollarSign,
-  Heart,
-  TrendingUp,
-  Users,
-} from "lucide-react";
-import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
 import axios from "axios";
-
-// Dữ liệu mẫu (chart)
-const chartData = [
-  { month: "Jan", bookings: 4 },
-  { month: "Feb", bookings: 3 },
-  { month: "Mar", bookings: 2 },
-  { month: "Apr", bookings: 5 },
-  { month: "May", bookings: 4 },
-  { month: "Jun", bookings: 6 },
-];
+import { Calendar, Users, DollarSign } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export function TourDashboard() {
+  const [stats, setStats] = useState({
+    totalBookings: 0,
+    totalUsers: 0,
+    totalEarnings: 0,
+    totalDone: 0,
+    totalBooked: 0,
+  });
+  const [revenueData, setRevenueData] = useState([]);
+  const [topDestinations, setTopDestinations] = useState([]);
   const [recentBookings, setRecentBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Gọi API để lấy danh sách booking
+  const [period, setPeriod] = useState("day"); // Biểu đồ doanh thu
+  const [destPeriod, setDestPeriod] = useState("month"); // Top destinations
+
   useEffect(() => {
-    const fetchBookings = async () => {
+    const fetchData = async () => {
       try {
-        const res = await axios.get(
-          "http://localhost:3000/bookings/FilterPagination?page=1&limit=10"
+        const [bookingsRes, usersRes, transactionsRes] = await Promise.all([
+          axios.get(
+            "http://localhost:3000/bookings/FilterPagination?page=1&limit=1000"
+          ),
+          axios.get(
+            "http://localhost:3000/user/FilterPagination?page=1&limit=1000"
+          ),
+          axios.get("http://localhost:3000/transactions-coins"),
+        ]);
+
+        const bookings = bookingsRes.data?.data?.bookings || [];
+        const users = usersRes.data?.data?.users || [];
+        const transactions = transactionsRes.data?.data || [];
+
+        // ✅ 1. Tổng số booking
+        const totalBookings = bookings.length;
+
+        // ✅ 2. Tổng số người dùng
+        const totalUsers = users.length;
+
+        // ✅ 3. Tổng doanh thu (chỉ tính SUCCESS)
+        const totalEarnings = transactions
+          .filter((t) => t.status === "SUCCESS")
+          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+        // ✅ 4. Tổng chuyến đi (Done / Booked)
+        const today = new Date();
+        let totalDone = 0;
+        let totalBooked = 0;
+
+        bookings.forEach((b) => {
+          if (b.bookingStatus === "confirmed" && b.date?.endDate) {
+            const end = new Date(b.date.endDate);
+            if (end < today) totalDone++;
+            else totalBooked++;
+          }
+        });
+
+        // ✅ 5. Revenue Overview (group theo period)
+        const grouped = groupRevenue(transactions, period);
+
+        // ✅ 6. Recent bookings
+        const sorted = bookings
+          .sort((a, b) => new Date(b.bookingDate) - new Date(a.bookingDate))
+          .slice(0, 10);
+
+        // ✅ 7. Top Destinations (lọc theo thời gian & confirmed)
+        const destinations = {};
+        const now = new Date();
+
+        bookings.forEach((b) => {
+          if (b.bookingStatus === "confirmed" && b.tour?.destination) {
+            const bookingDate = new Date(b.bookingDate);
+
+            const isSameMonth =
+              bookingDate.getMonth() === now.getMonth() &&
+              bookingDate.getFullYear() === now.getFullYear();
+
+            const isSameYear = bookingDate.getFullYear() === now.getFullYear();
+
+            if (
+              destPeriod === "all" ||
+              (destPeriod === "month" && isSameMonth) ||
+              (destPeriod === "year" && isSameYear)
+            ) {
+              const dest = b.tour.destination;
+              destinations[dest] = (destinations[dest] || 0) + 1;
+            }
+          }
+        });
+
+        const totalDest = Object.values(destinations).reduce(
+          (a, b) => a + b,
+          0
         );
-        setRecentBookings(res.data?.data?.bookings || []);
+
+        const topDestinationsData =
+          totalDest > 0
+            ? Object.entries(destinations)
+                .map(([name, count], i) => ({
+                  name,
+                  percent: parseFloat(((count / totalDest) * 100).toFixed(1)),
+                  participants: count,
+                  color: ["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd"][i % 4],
+                }))
+                .sort((a, b) => b.participants - a.participants)
+                .slice(0, 4)
+            : [];
+
+        // ✅ Cập nhật state
+        setStats({
+          totalBookings,
+          totalUsers,
+          totalEarnings,
+          totalDone,
+          totalBooked,
+        });
+        setRevenueData(grouped);
+        setRecentBookings(sorted);
+        setTopDestinations(topDestinationsData);
       } catch (error) {
-        console.error("❌ Lỗi khi tải danh sách booking:", error);
+        console.error("❌ Lỗi khi tải dữ liệu dashboard:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchBookings();
-  }, []);
+    fetchData();
+  }, [period, destPeriod]);
+
+  // 🔹 Hàm nhóm doanh thu
+  const groupRevenue = (transactions, mode) => {
+    const map = new Map();
+    transactions
+      .filter((t) => t.status === "SUCCESS")
+      .forEach((t) => {
+        const date = new Date(t.createdAt);
+        let key = "";
+
+        switch (mode) {
+          case "day":
+            key = date.toISOString().split("T")[0];
+            break;
+          case "week":
+            key = `Week ${Math.ceil(date.getDate() / 7)}`;
+            break;
+          case "month":
+            key = date.toLocaleString("en-US", { month: "short" });
+            break;
+          case "year":
+            key = date.getFullYear();
+            break;
+        }
+
+        const sum = map.get(key) || 0;
+        map.set(key, sum + Number(t.amount || 0));
+      });
+
+    return Array.from(map, ([name, value]) => ({ name, value }));
+  };
+
+  if (loading) return <p className="text-center py-20">Đang tải dữ liệu...</p>;
 
   return (
-    <section className="min-h-screen my-28 pb-24">
+    <section className="min-h-screen my-16 pb-24">
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome back! Here's your travel overview
+            Tổng quan hoạt động kinh doanh
           </p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">
-                  Total Bookings
-                </p>
-                <p className="text-3xl font-bold text-foreground">12</p>
-              </div>
-              <Calendar className="w-8 h-8 text-primary/20" />
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <Card className="p-6 flex justify-between items-center">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Bookings</p>
+              <p className="text-3xl font-bold text-foreground">
+                {stats.totalBookings}
+              </p>
             </div>
+            <Calendar className="w-8 h-8 text-primary/20" />
           </Card>
 
-          <Card className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">
-                  Total Spent
-                </p>
-                <p className="text-3xl font-bold text-foreground">$15,297</p>
-              </div>
-              <DollarSign className="w-8 h-8 text-primary/20" />
+          <Card className="p-6 flex justify-between items-center">
+            <div>
+              <p className="text-sm text-muted-foreground">New Customers</p>
+              <p className="text-3xl font-bold text-foreground">
+                {stats.totalUsers}
+              </p>
             </div>
+            <Users className="w-8 h-8 text-primary/20" />
           </Card>
 
-          <Card className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">
-                  Destinations
-                </p>
-                <p className="text-3xl font-bold text-foreground">8</p>
-              </div>
-              <MapPin className="w-8 h-8 text-primary/20" />
+          <Card className="p-6 flex justify-between items-center">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Earnings</p>
+              <p className="text-3xl font-bold text-foreground">
+                {stats.totalEarnings.toLocaleString("vi-VN")}₫
+              </p>
             </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Wishlist</p>
-                <p className="text-3xl font-bold text-foreground">5</p>
-              </div>
-              <Heart className="w-8 h-8 text-primary/20" />
-            </div>
+            <DollarSign className="w-8 h-8 text-primary/20" />
           </Card>
         </div>
 
-        {/* Charts and Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Chart */}
-          <Card className="lg:col-span-2 p-6">
-            <h2 className="text-xl font-bold text-foreground mb-6">
-              Booking Trends
+        {/* Revenue Overview */}
+        <Card className="p-6 mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Revenue Overview</h2>
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="border rounded px-3 py-1 text-sm"
+            >
+              <option value="day">Ngày</option>
+              <option value="week">Tuần</option>
+              <option value="month">Tháng</option>
+              <option value="year">Năm</option>
+            </select>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={revenueData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="value" fill="#4f46e5" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* 🌍 Top Destinations */}
+        <Card className="p-6 mb-8">
+          <div className="flex items-start justify-between mb-6">
+            <h2 className="text-xl font-bold text-foreground">
+              Top Destinations
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="var(--color-border)"
-                />
-                <XAxis dataKey="month" stroke="var(--color-muted-foreground)" />
-                <YAxis stroke="var(--color-muted-foreground)" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--color-card)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Bar
-                  dataKey="bookings"
-                  fill="var(--color-primary)"
-                  radius={[8, 8, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </Card>
+            <select
+              value={destPeriod}
+              onChange={(e) => setDestPeriod(e.target.value)}
+              className="bg-blue-100 text-blue-700 text-sm font-semibold rounded-lg px-3 py-1 border-0 focus:outline-none"
+            >
+              <option value="month">This Month</option>
+              <option value="year">This Year</option>
+              <option value="all">All Time</option>
+            </select>
+          </div>
 
-          {/* Quick Actions */}
-          <Card className="p-6">
-            <h2 className="text-xl font-bold text-foreground mb-4">
-              Quick Actions
-            </h2>
-            <div className="space-y-3">
-              <Link to="/tours" className="block">
-                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground justify-start gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Browse Tours
-                </Button>
-              </Link>
+          {topDestinations.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              Không có dữ liệu điểm đến trong giai đoạn này.
+            </p>
+          ) : (
+            <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+              <div className="w-full md:w-1/2 h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={topDestinations}
+                      dataKey="percent"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={4}
+                    >
+                      {topDestinations.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
 
-              <Link to="/bookings" className="block">
-                <Button
-                  variant="outline"
-                  className="w-full bg-transparent justify-start gap-2"
-                >
-                  <Calendar className="w-4 h-4" />
-                  My Bookings
-                </Button>
-              </Link>
-
-              <Link to="/profile" className="block">
-                <Button
-                  variant="outline"
-                  className="w-full bg-transparent justify-start gap-2"
-                >
-                  <Users className="w-4 h-4" />
-                  Edit Profile
-                </Button>
-              </Link>
+              <div className="w-full md:w-1/2 space-y-4">
+                {topDestinations.map((dest, idx) => (
+                  <div key={idx} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: dest.color }}
+                      ></span>
+                      <div>
+                        <p className="font-semibold text-foreground">
+                          {dest.name} ({dest.percent}%)
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {dest.participants.toLocaleString()} Participants
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </Card>
-        </div>
+          )}
+        </Card>
 
-        {/* ✅ Recent Bookings */}
-        <Card className="mt-8 p-6">
+        {/* ✈️ Total Trips */}
+        <Card className="p-6 mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-50 overflow-hidden">
+              <img
+                src="https://cdn.creazilla.com/emojis/54728/airplane-emoji-clipart-xl.png"
+                alt="Airplane"
+                className="w-7 h-7 object-contain"
+              />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total Trips</p>
+              <p className="text-3xl font-bold text-foreground">
+                {stats.totalDone + stats.totalBooked}
+              </p>
+            </div>
+          </div>
+
+          <div className="w-full h-3 rounded-full bg-gray-200 overflow-hidden mb-4 flex">
+            <div
+              className="bg-green-400"
+              style={{
+                width: `${
+                  (stats.totalDone /
+                    (stats.totalDone + stats.totalBooked || 1)) *
+                    100 || 0
+                }%`,
+              }}
+            ></div>
+            <div
+              className="bg-blue-400"
+              style={{
+                width: `${
+                  (stats.totalBooked /
+                    (stats.totalDone + stats.totalBooked || 1)) *
+                    100 || 0
+                }%`,
+              }}
+            ></div>
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-full bg-green-400"></span>
+              <span>Done</span>
+              <strong className="ml-1">{stats.totalDone}</strong>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-full bg-blue-400"></span>
+              <span>Booked</span>
+              <strong className="ml-1">{stats.totalBooked}</strong>
+            </div>
+          </div>
+        </Card>
+
+        {/* 📋 Recent Bookings */}
+        <Card className="p-6">
           <h2 className="text-xl font-bold text-foreground mb-6">
             Recent Bookings
           </h2>
@@ -193,33 +385,25 @@ export function TourDashboard() {
               View All
             </Button>
           </Link>
-          {loading ? (
-            <p className="text-muted-foreground text-sm">Loading...</p>
-          ) : recentBookings.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
+
+          {recentBookings.length === 0 ? (
+            <p className="text-muted-foreground text-sm mt-4">
               No recent bookings found.
             </p>
           ) : (
-            // ✅ Giới hạn chiều cao + scroll nội bộ
-            <div className="overflow-y-scroll max-h-80 rounded-md border border-border scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
+            <div className="overflow-y-scroll max-h-80 rounded-md border border-border scrollbar-thin">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-background z-10 border-b border-border">
                   <tr>
-                    <th className="text-left py-3 px-4 font-semibold text-foreground">
-                      Tour
-                    </th>
-                    <th className="text-left py-3 px-4 font-semibold text-foreground">
+                    <th className="text-left py-3 px-4 font-semibold">Tour</th>
+                    <th className="text-left py-3 px-4 font-semibold">
                       Customer
                     </th>
-                    <th className="text-left py-3 px-4 font-semibold text-foreground">
-                      Date
-                    </th>
-                    <th className="text-left py-3 px-4 font-semibold text-foreground">
+                    <th className="text-left py-3 px-4 font-semibold">Date</th>
+                    <th className="text-left py-3 px-4 font-semibold">
                       Status
                     </th>
-                    <th className="text-left py-3 px-4 font-semibold text-foreground">
-                      Price
-                    </th>
+                    <th className="text-left py-3 px-4 font-semibold">Price</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -228,13 +412,9 @@ export function TourDashboard() {
                       key={b.bookingId}
                       className="border-b border-border hover:bg-muted/50 transition-colors"
                     >
-                      <td className="py-3 px-4 text-foreground">
-                        {b.tour?.title || "N/A"}
-                      </td>
-                      <td className="py-3 px-4 text-muted-foreground">
-                        {b.fullName}
-                      </td>
-                      <td className="py-3 px-4 text-muted-foreground">
+                      <td className="py-3 px-4">{b.tour?.title || "N/A"}</td>
+                      <td className="py-3 px-4">{b.fullName}</td>
+                      <td className="py-3 px-4">
                         {new Date(b.bookingDate).toLocaleDateString("vi-VN")}
                       </td>
                       <td className="py-3 px-4">
@@ -250,7 +430,7 @@ export function TourDashboard() {
                           {b.bookingStatus}
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-semibold text-foreground">
+                      <td className="py-3 px-4 font-semibold">
                         {Number(b.totalPrice).toLocaleString("vi-VN")}₫
                       </td>
                     </tr>
