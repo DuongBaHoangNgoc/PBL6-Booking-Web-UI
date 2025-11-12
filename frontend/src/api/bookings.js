@@ -44,25 +44,28 @@ export async function updateBookingStatus(bookingId, status) {
 }
 
 // 🟢 Thanh toán bằng Xu (ghi vào bảng tbl_transaction_coins)
-export async function payBookingWithCoin(bookingId, userId) {
+export async function payBookingWithCoin(bookingId, userId, amount) {
   try {
-    console.log(`💰 Gửi POST /bookings/payCoinBooking`);
     const res = await api.post(`/bookings/payCoinBooking`, {
       bookingId,
       userId,
+      amount,
     });
 
-    if (res.data?.status === "SUCCESS") {
-      console.log("✅ Thanh toán bằng xu thành công:", res.data);
-      return res.data;
-    } else {
-      throw new Error(res.data?.message || "Thanh toán bằng xu thất bại");
-    }
+    const data = res.data?.data ?? res.data;
+
+    return {
+      statusCode: res.data?.statusCode,
+      status: res.data?.status,
+      data,
+      message: res.data?.message,
+    };
   } catch (err) {
     console.error("❌ Lỗi khi thanh toán bằng xu:", err);
     throw err;
   }
 }
+
 // 🟣 Lọc và phân trang danh sách booking
 /**
  * Lấy danh sách bookings có thể lọc và phân trang.

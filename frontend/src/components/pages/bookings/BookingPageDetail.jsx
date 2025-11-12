@@ -12,7 +12,6 @@ import {
   XCircle,
   CheckCircle,
 } from "lucide-react";
-import axios from "axios";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +19,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { getAccountsFilterPagination } from "@/api/wallet_accounts";
+import { payBookingWithCoin } from "@/api/bookings";
 
 export default function BookingDetailPage() {
   const location = useLocation();
@@ -44,41 +45,24 @@ export default function BookingDetailPage() {
       </div>
     );
 
-  // ✅ Gọi API lấy số dư tài khoản người dùng
+  // ✅ Lấy số dư tài khoản người dùng
   const fetchBalance = async () => {
     try {
-      const res = await axios.get(
-        `http://localhost:3000/accounts/FilterPagination`,
-        {
-          params: { userId, limit: 1, page: 1 },
-        }
-      );
-      const account = res.data?.data?.accounts?.[0];
+      const res = await getAccountsFilterPagination({
+        userId,
+        limit: 1,
+        page: 1,
+      });
+
+      const account = res.accounts?.[0];
       setBalance(Number(account?.balance || 0));
     } catch (err) {
-      console.error(err);
+      console.error("❌ Lỗi khi tải số dư tài khoản:", err);
       setMessage({ type: "error", text: "Không thể tải số dư tài khoản!" });
     }
   };
 
-  // ✅ Gọi API thanh toán booking bằng xu
-  const payCoinBooking = async (payload) => {
-    try {
-      const response = await axios.post(
-        `http://localhost:3000/bookings/payCoinBooking`,
-        payload,
-        {
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-      return response.data; // { data: {...booking}, message, statusCode }
-    } catch (err) {
-      console.error("❌ Lỗi khi gọi API payCoinBooking:", err);
-      throw err;
-    }
-  };
-
-  // Mở popup thanh toán
+  // ✅ Mở popup thanh toán
   const handleOpenPayment = async () => {
     setMessage({ type: "", text: "" });
     await fetchBalance();
@@ -100,26 +84,26 @@ export default function BookingDetailPage() {
         return;
       }
 
-      const res = await payCoinBooking({
+      const res = await payBookingWithCoin(
+        booking.bookingId,
         userId,
-        bookingId: booking.bookingId,
-        amount: totalPrice,
-      });
+        totalPrice
+      );
 
-      if (res.statusCode === 200 && res.data?.bookingStatus === "confirmed") {
+      if (
+        res?.statusCode === 200 ||
+        res?.status === "SUCCESS" ||
+        res?.data?.bookingStatus === "confirmed"
+      ) {
         setMessage({
           type: "success",
           text: "Thanh toán thành công! Đang quay lại danh sách booking...",
         });
-
-        // ✅ Quay lại trang booking sau 1.5 giây
-        setTimeout(() => {
-          navigate("/bookings");
-        }, 1500);
+        setTimeout(() => navigate("/bookings"), 1500);
       } else {
         setMessage({
           type: "error",
-          text: res.message || "Thanh toán thất bại, vui lòng thử lại.",
+          text: res?.message || "Thanh toán thất bại, vui lòng thử lại.",
         });
       }
     } catch (err) {
@@ -150,7 +134,7 @@ export default function BookingDetailPage() {
           </Button>
         </div>
 
-        {/* Ảnh + Thông tin tour */}
+        {/* Thông tin tour */}
         <Card className="overflow-hidden mb-6 border border-border shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <img
@@ -173,7 +157,7 @@ export default function BookingDetailPage() {
                   </span>
                 </div>
 
-                {/* Ngày đi / Ngày về */}
+                {/* Ngày đi / về */}
                 <div className="grid grid-cols-3 gap-4 mt-5 text-center">
                   <div>
                     <Calendar className="w-5 h-5 text-primary mx-auto mb-1" />
@@ -202,11 +186,24 @@ export default function BookingDetailPage() {
                 </div>
               </div>
 
-              <div className="mt-4">
-                <p className="text-sm text-muted-foreground">Tổng cộng</p>
-                <p className="text-2xl font-bold text-primary">
-                  {totalPrice.toLocaleString("vi-VN")}₫
-                </p>
+              {/* Giá vé người lớn / trẻ em */}
+              <div className="grid grid-cols-2 gap-4 mt-4 text-center border-t pt-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">Giá người lớn</p>
+                  <p className="font-semibold text-primary">
+                    {dateInfo.priceAdult
+                      ? `${dateInfo.priceAdult.toLocaleString("vi-VN")} ₫`
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Giá trẻ em</p>
+                  <p className="font-semibold text-primary">
+                    {dateInfo.priceChildren
+                      ? `${dateInfo.priceChildren.toLocaleString("vi-VN")} ₫`
+                      : "—"}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -216,22 +213,10 @@ export default function BookingDetailPage() {
         <Card className="p-6 border border-border mb-6">
           <h3 className="text-lg font-semibold mb-4">Thông tin khách hàng</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">Họ tên</p>
-              <p className="font-medium">{booking.fullName}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Email</p>
-              <p className="font-medium">{booking.email}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Số điện thoại</p>
-              <p className="font-medium">{booking.phoneNumber}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Địa chỉ</p>
-              <p className="font-medium">{booking.address}</p>
-            </div>
+            <Info label="Họ tên" value={booking.fullName} />
+            <Info label="Email" value={booking.email} />
+            <Info label="Số điện thoại" value={booking.phoneNumber} />
+            <Info label="Địa chỉ" value={booking.address} />
           </div>
         </Card>
 
@@ -239,9 +224,8 @@ export default function BookingDetailPage() {
         <Card className="p-6 border border-border">
           <h3 className="text-lg font-semibold mb-4">Thông tin đặt tour</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">Trạng thái</p>
-              <p
+            <Info label="Trạng thái">
+              <span
                 className={`font-semibold ${
                   booking.bookingStatus === "confirmed"
                     ? "text-green-600"
@@ -251,18 +235,47 @@ export default function BookingDetailPage() {
                 }`}
               >
                 {booking.bookingStatus}
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Số người</p>
-              <p className="font-medium flex items-center gap-1">
-                <Users className="w-4 h-4 text-primary" />
-                {booking.numAdults} người lớn, {booking.numChildren} trẻ em
-              </p>
-            </div>
+              </span>
+            </Info>
+
+            <Info
+              label="Ngày đặt"
+              value={new Date(booking.bookingDate).toLocaleString("vi-VN")}
+            />
+            <Info
+              label="Ngày khởi hành"
+              value={new Date(dateInfo.startDate).toLocaleDateString("vi-VN")}
+            />
+            <Info
+              label="Ngày kết thúc"
+              value={new Date(dateInfo.endDate).toLocaleDateString("vi-VN")}
+            />
+
+            <Info label="Số người lớn" value={`${booking.numAdults} người`} />
+
+            <Info label="Số trẻ em" value={`${booking.numChildren} người`} />
+
+            <Info label="Mã coupon" value={booking.codeCoupon || "Không có"} />
+            <Info
+              label="Nhận email xác nhận"
+              value={booking.receiveEmail ? "Có" : "Không"}
+            />
           </div>
 
-          {/* ✅ Nếu booking chưa confirmed thì hiển thị nút thanh toán */}
+          {/* 💰 Tổng tiền */}
+          <div className="p-4 flex justify-between items-center mb-6 shadow-sm">
+            <div>
+              <p className="font-medium text-gray-700">Tổng tiền</p>
+              <p className="text-sm text-gray-500">
+                {booking.numAdults} người lớn + {booking.numChildren} trẻ em
+              </p>
+            </div>
+            <p className="text-3xl font-bold text-primary">
+              {totalPrice.toLocaleString("vi-VN")} ₫
+            </p>
+          </div>
+
+          {/* Nút hành động */}
           <div className="flex justify-end mt-8 gap-3">
             <Button
               variant="outline"
@@ -283,7 +296,6 @@ export default function BookingDetailPage() {
             )}
           </div>
 
-          {/* ✅ Thông báo nếu đã thanh toán */}
           {booking.bookingStatus === "confirmed" && (
             <p className="text-green-600 font-medium mt-4 text-right flex items-center justify-end gap-2">
               <CheckCircle className="w-4 h-4" />
@@ -310,22 +322,7 @@ export default function BookingDetailPage() {
               {totalPrice.toLocaleString("vi-VN")} đ
             </p>
 
-            {message.text && (
-              <div
-                className={`flex items-center gap-2 text-sm p-3 rounded-md ${
-                  message.type === "success"
-                    ? "bg-green-50 text-green-700"
-                    : "bg-red-50 text-red-700"
-                }`}
-              >
-                {message.type === "success" ? (
-                  <CheckCircle className="w-4 h-4" />
-                ) : (
-                  <XCircle className="w-4 h-4" />
-                )}
-                <span>{message.text}</span>
-              </div>
-            )}
+            {message.text && <AlertMessage message={message} />}
           </div>
 
           <DialogFooter className="mt-4 flex justify-end gap-3">
@@ -343,5 +340,33 @@ export default function BookingDetailPage() {
         </DialogContent>
       </Dialog>
     </section>
+  );
+}
+
+function Info({ label, value, children }) {
+  return (
+    <div>
+      <p className="text-muted-foreground">{label}</p>
+      <p className="font-medium">{children || value}</p>
+    </div>
+  );
+}
+
+function AlertMessage({ message }) {
+  return (
+    <div
+      className={`flex items-center gap-2 text-sm p-3 rounded-md ${
+        message.type === "success"
+          ? "bg-green-50 text-green-700"
+          : "bg-red-50 text-red-700"
+      }`}
+    >
+      {message.type === "success" ? (
+        <CheckCircle className="w-4 h-4" />
+      ) : (
+        <XCircle className="w-4 h-4" />
+      )}
+      <span>{message.text}</span>
+    </div>
   );
 }
