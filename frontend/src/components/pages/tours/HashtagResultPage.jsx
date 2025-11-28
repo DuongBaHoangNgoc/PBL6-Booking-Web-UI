@@ -7,7 +7,7 @@ import {
   ChevronRight,
   Tag,
 } from "lucide-react";
-import TourCard from "@/components/TourCard";
+import TourCard from "@/components/pages/tours/TourCard";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getToursByHashtagName } from "@/api/hashtags";

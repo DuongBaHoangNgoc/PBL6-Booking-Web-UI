@@ -1,53 +1,85 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-
 // Layouts
 import { ClientLayout } from "@/components/layout/ClientLayout";
-
 // Guards
 import { ProtectedRoute } from "./ProtectedRoute";
 import { AdminRoute } from "./AdminRoute";
 
 // Pages
 import Home from "@/pages/Home";
-import Login from "@/pages/auth/Login";
-import Signup from "@/pages/auth/Signup";
+import Login from "@/pages/Login";
+import SignUpPage from "@/pages/SignupPage";
 import TourSearchResult from "@/components/pages/tours/ToursList";
 import TourDetail from "@/components/pages/tours/TourDetail";
 import PaymentsPage from "@/components/pages/payments/PaymentsPage";
-
-import { Profile } from "../pages/client/Profile";
+import { Profile } from "../pages/Profile";
 import BookingsPage from "@/components/pages/bookings/MyBookings";
 import BookingDetailPage from "@/components/pages/bookings/BookingPageDetail";
-import AdminBookingPage from "@/pages/admin/AdminBookingPage";
+import AdminBookingPage from "@/pages/AdminBookingPage";
 import HashtagResultPage from "@/components/pages/tours/HashtagResultPage";
-import { TourDashboard } from "@/components/TourDashBoard";
+import { AdminDashboard } from "@/components/pages/dashboard/AdminDashBoard";
 import { ManageUsersPage } from "@/components/pages/users/ManageUsersPage";
 import { ManageToursPage } from "@/components/pages/tours/ManageToursPage";
 import { ManageTourDetailPage } from "@/components/pages/tours/ManageTourDetailPage";
+import { SupplierDashboard } from "@/components/pages/dashboard/SupplierDashBoard";
+import { SupplierLayout } from "@/components/layout/SupplierLayout";
+import { SupplierRoute } from "./SupplierRoute";
+import ManageBookingsPage from "@/pages/ManageBookingsPage";
+import CalendarPage from "@/pages/CalendarPage";
+import { EarningsPage } from "@/pages/EarningsPage";
+import { useAuth } from "@/context/useAuth";
+
+const RootRedirector = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-[calc(100vh-200px)]">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (user) {
+    // 3. LOGIC ĐIỀU HƯỚNG DỰA TRÊN VAI TRÒ
+    if (user.role === 'admin') {
+      return <Navigate to="/admin" replace />;
+    }
+    if (user.role === 'supplier') {
+      // Supplier
+      return <Navigate to="/supplier/dashboard" replace />;
+    }
+  }
+
+  return <Home/>;
+}
+
 export const AppRoutes = () => {
+  const { user } = useAuth();
   return (
     <Routes>
       {/* =========================================
         AREA 1: CLIENT ROUTES
         =========================================
       */}
-      <Route element={<ClientLayout />}>
+      <Route path="/" element={<ClientLayout />}>
         {/* --- 1.1: Public Pages --- */}
-        <Route path="/" element={<Home />} />
-        <Route path="/tours" element={<TourSearchResult />} />
-        <Route path="/tours/:id/:slug/" element={<TourDetail />} />
+        <Route index element={<RootRedirector />} />
 
-        <Route path="/hashtags/:hashtagName" element={<HashtagResultPage />} />
-        <Route path="/payments" element={<PaymentsPage />} />
+        <Route path="tours" element={<TourSearchResult />} />
+        <Route path="tours/:id/:slug/" element={<TourDetail />} />
+        <Route path="hashtags/:hashtagName" element={<HashtagResultPage />} />
+        <Route path="payments" element={<PaymentsPage />} />
+
         {/* --- 1.2: Authenticating Pages --- */}
-        <Route path="/auth/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/bookings" element={<BookingsPage />} />
-        <Route path="/bookings/:bookingId" element={<BookingDetailPage />} />
+        <Route path="signup" element={<SignUpPage />} />
+        <Route path="auth/login" element={<Login />} />
 
         {/* --- 1.3: Protected Pages (User & Admin) --- */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/profile" element={<Profile />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="bookings" element={<BookingsPage />} />
+          <Route path="bookings/:bookingId" element={<BookingDetailPage />} />
         </Route>
       </Route>
 
@@ -55,18 +87,37 @@ export const AppRoutes = () => {
         AREA 2: ADMIN ROUTES
         =========================================
       */}
-      <Route element={<AdminRoute />}>
+      <Route path="/admin" element={<AdminRoute />}>
         <Route element={<ClientLayout />}>
-          <Route path="/admin" element={<TourDashboard />} />
-          <Route path="/admin/users" element={<ManageUsersPage />} />
-          <Route path="/admin/tours" element={<ManageToursPage />} />
+          <Route index element={<Navigate to="dashboard" replace />} /> 
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="users" element={<ManageUsersPage />} />
+          <Route path="tours" element={<ManageToursPage />} />
           <Route path="admin/bookings" element={<AdminBookingPage />} />
-          <Route
-            path="/admin/tours/edit/:id"
-            element={<ManageTourDetailPage />}
-          />
+          <Route path="tours/edit/:id" element={<ManageTourDetailPage />} />
+          <Route path="revenue" element={<EarningsPage />} />
         </Route>
       </Route>
+
+      {/* =========================================
+        AREA 3: SUPPLIER ROUTES
+        =========================================
+      */}
+      <Route path="/supplier" element={<SupplierRoute />}> 
+        <Route element={<SupplierLayout />}> 
+
+          <Route index element={<Navigate to="dashboard" replace />} /> 
+          <Route path="dashboard" element={<SupplierDashboard />} />
+          <Route path="tours" element={<ManageToursPage />} />
+          <Route path="tours/edit/:id" element={<ManageTourDetailPage />} /> 
+          <Route path="profile" element={<Profile />} />
+          <Route path="bookings" element={<ManageBookingsPage />} />
+          <Route path="calendar" element={<CalendarPage />} />
+          <Route path="revenue" element={<EarningsPage />} />
+
+        </Route>
+      </Route>
+
     </Routes>
   );
 };

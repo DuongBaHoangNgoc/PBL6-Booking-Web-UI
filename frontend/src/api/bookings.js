@@ -1,6 +1,6 @@
 import api from "./axiosInstance";
 
-// 🟢 Tạo booking mới
+// Tạo booking mới
 export async function createBooking(formData) {
   try {
     const res = await api.post("/bookings", formData);
@@ -11,13 +11,13 @@ export async function createBooking(formData) {
   }
 }
 
-// 🟢 Lấy toàn bộ booking của người dùng hiện tại
+// Lấy toàn bộ booking của người dùng hiện tại
 export const getMyBookings = async () => {
   const { data } = await api.get("/bookings");
   return data;
 };
 
-// 🔴 Xóa booking theo ID
+// Xóa booking theo ID
 export async function deleteBooking(bookingId) {
   try {
     console.log("🗑️ Gửi request DELETE /bookings/" + bookingId);
@@ -30,7 +30,7 @@ export async function deleteBooking(bookingId) {
   }
 }
 
-// 🟢 Cập nhật trạng thái booking
+// Cập nhật trạng thái booking
 export async function updateBookingStatus(bookingId, status) {
   try {
     const res = await api.patch(`/bookings/${bookingId}`, {
@@ -43,7 +43,7 @@ export async function updateBookingStatus(bookingId, status) {
   }
 }
 
-// 🟢 Thanh toán bằng Xu (ghi vào bảng tbl_transaction_coins)
+// Thanh toán bằng Xu (ghi vào bảng tbl_transaction_coins)
 export async function payBookingWithCoin(bookingId, userId) {
   try {
     console.log(`💰 Gửi POST /bookings/payCoinBooking`);
@@ -63,7 +63,7 @@ export async function payBookingWithCoin(bookingId, userId) {
     throw err;
   }
 }
-// 🟣 Lọc và phân trang danh sách booking
+// Lọc và phân trang danh sách booking
 /**
  * Lấy danh sách bookings có thể lọc và phân trang.
  * @param {Object} params - Các tham số lọc
@@ -133,5 +133,25 @@ export async function payCoinBooking(payload) {
   } catch (error) {
     console.error("❌ Lỗi khi gọi API payCoinBooking:", error);
     throw error;
+  }
+}
+
+// Lọc danh sách bookings các tour cho chủ tour
+export async function filterBookingBySupplierId(formData) {
+  try {
+    const res = await api.get("/bookings/FilterPagination", { params: formData });
+    const data = res.data?.data ?? res.data;
+
+    if (!data) {
+      throw new Error("No data received from API");
+    }
+
+    return {
+      items: data.bookings || [],
+      totalItems: data.countBookings || 0
+    }
+  } catch (err) {
+    console.error("Lỗi khi lọc booking theo supplier id.", err);
+    throw err;
   }
 }

@@ -31,7 +31,7 @@ const chartData = [
   { month: "Jun", bookings: 6 },
 ];
 
-export function TourDashboard() {
+export function AdminDashboard() {
   const [recentBookings, setRecentBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 

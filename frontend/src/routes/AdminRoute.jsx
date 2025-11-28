@@ -12,7 +12,7 @@ export const AdminRoute = () => {
         );
     }
 
-    if (user && user.role === "admin") {
+    if (user && (user.role === "admin")) {
         return <Outlet />;
     }
 
