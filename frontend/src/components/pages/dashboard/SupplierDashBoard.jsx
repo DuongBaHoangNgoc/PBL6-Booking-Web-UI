@@ -15,7 +15,7 @@ export function SupplierDashboard() {
       <p className="text-muted-foreground">
         Đây là trang thống kê dành cho Nhà cung cấp.
       </p>
-      
+
       {/* Thống kê mẫu */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>

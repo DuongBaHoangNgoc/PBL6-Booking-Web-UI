@@ -149,3 +149,21 @@ export async function payCoinBooking(payload) {
     throw error;
   }
 }
+
+// Lọc danh sách bookings các tour cho chủ tour
+export async function filterBookingBySupplierId(formData) {
+  try {
+    const res = await api.get("/bookings/FilterPagination", {
+      params: formData,
+    });
+    const data = res.data?.data ?? res.data;
+
+    return {
+      items: data.bookings || [],
+      totalItems: data.countBookings || 0,
+    };
+  } catch (err) {
+    console.error("Lỗi khi lọc booking theo supplier id.", err);
+    throw err;
+  }
+}

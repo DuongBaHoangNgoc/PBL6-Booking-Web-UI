@@ -111,16 +111,15 @@ const mockTransactions = {
 // (Kết thúc Mock Data)
 // ===================================================================
 
-
 export function EarningsPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [chartData, setChartData] = useState([]);
   const [transactions, setTransactions] = useState([]);
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   const [dateRange, setDateRange] = useState("30day"); // Mặc định 30 ngày
 
   const [pagination, setPagination] = useState({
@@ -136,13 +135,13 @@ export function EarningsPage() {
       setError(null);
 
       // (Xóa các lệnh gọi API thật)
-      
+
       // Giả lập độ trễ mạng
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       // (Kiểm tra nếu params thay đổi, ta có thể trả về data khác,
       // nhưng hiện tại chỉ cần trả về 1 bộ mock)
-      
+
       setStats(mockStats);
       setChartData(mockChartData);
       setTransactions(mockTransactions.items);
@@ -150,7 +149,6 @@ export function EarningsPage() {
         ...prev,
         totalItems: mockTransactions.totalItems,
       }));
-
     } catch (err) {
       console.error("Lỗi khi tải dữ liệu Doanh thu:", err);
       setError("Không thể tải dữ liệu thống kê từ server.");
@@ -163,7 +161,7 @@ export function EarningsPage() {
   useEffect(() => {
     fetchData();
   }, [dateRange, pagination.page]);
-  
+
   // Xử lý phân trang
   const totalPages = useMemo(() => {
     return Math.ceil(pagination.totalItems / pagination.limit);
@@ -180,7 +178,7 @@ export function EarningsPage() {
       {/* Header và Bộ lọc Ngày */}
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-foreground">
-          {user?.role === 'admin' ? "Tổng quan Doanh thu" : "Doanh thu của tôi"}
+          {user?.role === "admin" ? "Tổng quan Doanh thu" : "Doanh thu của tôi"}
         </h1>
         <Select value={dateRange} onValueChange={setDateRange}>
           <SelectTrigger className="w-[180px]">
@@ -216,25 +214,35 @@ export function EarningsPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tổng Doanh thu</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Tổng Doanh thu
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
+              <div className="text-2xl font-bold">
+                {formatCurrency(stats.totalRevenue)}
+              </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Doanh thu (Kỳ này)</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Doanh thu (Kỳ này)
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats.currentPeriodRevenue)}</div>
+              <div className="text-2xl font-bold">
+                {formatCurrency(stats.currentPeriodRevenue)}
+              </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Booking đã thanh toán</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Booking đã thanh toán
+              </CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -243,11 +251,15 @@ export function EarningsPage() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Chờ thanh toán (Payout)</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Chờ thanh toán (Payout)
+              </CardTitle>
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats.pendingPayout)}</div>
+              <div className="text-2xl font-bold">
+                {formatCurrency(stats.pendingPayout)}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -257,7 +269,9 @@ export function EarningsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Biểu đồ Doanh thu</CardTitle>
-          <CardDescription>Doanh thu theo ngày trong kỳ đã chọn.</CardDescription>
+          <CardDescription>
+            Doanh thu theo ngày trong kỳ đã chọn.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {/* 5. SỬA JSX: Thêm kiểm tra `chartData.length`
@@ -268,15 +282,23 @@ export function EarningsPage() {
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" stroke="#888888" fontSize={12} />
-                <YAxis stroke="#888888" fontSize={12} tickFormatter={(value) => formatCurrency(value)} />
+                <YAxis
+                  stroke="#888888"
+                  fontSize={12}
+                  tickFormatter={(value) => formatCurrency(value)}
+                />
                 <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Bar dataKey="revenue" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="revenue"
+                  fill="var(--color-primary)"
+                  radius={[4, 4, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           ) : (
-             <div className="h-[350px] flex items-center justify-center text-muted-foreground">
-               {loading ? "Đang tải biểu đồ..." : "Không có dữ liệu biểu đồ."}
-             </div>
+            <div className="h-[350px] flex items-center justify-center text-muted-foreground">
+              {loading ? "Đang tải biểu đồ..." : "Không có dữ liệu biểu đồ."}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -302,26 +324,30 @@ export function EarningsPage() {
               <TableBody>
                 {transactions.map((tx) => (
                   <TableRow key={tx.transactionId}>
-                    <TableCell className="font-medium">#{tx.bookingId}</TableCell>
+                    <TableCell className="font-medium">
+                      #{tx.bookingId}
+                    </TableCell>
                     <TableCell>{tx.tourTitle}</TableCell>
                     <TableCell>{formatCurrency(tx.amount)}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{tx.paymentMethod}</Badge>
                     </TableCell>
                     <TableCell>
-                      {tx.status === 'SUCCESS' ? (
+                      {tx.status === "SUCCESS" ? (
                         <Badge className="bg-green-600">Thành công</Badge>
                       ) : (
                         <Badge variant="destructive">{tx.status}</Badge>
                       )}
                     </TableCell>
-                    <TableCell>{format(new Date(tx.createdAt), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>
+                      {format(new Date(tx.createdAt), "dd/MM/yyyy")}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
-          
+
           {/* Phân trang cho Bảng */}
           {!loading && totalPages > 1 && (
             <div className="flex justify-between items-center mt-6">

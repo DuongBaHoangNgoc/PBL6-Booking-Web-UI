@@ -145,16 +145,47 @@ export default function PaymentsPage() {
   // 🟣 Thêm tài khoản mới
   const handleAddAccount = async () => {
     const { accountNumber, accountName, bankName } = newAccount;
+
+    // Validate basic
     if (!accountNumber || !accountName || !bankName) {
-      setMessage({
+      return setMessage({
         type: "error",
         text: "Vui lòng điền đầy đủ thông tin thẻ!",
       });
-      return;
+    }
+
+    if (!/^\d+$/.test(accountNumber)) {
+      return setMessage({
+        type: "error",
+        text: "Số tài khoản phải là số!",
+      });
+    }
+
+    if (accountNumber.length < 6 || accountNumber.length > 20) {
+      return setMessage({
+        type: "error",
+        text: "Số tài khoản không hợp lệ!",
+      });
     }
 
     try {
       setLoading(true);
+
+      // Kiểm tra trùng tài khoản
+      const exists = accounts.some(
+        (acc) =>
+          acc.accountNumber === accountNumber &&
+          acc.bankName.toLowerCase() === bankName.toLowerCase()
+      );
+
+      if (exists) {
+        return setMessage({
+          type: "error",
+          text: "Tài khoản này đã tồn tại trong ví của bạn!",
+        });
+      }
+
+      // Gọi API tạo tài khoản
       const res = await createAccount({
         userId: user.userId,
         accountNumber,
@@ -162,21 +193,33 @@ export default function PaymentsPage() {
         accountName,
       });
 
-      if (res.statusCode === 201 || res.status === "SUCCESS") {
-        setMessage({
-          type: "success",
-          text: "Đã thêm thẻ ngân hàng mới thành công!",
-        });
-        setNewAccount({ accountNumber: "", accountName: "", bankName: "" });
-        fetchAccounts();
-      } else {
-        throw new Error(res?.message || "Không thể thêm tài khoản");
+      // Chấp nhận statusCode 200 hoặc 201 đều OK
+      if (![200, 201].includes(res.statusCode)) {
+        throw new Error(res.message || "Không thể thêm tài khoản!");
       }
+
+      // Thông báo
+      setMessage({
+        type: "success",
+        text: "Thêm tài khoản thành công!",
+      });
+
+      setNewAccount({ accountNumber: "", bankName: "", accountName: "" });
+
+      // Lấy lại list tài khoản
+      await fetchAccounts();
+
+      // Đặt tài khoản mới làm mặc định (QUAN TRỌNG)
+      setAccounts((prev) => {
+        const newList = [...prev];
+        const added = res.data;
+        return [added, ...newList];
+      });
     } catch (err) {
-      console.error("❌ Lỗi khi tạo tài khoản:", err);
+      console.error("❌ Lỗi khi tạo tài khoản mới:", err);
       setMessage({
         type: "error",
-        text: "Lỗi khi tạo tài khoản. Vui lòng thử lại!",
+        text: "Không thể thêm tài khoản mới!",
       });
     } finally {
       setLoading(false);
@@ -397,248 +440,310 @@ export default function PaymentsPage() {
           </div>
         )}
 
-        {/* Số dư, nạp, rút */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
-          {/* Số dư */}
-          <Card className="p-6 flex flex-col items-center justify-center">
-            <Wallet className="w-10 h-10 text-yellow-500 mb-3" />
-            <p className="text-muted-foreground text-sm">Current Balance</p>
-            <h2 className="text-4xl font-bold text-foreground">
-              {balance.toLocaleString("vi-VN")} xu
+        {/* ------------------------------------------------------------ */}
+        {/* 🟢 NẾU KHÔNG CÓ TÀI KHOẢN → HIỂN THỊ FORM TẠO TÀI KHOẢN */}
+        {/* ------------------------------------------------------------ */}
+        {accounts.length === 0 && (
+          <Card className="p-6 border-2 border-dashed border-gray-300 bg-muted/30">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <PlusCircle className="w-5 h-5 text-primary" />
+              Bạn chưa có tài khoản ngân hàng
             </h2>
-            <Button
-              variant="outline"
-              className="mt-4 flex items-center gap-2"
-              onClick={fetchAccounts}
-              disabled={isFetching}
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`}
+
+            <p className="text-muted-foreground mb-4">
+              Hãy thêm một tài khoản ngân hàng để có thể nạp - rút xu.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <Input
+                placeholder="Số tài khoản"
+                value={newAccount.accountNumber}
+                onChange={(e) =>
+                  setNewAccount({
+                    ...newAccount,
+                    accountNumber: e.target.value,
+                  })
+                }
               />
-              Làm mới
+
+              <Input
+                placeholder="Tên chủ tài khoản"
+                value={newAccount.accountName}
+                onChange={(e) =>
+                  setNewAccount({ ...newAccount, accountName: e.target.value })
+                }
+              />
+
+              <Input
+                placeholder="Ngân hàng"
+                value={newAccount.bankName}
+                onChange={(e) =>
+                  setNewAccount({ ...newAccount, bankName: e.target.value })
+                }
+              />
+            </div>
+
+            <Button
+              className="bg-primary text-white hover:bg-primary/90"
+              onClick={handleAddAccount}
+              disabled={loading}
+            >
+              {loading ? "Đang tạo tài khoản..." : "Thêm tài khoản mới"}
             </Button>
           </Card>
+        )}
 
-          {/* Nạp xu */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <ArrowDownCircle className="w-5 h-5 text-green-600" /> Nạp xu
-            </h2>
-            <div className="flex flex-col md:flex-row items-center gap-4">
-              <Input
-                type="number"
-                placeholder="Nhập số xu muốn nạp"
-                value={topupAmount}
-                onChange={(e) => setTopupAmount(e.target.value)}
-                className="flex-1"
-              />
-              <Button
-                className="bg-green-600 hover:bg-green-700 text-white"
-                onClick={handleTopUp}
-                disabled={loading}
-              >
-                {loading ? "Đang xử lý..." : "Nạp Ngay"}
-              </Button>
-            </div>
+        {/* ------------------------------------------------------------ */}
+        {/* 🟢 NẾU ĐÃ CÓ TÀI KHOẢN → HIỂN THỊ TRANG PAYMENTS BÌNH THƯỜNG */}
+        {/* ------------------------------------------------------------ */}
+        {accounts.length > 0 && (
+          <>
+            {/* Số dư – Nạp – Rút */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+              {/* Số dư */}
+              <Card className="p-6 flex flex-col items-center justify-center">
+                <Wallet className="w-10 h-10 text-yellow-500 mb-3" />
+                <p className="text-muted-foreground text-sm">Current Balance</p>
+                <h2 className="text-4xl font-bold text-foreground">
+                  {balance.toLocaleString("vi-VN")} xu
+                </h2>
+                <Button
+                  variant="outline"
+                  className="mt-4 flex items-center gap-2"
+                  onClick={fetchAccounts}
+                  disabled={isFetching}
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`}
+                  />
+                  Làm mới
+                </Button>
+              </Card>
 
-            {/* QR hiển thị khi nạp tiền */}
-            {qrUrl && (
-              <div className="mt-6 text-center border p-4 rounded-lg bg-muted/30">
-                <h3 className="text-lg font-semibold mb-2">
-                  Quét mã QR để thanh toán
-                </h3>
-                <img
-                  src={qrUrl}
-                  alt="QR thanh toán"
-                  className="mx-auto w-48 border p-2 rounded-md mb-2"
-                />
-                {paymentStatus === "PENDING" && timeLeft > 0 && (
-                  <p className="text-sm text-muted-foreground mb-1">
-                    Còn lại:{" "}
-                    <span
-                      className={`font-semibold ${
-                        timeLeft < 30
-                          ? "text-red-500 animate-pulse"
-                          : "text-blue-600"
-                      }`}
-                    >
-                      {Math.floor(timeLeft / 60)
-                        .toString()
-                        .padStart(2, "0")}
-                      :{(timeLeft % 60).toString().padStart(2, "0")}
-                    </span>
-                  </p>
-                )}
-                <p className="text-sm text-muted-foreground">
-                  Trạng thái:{" "}
-                  <span
-                    className={
-                      paymentStatus === "SUCCESS"
-                        ? "text-green-600 font-semibold"
-                        : paymentStatus === "EXPIRED"
-                        ? "text-red-600 font-semibold"
-                        : "text-yellow-600"
-                    }
+              {/* Nạp xu */}
+              <Card className="p-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <ArrowDownCircle className="w-5 h-5 text-green-600" /> Nạp xu
+                </h2>
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                  <Input
+                    type="number"
+                    placeholder="Nhập số xu muốn nạp"
+                    value={topupAmount}
+                    onChange={(e) => setTopupAmount(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    onClick={handleTopUp}
+                    disabled={loading}
                   >
-                    {paymentStatus || "Chờ quét QR..."}
-                  </span>
-                </p>
-              </div>
-            )}
-          </Card>
+                    {loading ? "Đang xử lý..." : "Nạp Ngay"}
+                  </Button>
+                </div>
 
-          {/* Rút xu */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <ArrowUpCircle className="w-5 h-5 text-red-600" /> Rút xu
-            </h2>
-            <div className="flex flex-col md:flex-row items-center gap-4">
-              <Input
-                type="number"
-                placeholder="Nhập số xu muốn rút"
-                value={withdrawAmount}
-                onChange={(e) => setWithdrawAmount(e.target.value)}
-                className="flex-1"
-              />
-              <Button
-                className="bg-red-600 hover:bg-red-700 text-white"
-                onClick={handleWithdraw}
-                disabled={loading}
-              >
-                {loading ? "Đang xử lý..." : "Rút Ngay"}
-              </Button>
-            </div>
-          </Card>
-        </div>
-
-        {/* Lịch sử giao dịch */}
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-6">Lịch sử giao dịch</h2>
-
-          {loadingTransactions ? (
-            <p className="text-center py-4 text-muted-foreground">
-              Đang tải...
-            </p>
-          ) : transactions.length === 0 ? (
-            <p className="text-muted-foreground text-center py-6">
-              Chưa có giao dịch nào.
-            </p>
-          ) : (
-            <>
-              <div className="overflow-y-scroll max-h-80 rounded-md border border-border scrollbar-thin">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-background z-10 border-b border-border">
-                    <tr>
-                      <th className="py-3 px-4 text-left font-semibold">
-                        Mã GD
-                      </th>
-                      <th className="py-3 px-4 text-left font-semibold">
-                        Mã Thanh Toán
-                      </th>
-                      <th className="py-3 px-4 text-left font-semibold">
-                        Loại
-                      </th>
-                      <th className="py-3 px-4 text-left font-semibold">
-                        Số Tiền
-                      </th>
-                      <th className="py-3 px-4 text-left font-semibold">
-                        Trạng Thái
-                      </th>
-                      <th className="py-3 px-4 text-left font-semibold">
-                        Ngân Hàng
-                      </th>
-                      <th className="py-3 px-4 text-left font-semibold">
-                        Số Tài Khoản
-                      </th>
-                      <th className="py-3 px-4 text-left font-semibold">
-                        Ngày
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {transactions.map((t) => {
-                      const isDeposit =
-                        t.transaction_content?.includes("NAPTIEN");
-                      const typeText = isDeposit ? "Nạp tiền" : "Rút tiền";
-
-                      const matchAmount = t.transaction_content?.match(
-                        /(\d+)(?=\s*paymentCode)/
-                      );
-                      const amount = matchAmount ? Number(matchAmount[1]) : 0;
-
-                      return (
-                        <tr
-                          key={t.transactionId}
-                          className="border-b border-border hover:bg-muted/50 transition-colors"
+                {/* QR hiển thị khi nạp tiền */}
+                {qrUrl && (
+                  <div className="mt-6 text-center border p-4 rounded-lg bg-muted/30">
+                    <h3 className="text-lg font-semibold mb-2">
+                      Quét mã QR để thanh toán
+                    </h3>
+                    <img
+                      src={qrUrl}
+                      alt="QR thanh toán"
+                      className="mx-auto w-48 border p-2 rounded-md mb-2"
+                    />
+                    {paymentStatus === "PENDING" && timeLeft > 0 && (
+                      <p className="text-sm text-muted-foreground mb-1">
+                        Còn lại:{" "}
+                        <span
+                          className={`font-semibold ${
+                            timeLeft < 30
+                              ? "text-red-500 animate-pulse"
+                              : "text-blue-600"
+                          }`}
                         >
-                          <td className="py-3 px-4">{t.transactionId}</td>
-                          <td className="py-3 px-4">{t.paymentId}</td>
-                          <td className="py-3 px-4">{typeText}</td>
-                          <td
-                            className={`py-3 px-4 font-semibold ${
-                              isDeposit ? "text-green-600" : "text-red-600"
-                            }`}
-                          >
-                            {amount.toLocaleString("vi-VN")} VND
-                          </td>
+                          {Math.floor(timeLeft / 60)
+                            .toString()
+                            .padStart(2, "0")}
+                          :{(timeLeft % 60).toString().padStart(2, "0")}
+                        </span>
+                      </p>
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      Trạng thái:{" "}
+                      <span
+                        className={
+                          paymentStatus === "SUCCESS"
+                            ? "text-green-600 font-semibold"
+                            : paymentStatus === "EXPIRED"
+                            ? "text-red-600 font-semibold"
+                            : "text-yellow-600"
+                        }
+                      >
+                        {paymentStatus || "Chờ quét QR..."}
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </Card>
 
-                          <td
-                            className={`py-3 px-4 font-semibold ${
-                              t.status === "SUCCESS"
-                                ? "text-green-600"
-                                : t.status === "EXPIRED"
-                                ? "text-red-600"
-                                : "text-yellow-600"
-                            }`}
-                          >
-                            {t.status}
-                          </td>
+              {/* Rút xu */}
+              <Card className="p-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <ArrowUpCircle className="w-5 h-5 text-red-600" /> Rút xu
+                </h2>
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                  <Input
+                    type="number"
+                    placeholder="Nhập số xu muốn rút"
+                    value={withdrawAmount}
+                    onChange={(e) => setWithdrawAmount(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    onClick={handleWithdraw}
+                    disabled={loading}
+                  >
+                    {loading ? "Đang xử lý..." : "Rút Ngay"}
+                  </Button>
+                </div>
+              </Card>
+            </div>
 
-                          <td className="py-3 px-4">
-                            {t.account?.bankName || "-"}
-                          </td>
-                          <td className="py-3 px-4">
-                            {t.account?.accountNumber || "-"}
-                          </td>
+            {/* Lịch sử giao dịch */}
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-6">Lịch sử giao dịch</h2>
 
-                          <td className="py-3 px-4 text-muted-foreground">
-                            {new Date(t.transaction_date).toLocaleString(
-                              "vi-VN"
-                            )}
-                          </td>
+              {loadingTransactions ? (
+                <p className="text-center py-4 text-muted-foreground">
+                  Đang tải...
+                </p>
+              ) : transactions.length === 0 ? (
+                <p className="text-muted-foreground text-center py-6">
+                  Chưa có giao dịch nào.
+                </p>
+              ) : (
+                <>
+                  <div className="overflow-y-scroll max-h-80 rounded-md border border-border scrollbar-thin">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-background z-10 border-b border-border">
+                        <tr>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            Mã GD
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            Mã Thanh Toán
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            Loại
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            Số Tiền
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            Trạng Thái
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            Ngân Hàng
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            Số Tài Khoản
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            Ngày
+                          </th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
 
-              {/* PHÂN TRANG */}
-              <div className="flex items-center justify-center gap-4 mt-4">
-                <Button
-                  variant="outline"
-                  disabled={currentPage === 1}
-                  onClick={() => fetchTransactions(currentPage - 1)}
-                >
-                  Trang trước
-                </Button>
+                      <tbody>
+                        {transactions.map((t) => {
+                          const isDeposit =
+                            t.transaction_content?.includes("NAPTIEN");
+                          const typeText = isDeposit ? "Nạp tiền" : "Rút tiền";
 
-                <span className="text-sm">
-                  Trang <strong>{currentPage}</strong> / {totalPages}
-                </span>
+                          const matchAmount = t.transaction_content?.match(
+                            /(\d+)(?=\s*paymentCode)/
+                          );
+                          const amount = matchAmount
+                            ? Number(matchAmount[1])
+                            : 0;
 
-                <Button
-                  variant="outline"
-                  disabled={currentPage === totalPages}
-                  onClick={() => fetchTransactions(currentPage + 1)}
-                >
-                  Trang sau
-                </Button>
-              </div>
-            </>
-          )}
-        </Card>
+                          return (
+                            <tr
+                              key={t.transactionId}
+                              className="border-b border-border hover:bg-muted/50 transition-colors"
+                            >
+                              <td className="py-3 px-4">{t.transactionId}</td>
+                              <td className="py-3 px-4">{t.paymentId}</td>
+                              <td className="py-3 px-4">{typeText}</td>
+                              <td
+                                className={`py-3 px-4 font-semibold ${
+                                  isDeposit ? "text-green-600" : "text-red-600"
+                                }`}
+                              >
+                                {amount.toLocaleString("vi-VN")} VND
+                              </td>
+
+                              <td
+                                className={`py-3 px-4 font-semibold ${
+                                  t.status === "SUCCESS"
+                                    ? "text-green-600"
+                                    : t.status === "EXPIRED"
+                                    ? "text-red-600"
+                                    : "text-yellow-600"
+                                }`}
+                              >
+                                {t.status}
+                              </td>
+
+                              <td className="py-3 px-4">
+                                {t.account?.bankName || "-"}
+                              </td>
+                              <td className="py-3 px-4">
+                                {t.account?.accountNumber || "-"}
+                              </td>
+
+                              <td className="py-3 px-4 text-muted-foreground">
+                                {new Date(t.transaction_date).toLocaleString(
+                                  "vi-VN"
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* PHÂN TRANG */}
+                  <div className="flex items-center justify-center gap-4 mt-4">
+                    <Button
+                      variant="outline"
+                      disabled={currentPage === 1}
+                      onClick={() => fetchTransactions(currentPage - 1)}
+                    >
+                      Trang trước
+                    </Button>
+
+                    <span className="text-sm">
+                      Trang <strong>{currentPage}</strong> / {totalPages}
+                    </span>
+
+                    <Button
+                      variant="outline"
+                      disabled={currentPage === totalPages}
+                      onClick={() => fetchTransactions(currentPage + 1)}
+                    >
+                      Trang sau
+                    </Button>
+                  </div>
+                </>
+              )}
+            </Card>
+          </>
+        )}
       </div>
     </section>
   );

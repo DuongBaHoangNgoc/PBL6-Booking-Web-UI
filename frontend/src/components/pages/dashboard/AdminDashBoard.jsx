@@ -18,7 +18,7 @@ import { Calendar, Users, DollarSign } from "lucide-react";
 import { Link } from "react-router-dom";
 import { io } from "socket.io-client";
 
-export function TourDashboard() {
+export function AdminDashboard() {
   const [stats, setStats] = useState({
     totalBookings: 0,
     totalUsers: 0,
