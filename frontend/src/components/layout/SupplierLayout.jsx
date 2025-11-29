@@ -24,8 +24,8 @@ const SupplierSidebar = () => {
   const getNavLinkClass = ({ isActive }) =>
     `flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors ${
       isActive
-        ? 'bg-blue-600 text-white' // Style khi active
-        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' // Style khi không active
+        ? "bg-blue-600 text-white" // Style khi active
+        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900" // Style khi không active
     }`;
 
   return (
@@ -98,9 +98,9 @@ export const SupplierLayout = () => {
     <div className="flex">
       <SupplierSidebar />
       <main className="flex-1 p-8 overflow-y-auto h-screen">
-        <PageHeader/>
+        <PageHeader />
         <Outlet />
-        <PageFooter/>
+        <PageFooter />
       </main>
     </div>
   );

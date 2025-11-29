@@ -5,24 +5,26 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Calendar, Trash2, Heart, Edit3 } from "lucide-react";
 import { useAuth } from "@/context/useAuth";
 import { getFilteredBookings, deleteBooking } from "@/api/bookings";
+import { addToFavorites, getFavorites } from "@/api/favourites";
 import { useNavigate } from "react-router-dom";
 
 export default function BookingsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+
   const [bookings, setBookings] = useState([]);
+  const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [favLoading, setFavLoading] = useState(false);
+
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [sortBy, setSortBy] = useState("Newest");
-  const [favorites, setFavorites] = useState([]);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedBookings, setSelectedBookings] = useState([]);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
 
-  // 🆕 Chế độ sửa
-  const [editMode, setEditMode] = useState(false);
-  const [selectedBookings, setSelectedBookings] = useState([]);
-
-  // 🧭 Gọi API bookings
+  // 🧭 Gọi API lấy bookings & favourites
   useEffect(() => {
     if (!user) return;
 
@@ -35,15 +37,12 @@ export default function BookingsPage() {
           page,
         });
 
-        const bookingsNormalized = data.map((b) => ({
+        const normalized = data.map((b) => ({
           ...b,
-          date: b.date || {
-            startDate: null,
-            endDate: null,
-          },
+          date: b.date || { startDate: null, endDate: null },
         }));
 
-        setBookings(bookingsNormalized);
+        setBookings(normalized);
       } catch (err) {
         console.error("❌ Lỗi khi tải danh sách booking:", err);
       } finally {
@@ -51,10 +50,24 @@ export default function BookingsPage() {
       }
     };
 
+    const fetchFavorites = async () => {
+      try {
+        setFavLoading(true);
+        const res = await getFavorites(user.userId, 1, 10);
+        // 🩷 API trả về ở res.data.data.favourites
+        setFavorites(res?.data?.favourites || []);
+      } catch (err) {
+        console.error("❌ Lỗi khi tải danh sách yêu thích:", err);
+      } finally {
+        setFavLoading(false);
+      }
+    };
+
     fetchBookings();
+    fetchFavorites();
   }, [user, page]);
 
-  // ⚙️ Lọc theo trạng thái
+  // ⚙️ Lọc và sắp xếp bookings
   const filteredBookings =
     selectedStatus === "All"
       ? bookings
@@ -62,7 +75,6 @@ export default function BookingsPage() {
           (b) => b.bookingStatus === selectedStatus.toLowerCase()
         );
 
-  // 🔄 Sắp xếp
   const sortedBookings = [...filteredBookings].sort((a, b) => {
     const priceA = Number(a.totalPrice) || 0;
     const priceB = Number(b.totalPrice) || 0;
@@ -72,19 +84,35 @@ export default function BookingsPage() {
       case "Price: High to Low":
         return priceB - priceA;
       case "Newest":
-        return new Date(b.bookingDate) - new Date(a.bookingDate);
       default:
-        return 0;
+        return new Date(b.bookingDate) - new Date(a.bookingDate);
     }
   });
 
-  // 💖 Thêm vào yêu thích
-  const handleAddToFavorites = () => {
+  // 💖 Thêm vào yêu thích (gọi API + reload)
+  const handleAddToFavorites = async () => {
     if (selectedBookings.length === 0) return alert("Chưa chọn booking nào!");
-    setFavorites((prev) => [...new Set([...prev, ...selectedBookings])]);
-    alert("Đã thêm vào yêu thích!");
-    setSelectedBookings([]);
-    setEditMode(false);
+    if (!user) return alert("Bạn cần đăng nhập!");
+
+    try {
+      for (const id of selectedBookings) {
+        const booking = bookings.find((b) => b.bookingId === id);
+        if (booking?.tour?.tourId) {
+          await addToFavorites(user.userId, booking.tour.tourId);
+        }
+      }
+
+      alert("✅ Đã thêm vào danh sách yêu thích!");
+      setSelectedBookings([]);
+      setEditMode(false);
+
+      // ✅ Reload lại danh sách yêu thích
+      const res = await getFavorites(user.userId, 1, 10);
+      setFavorites(res?.data?.favourites || []);
+    } catch (err) {
+      console.error("❌ Lỗi khi thêm yêu thích:", err);
+      alert("Không thể thêm tour vào danh sách yêu thích.");
+    }
   };
 
   // 🗑️ Xóa booking
@@ -94,17 +122,13 @@ export default function BookingsPage() {
       return;
 
     try {
-      // Gọi API xóa từng booking
       await Promise.all(selectedBookings.map((id) => deleteBooking(id)));
-
       alert(`🗑️ Đã xóa ${selectedBookings.length} booking thành công!`);
 
-      // Cập nhật danh sách trên UI (lọc bỏ các booking đã xóa)
       setBookings((prev) =>
         prev.filter((b) => !selectedBookings.includes(b.bookingId))
       );
 
-      // Reset chế độ chỉnh sửa
       setSelectedBookings([]);
       setEditMode(false);
     } catch (err) {
@@ -125,7 +149,7 @@ export default function BookingsPage() {
     <section className="p-6 md:p-14">
       <div className="container mx-auto px-4">
         <div className="flex gap-8">
-          {/* 🧭 Sidebar bộ lọc trạng thái */}
+          {/* 🧭 Sidebar */}
           <aside className="w-64 flex-shrink-0 space-y-6">
             <div>
               <h3 className="font-semibold text-foreground mb-4">Trạng thái</h3>
@@ -153,7 +177,7 @@ export default function BookingsPage() {
             </div>
           </aside>
 
-          {/* 🧾 Nội dung chính */}
+          {/* 📋 Nội dung chính */}
           <div className="flex-1">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
@@ -161,31 +185,10 @@ export default function BookingsPage() {
                 My Bookings ({sortedBookings.length})
               </h2>
 
-              {/* Bên phải: Sort + Sửa */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Sort by</span>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="text-sm font-medium bg-transparent border-none cursor-pointer"
-                  >
-                    <option>Newest</option>
-                    <option>Price: Low to High</option>
-                    <option>Price: High to Low</option>
-                  </select>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setEditMode(!editMode);
-                    setSelectedBookings([]);
-                  }}
-                >
-                  <Edit3 className="w-4 h-4 mr-2" />
-                  {editMode ? "Hoàn tất" : "Sửa"}
-                </Button>
-              </div>
+              <Button variant="outline" onClick={() => setEditMode(!editMode)}>
+                <Edit3 className="w-4 h-4 mr-2" />
+                {editMode ? "Hoàn tất" : "Sửa"}
+              </Button>
             </div>
 
             {/* Hành động khi bật chế độ sửa */}
@@ -196,7 +199,8 @@ export default function BookingsPage() {
                   onClick={handleAddToFavorites}
                   disabled={selectedBookings.length === 0}
                 >
-                  <Heart className="w-4 h-4 mr-2" /> Thêm vào yêu thích
+                  <Heart className="w-4 h-4 mr-2 text-pink-500" /> Thêm vào yêu
+                  thích
                 </Button>
                 <Button
                   variant="destructive"
@@ -208,35 +212,32 @@ export default function BookingsPage() {
               </div>
             )}
 
-            {/* Danh sách bookings */}
+            {/* Danh sách booking */}
             {sortedBookings.length > 0 ? (
               <div className="space-y-4">
                 {sortedBookings.map((b) => {
-                  const tour = b.tour || {};
                   const isSelected = selectedBookings.includes(b.bookingId);
+                  const tour = b.tour || {};
 
                   return (
                     <Card
                       key={b.bookingId}
-                      onClick={() => {
-                        if (!editMode) {
-                          navigate(`/bookings/${b.bookingId}`, {
-                            state: { booking: b },
-                          });
-                        }
-                      }}
+                      onClick={() =>
+                        !editMode &&
+                        navigate(`/bookings/${b.bookingId}`, {
+                          state: { booking: b },
+                        })
+                      }
                       className={`overflow-hidden border ${
-                        selectedBookings.includes(b.bookingId)
-                          ? "border-primary"
-                          : "border-border"
+                        isSelected ? "border-primary" : "border-border"
                       } hover:shadow-md transition cursor-pointer`}
                     >
                       <div className="flex gap-4 p-4 items-center">
                         {editMode && (
                           <input
                             type="checkbox"
-                            checked={selectedBookings.includes(b.bookingId)}
-                            onClick={(e) => e.stopPropagation()} // 🧩 Ngăn click lan ra Card
+                            checked={isSelected}
+                            onClick={(e) => e.stopPropagation()}
                             onChange={(e) => {
                               setSelectedBookings((prev) =>
                                 e.target.checked
@@ -248,24 +249,22 @@ export default function BookingsPage() {
                           />
                         )}
 
-                        <div className="relative w-48 h-40 flex-shrink-0 rounded-lg overflow-hidden group">
+                        <div className="relative w-48 h-40 rounded-lg overflow-hidden">
                           <img
-                            src={b.tour?.image || "/placeholder.svg"}
-                            alt={b.tour?.title || "Không có tiêu đề"}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            src={tour.image || "/placeholder.svg"}
+                            alt={tour.title || "Không có tiêu đề"}
+                            className="w-full h-full object-cover hover:scale-105 transition-transform"
                           />
                         </div>
 
                         <div className="flex-1 flex flex-col justify-between">
                           <div>
                             <h3 className="text-lg font-bold">
-                              {b.tour?.title || "Chưa có thông tin tour"}
+                              {tour.title || "Chưa có thông tin tour"}
                             </h3>
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <MapPin className="w-4 h-4" />
-                              <span>
-                                {b.tour?.destination || "Đang cập nhật"}
-                              </span>
+                              <span>{tour.destination || "Đang cập nhật"}</span>
                             </div>
                             <p className="text-sm mt-1">
                               Ngày đặt:{" "}
@@ -273,7 +272,6 @@ export default function BookingsPage() {
                                 "vi-VN"
                               )}
                             </p>
-
                             <div className="flex justify-between items-center mt-2 text-sm text-muted-foreground">
                               <div className="flex items-center gap-1">
                                 <Calendar className="w-4 h-4 text-primary" />
@@ -329,6 +327,68 @@ export default function BookingsPage() {
                 </h3>
               </Card>
             )}
+
+            {/* 💖 Tour yêu thích */}
+            <div className="mt-10">
+              <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Heart className="w-5 h-5 text-pink-500" />
+                Danh sách tour yêu thích ({favorites.length})
+              </h3>
+
+              {favLoading ? (
+                <p className="text-muted-foreground">Đang tải danh sách...</p>
+              ) : favorites.length === 0 ? (
+                <Card className="p-8 text-center border border-border text-muted-foreground">
+                  Chưa có tour yêu thích nào.
+                </Card>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {favorites.map((fav) => {
+                    const tour = fav.tour;
+                    return (
+                      <Card
+                        key={fav.favouriteId}
+                        onClick={() => {
+                          navigate(`/tours/${tour.tourId}/${tour.slug}`);
+                        }}
+                        className="group relative p-4 flex gap-4 items-center border border-border 
+                       rounded-xl transition-all duration-300 cursor-pointer 
+                       hover:border-pink-400 hover:shadow-lg hover:bg-pink-50/30"
+                      >
+                        {/* Hình ảnh tour */}
+                        <div className="overflow-hidden rounded-lg">
+                          <img
+                            src={tour.image || "/placeholder.svg"}
+                            alt={tour.title}
+                            className="w-32 h-28 object-cover rounded-lg transform transition-transform 
+                           duration-300 group-hover:scale-110"
+                          />
+                        </div>
+
+                        {/* Thông tin tour */}
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-800 group-hover:text-pink-600 transition-colors">
+                            {tour.title}
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            {tour.destination || "Đang cập nhật"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {tour.time || ""}
+                          </p>
+                        </div>
+
+                        {/* Biểu tượng trái tim nổi bật khi hover */}
+                        <Heart
+                          className="absolute top-3 right-3 w-4 h-4 text-pink-400 opacity-0 
+                         group-hover:opacity-100 transition-opacity"
+                        />
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

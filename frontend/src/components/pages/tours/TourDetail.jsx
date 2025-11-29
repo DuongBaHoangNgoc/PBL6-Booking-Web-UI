@@ -40,6 +40,7 @@ import { createBooking } from "@/api/bookings";
 import { getHashtagsForTour } from "@/api/hashtags";
 import { Badge } from "@/components/ui/badge";
 import TourCard from "@/components/pages/tours/TourCard";
+import { addToFavorites, getFavorites, deleteFavorite } from "@/api/favourites";
 
 // Component Lightbox (Giữ nguyên logic, chỉnh style nhẹ)
 function ImageLightbox({ images, startIndex, open, onOpenChange }) {
@@ -144,6 +145,9 @@ export default function TourDetail() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [hashtags, setHashtags] = useState({ tourHashtags: [] }); // Khởi tạo mặc định tránh lỗi
   const [relativeTour, setRelativeTour] = useState([]);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteId, setFavoriteId] = useState(null);
+
   const [images, setImages] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -153,50 +157,103 @@ export default function TourDetail() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxStartIndex, setLightboxStartIndex] = useState(0);
 
+  // 🧾 Thông tin form đặt tour
+  const [openBookingForm, setOpenBookingForm] = useState(false);
+  const [formData, setFormData] = useState({
+    fullName: user?.fullName || "",
+    email: user?.email || "",
+    phoneNumber: user?.phoneNumber || "",
+    address: user?.address || "",
+    voucher: "",
+  });
+
   useEffect(() => {
     async function fetchTourData() {
       try {
         setLoading(true);
-        const tourData = await getTourById(id);
-        const priceData = await getTourPriceById(id);
-        const timelineData = await getTimelineByTourId(id);
-        const reviewData = await getReviewsByTourId(id);
-        const startDatesData = await getStartDatesByTourId(id);
-        const imagesData = await getImagesByTourId(id);
-        const hashtagData = await getHashtagsForTour(id);
 
+        // ⚡️ Tải song song dữ liệu liên quan đến tour
+        const [
+          tourData,
+          priceData,
+          timelineData,
+          reviewData,
+          startDatesData,
+          imagesData,
+          hashtagData,
+        ] = await Promise.all([
+          getTourById(id),
+          getTourPriceById(id),
+          getTimelineByTourId(id),
+          getReviewsByTourId(id),
+          getStartDatesByTourId(id),
+          getImagesByTourId(id),
+          getHashtagsForTour(id),
+        ]);
+
+        // ✅ Gộp dữ liệu tour & giá
         const mergedTour = {
           ...tourData,
           price: Number(priceData?.minPriceAdult) || 0,
           originalPrice: Number(priceData?.maxPriceAdult) || 0,
         };
 
-        const params = { page: 1, limit: 4, destination: mergedTour.destination };
-        const relativeTourData = await filterTours(params);
-        
+        // 🔍 Lấy các tour liên quan
+        const relativeParams = {
+          page: 1,
+          limit: 4,
+          destination: mergedTour.destination,
+        };
+        const relativeTourData = await filterTours(relativeParams);
         setRelativeTour(relativeTourData);
+
+        // ✅ Set các dữ liệu còn lại
         setTour(mergedTour);
+
+        console.log("XP-DEBUGGGGG MERGED TOUR: ", mergedTour);
         setTimeline(timelineData);
         setAvailableDates(startDatesData);
         setReviews(reviewData);
-        setHashtags(hashtagData || { tourHashtags: [] });
+        setHashtags(hashtagData);
 
+        // 🖼️ Ảnh chính + gallery
         const coverImage = { imageId: "cover", imageURL: mergedTour.image };
         const galleryImages = Array.isArray(imagesData) ? imagesData : [];
-        const filteredGallery = galleryImages.filter((img) => img.imageURL !== coverImage.imageURL);
+        const filteredGallery = galleryImages.filter(
+          (img) => img.imageURL !== coverImage.imageURL
+        );
         const allImages = [coverImage, ...filteredGallery];
 
         setImages(allImages);
-        setSelectedImage(allImages[0]?.imageURL);
+        setSelectedImage(allImages[0]?.imageURL || "");
+
+        // 💖 Kiểm tra xem tour có trong danh sách yêu thích không
+        if (user) {
+          try {
+            const favRes = await getFavorites(user.userId, 1, 100);
+            const favList = favRes?.data?.favourites || [];
+            const favItem = favList.find((f) => f.tour?.tourId === Number(id));
+
+            if (favItem) {
+              setIsFavorite(true);
+              setFavoriteId(favItem.favouriteId);
+            } else {
+              setIsFavorite(false);
+              setFavoriteId(null);
+            }
+          } catch (favErr) {
+            console.warn("⚠️ Lỗi khi kiểm tra yêu thích:", favErr);
+          }
+        }
       } catch (err) {
-        console.error("❌ Lỗi khi tải tour:", err);
+        console.error("❌ Lỗi khi tải dữ liệu tour:", err);
         setError("Không thể tải dữ liệu tour từ server.");
       } finally {
         setLoading(false);
       }
     }
     fetchTourData();
-  }, [id]);
+  }, [id, user]);
 
   const handleBookNow = async () => {
     if (!user) {
@@ -212,19 +269,32 @@ export default function TourDetail() {
       alert("Vui lòng chọn ít nhất 1 người lớn.");
       return;
     }
+
+    // ✅ Mở popup nhập thông tin khách hàng
+    setFormData({
+      fullName: user?.fullName || "",
+      email: user?.email || "",
+      phoneNumber: user?.phoneNumber || "",
+      address: user?.address || "",
+      voucher: "",
+    });
+    setOpenBookingForm(true);
+  };
+
+  const handleConfirmBooking = async () => {
     setIsBooking(true);
     try {
       const bookingData = {
         tourId: tour.tourId,
         userId: user.userId,
         dateId: selectedDate.dateId,
-        fullName: user.fullName,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-        address: user.address || "",
+        fullName: formData.fullName,
+        email: formData.email,
+        phoneNumber: formData.phoneNumber,
+        address: formData.address,
         numAdults: travelers.adults,
         numChildren: travelers.children,
-        codeCoupon: "",
+        codeCoupon: formData.voucher || "",
         bookingStatus: "pending",
         receiveEmail: true,
       };
@@ -232,10 +302,38 @@ export default function TourDetail() {
       alert("Đặt tour thành công! Đang chuyển đến trang booking của bạn...");
       navigate("/bookings");
     } catch (err) {
-      console.error("Lỗi khi đặt tour:", err);
+      console.error("❌ Lỗi khi đặt tour:", err);
       alert("Đã xảy ra lỗi khi đặt tour. Vui lòng thử lại.");
     } finally {
       setIsBooking(false);
+      setOpenBookingForm(false);
+    }
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!user) {
+      alert("Bạn cần đăng nhập để thêm vào yêu thích.");
+      navigate("/auth/login", { state: { from: location } });
+      return;
+    }
+
+    try {
+      if (isFavorite && favoriteId) {
+        // ❌ Nếu tour đang được yêu thích → xóa
+        await deleteFavorite(favoriteId);
+        setIsFavorite(false);
+        setFavoriteId(null);
+        alert("🖤 Đã xóa khỏi danh sách yêu thích!");
+      } else {
+        // 💖 Nếu chưa yêu thích → thêm mới
+        const res = await addToFavorites(user.userId, tour.tourId);
+        setIsFavorite(true);
+        setFavoriteId(res?.data?.favouriteId || null);
+        alert("💖 Đã thêm vào danh sách yêu thích!");
+      }
+    } catch (err) {
+      console.error("❌ Lỗi khi thao tác yêu thích:", err);
+      alert("Không thể thực hiện thao tác yêu thích. Vui lòng thử lại.");
     }
   };
 
@@ -324,23 +422,44 @@ export default function TourDetail() {
           
           {/* LEFT COLUMN: Content */}
           <div className="lg:col-span-2 space-y-8">
-            
-            {/* Gallery Section (Styled) */}
-            <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100 p-2">
-              <div className="relative h-[400px] md:h-[500px] rounded-2xl overflow-hidden group cursor-pointer" 
-                   onClick={() => {
-                     const idx = images.findIndex(img => img.imageURL === selectedImage);
-                     openLightbox(idx >= 0 ? idx : 0);
-                   }}>
-                <img
-                  src={selectedImage || "/placeholder.svg"}
-                  alt={tour.title}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
-                   <div className="bg-white/20 backdrop-blur-md border border-white/50 text-white px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0 font-medium flex items-center gap-2">
-                     <ImageIcon className="w-4 h-4" /> Xem toàn bộ ảnh
-                   </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h1 className="text-4xl font-bold text-foreground">
+                  {tour.title}
+                </h1>
+                <button
+                  onClick={handleToggleFavorite}
+                  className="flex items-center justify-center w-10 h-10 rounded-full border border-border 
+               hover:bg-pink-50 transition group"
+                >
+                  <Heart
+                    className={`w-6 h-6 transition-all duration-200 
+        ${
+          isFavorite
+            ? "fill-pink-500 text-pink-500 scale-110"
+            : "text-muted-foreground group-hover:text-pink-500"
+        }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 text-muted-foreground mb-4">
+                <MapPin className="w-4 h-4" />
+                <span>{tour.destination}</span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground mb-4">
+                {/* ⭐ Hiển thị sao */}
+                <div className="flex items-center">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-4 h-4 ${
+                        i < Math.round(tour.starAvg || 0)
+                          ? "text-yellow-400 fill-yellow-400"
+                          : "text-gray-300"
+                      }`}
+                    />
+                  ))}
                 </div>
               </div>
               
@@ -656,6 +775,112 @@ export default function TourDetail() {
         open={lightboxOpen}
         onOpenChange={setLightboxOpen}
       />
+
+      {/* 🧾 Popup form đặt tour */}
+      <Dialog open={openBookingForm} onOpenChange={setOpenBookingForm}>
+        <DialogContent className="max-w-md">
+          <h2 className="text-xl font-semibold mb-4 text-center">
+            Điền thông tin để đặt tour
+          </h2>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleConfirmBooking();
+            }}
+            className="space-y-3"
+          >
+            <div>
+              <label className="text-sm font-medium">Họ và tên *</label>
+              <input
+                type="text"
+                required
+                className="w-full mt-1 p-2 border rounded-md"
+                value={formData.fullName}
+                onChange={(e) =>
+                  setFormData({ ...formData, fullName: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Số điện thoại *</label>
+              <input
+                type="tel"
+                required
+                className="w-full mt-1 p-2 border rounded-md"
+                value={formData.phoneNumber}
+                onChange={(e) =>
+                  setFormData({ ...formData, phoneNumber: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Email *</label>
+              <input
+                type="email"
+                required
+                className="w-full mt-1 p-2 border rounded-md"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Địa chỉ *</label>
+              <input
+                type="text"
+                required
+                className="w-full mt-1 p-2 border rounded-md"
+                value={formData.address}
+                onChange={(e) =>
+                  setFormData({ ...formData, address: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Mã Voucher (nếu có)</label>
+              <input
+                type="text"
+                placeholder="Nhập mã giảm giá (nếu có)"
+                className="w-full mt-1 p-2 border rounded-md"
+                value={formData.voucher}
+                onChange={(e) =>
+                  setFormData({ ...formData, voucher: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="border-t pt-3 text-sm text-muted-foreground">
+              <p>
+                <strong>Tổng tiền:</strong>{" "}
+                {calculateTotalPrice().toLocaleString("vi-VN")} ₫
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpenBookingForm(false)}
+              >
+                Hủy
+              </Button>
+              <Button
+                type="submit"
+                className="bg-primary hover:bg-primary/90 text-white"
+                disabled={isBooking}
+              >
+                {isBooking ? "Đang xử lý..." : "Xác nhận đặt tour"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

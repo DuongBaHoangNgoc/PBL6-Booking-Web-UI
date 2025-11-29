@@ -26,6 +26,7 @@ import { SupplierLayout } from "@/components/layout/SupplierLayout";
 import { SupplierRoute } from "./SupplierRoute";
 import ManageBookingsPage from "@/pages/ManageBookingsPage";
 import CalendarPage from "@/pages/CalendarPage";
+import SupplierPaymentsPage from "@/components/pages/payments/SupplierPaymentsPage";
 import { EarningsPage } from "@/pages/EarningsPage";
 import { useAuth } from "@/context/useAuth";
 
@@ -42,17 +43,17 @@ const RootRedirector = () => {
 
   if (user) {
     // 3. LOGIC ĐIỀU HƯỚNG DỰA TRÊN VAI TRÒ
-    if (user.role === 'admin') {
+    if (user.role === "admin") {
       return <Navigate to="/admin" replace />;
     }
-    if (user.role === 'supplier') {
+    if (user.role === "supplier") {
       // Supplier
       return <Navigate to="/supplier/dashboard" replace />;
     }
   }
 
-  return <Home/>;
-}
+  return <Home />;
+};
 
 export const AppRoutes = () => {
   const { user } = useAuth();
@@ -89,7 +90,7 @@ export const AppRoutes = () => {
       */}
       <Route path="/admin" element={<AdminRoute />}>
         <Route element={<ClientLayout />}>
-          <Route index element={<Navigate to="dashboard" replace />} /> 
+          <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<ManageUsersPage />} />
           <Route path="tours" element={<ManageToursPage />} />
@@ -103,21 +104,19 @@ export const AppRoutes = () => {
         AREA 3: SUPPLIER ROUTES
         =========================================
       */}
-      <Route path="/supplier" element={<SupplierRoute />}> 
-        <Route element={<SupplierLayout />}> 
-
-          <Route index element={<Navigate to="dashboard" replace />} /> 
+      <Route path="/supplier" element={<SupplierRoute />}>
+        <Route element={<SupplierLayout />}>
+          <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<SupplierDashboard />} />
           <Route path="tours" element={<ManageToursPage />} />
-          <Route path="tours/edit/:id" element={<ManageTourDetailPage />} /> 
+          <Route path="tours/edit/:id" element={<ManageTourDetailPage />} />
           <Route path="profile" element={<Profile />} />
           <Route path="bookings" element={<ManageBookingsPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="revenue" element={<EarningsPage />} />
-
+          <Route path="payments" element={<SupplierPaymentsPage />} />
         </Route>
       </Route>
-
     </Routes>
   );
 };
