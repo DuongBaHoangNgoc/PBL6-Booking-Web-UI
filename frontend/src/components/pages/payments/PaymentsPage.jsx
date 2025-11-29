@@ -19,6 +19,21 @@ import {
   createAccount,
 } from "@/api/wallet_accounts";
 import { createTransaction, getTransactions } from "@/api/transactions";
+import { getBanks } from "@/api/banks";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandInput,
+  CommandItem,
+  CommandEmpty,
+  CommandGroup,
+} from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function PaymentsPage() {
   const { user } = useAuth();
@@ -54,6 +69,8 @@ export default function PaymentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+
+  const [banks, setBanks] = useState([]);
 
   // 🟢 Lấy danh sách tài khoản
   const fetchAccounts = async () => {
@@ -141,6 +158,14 @@ export default function PaymentsPage() {
   useEffect(() => {
     if (accounts.length > 0) fetchTransactions(1);
   }, [accounts]);
+
+  useEffect(() => {
+    const fetchBanks = async () => {
+      const result = await getBanks();
+      setBanks(result);
+    };
+    fetchBanks();
+  }, []);
 
   // 🟣 Thêm tài khoản mới
   const handleAddAccount = async () => {
@@ -474,13 +499,63 @@ export default function PaymentsPage() {
                 }
               />
 
-              <Input
-                placeholder="Ngân hàng"
-                value={newAccount.bankName}
-                onChange={(e) =>
-                  setNewAccount({ ...newAccount, bankName: e.target.value })
-                }
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between"
+                  >
+                    {newAccount.bankName
+                      ? banks.find((b) => b.shortName === newAccount.bankName)
+                          ?.shortName
+                      : "Chọn ngân hàng"}
+                    <ChevronsUpDown className="w-4 h-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+
+                <PopoverContent className="w-[300px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Tìm ngân hàng..." />
+
+                    <CommandEmpty>Không tìm thấy ngân hàng.</CommandEmpty>
+
+                    <CommandGroup>
+                      {banks.map((bank) => (
+                        <CommandItem
+                          key={bank.bin}
+                          value={bank.shortName}
+                          onSelect={() =>
+                            setNewAccount({
+                              ...newAccount,
+                              bankName: bank.shortName,
+                            })
+                          }
+                        >
+                          <img
+                            src={bank.logo}
+                            alt={bank.shortName}
+                            className="w-5 h-5 rounded mr-2"
+                          />
+
+                          <span>
+                            {bank.shortName} - {bank.name}
+                          </span>
+
+                          <Check
+                            className={cn(
+                              "ml-auto w-4 h-4",
+                              newAccount.bankName === bank.shortName
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <Button
