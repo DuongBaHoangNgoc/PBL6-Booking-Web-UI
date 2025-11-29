@@ -11,6 +11,17 @@ export async function createBooking(formData) {
   }
 }
 
+// 🛑 HỦY BOOKING (đúng API bạn đang dùng)
+export async function cancelBooking(bookingId) {
+  try {
+    const res = await api.post(`/bookings/cancelBooking/${bookingId}`);
+    return res.data;
+  } catch (err) {
+    console.error("❌ Lỗi khi hủy booking:", err);
+    throw err;
+  }
+}
+
 // 🟢 Lấy toàn bộ booking của người dùng hiện tại
 export const getMyBookings = async () => {
   const { data } = await api.get("/bookings");

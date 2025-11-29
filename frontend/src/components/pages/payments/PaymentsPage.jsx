@@ -51,6 +51,10 @@ export default function PaymentsPage() {
   const [topupAmount, setTopupAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+
   // 🟢 Lấy danh sách tài khoản
   const fetchAccounts = async () => {
     if (!user) return;
@@ -76,18 +80,28 @@ export default function PaymentsPage() {
   };
 
   // 📜 Lấy lịch sử giao dịch
-  const fetchTransactions = async () => {
+  const fetchTransactions = async (page = 1) => {
     if (!user || accounts.length === 0) return;
+
     try {
-      setIsFetching(true);
+      setLoadingTransactions(true);
+
       const res = await getTransactions({
         accountId: accounts[0]?.id,
         limit: 10,
-        page: 1,
+        page,
       });
-      const data =
-        res?.data?.transactions || res?.transactions || res?.data || [];
+
+      const data = res?.data?.transactions || [];
+
+      // ❌ BỎ SORT — SORT ĐÃ ĐƯỢC BACKEND XỬ LÝ
       setTransactions(Array.isArray(data) ? data : []);
+
+      // Tổng số giao dịch
+      const total = res?.data?.countTransaction || 0;
+      setTotalPages(Math.ceil(total / 10));
+
+      setCurrentPage(page);
     } catch (err) {
       console.error("❌ Lỗi khi tải lịch sử giao dịch:", err);
       setMessage({
@@ -95,11 +109,10 @@ export default function PaymentsPage() {
         text: "Không thể tải lịch sử giao dịch!",
       });
     } finally {
-      setIsFetching(false);
+      setLoadingTransactions(false);
     }
   };
 
-  // ✅ 1. Khôi phục QR khi load trang (chỉ chạy 1 lần)
   useEffect(() => {
     const saved = localStorage.getItem("qrPayment");
     if (saved) {
@@ -126,7 +139,7 @@ export default function PaymentsPage() {
   }, [user]);
 
   useEffect(() => {
-    if (accounts.length > 0) fetchTransactions();
+    if (accounts.length > 0) fetchTransactions(1);
   }, [accounts]);
 
   // 🟣 Thêm tài khoản mới
@@ -500,91 +513,130 @@ export default function PaymentsPage() {
 
         {/* Lịch sử giao dịch */}
         <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Lịch sử giao dịch</h2>
+          <h2 className="text-xl font-semibold mb-6">Lịch sử giao dịch</h2>
 
-          {transactions.length === 0 ? (
+          {loadingTransactions ? (
+            <p className="text-center py-4 text-muted-foreground">
+              Đang tải...
+            </p>
+          ) : transactions.length === 0 ? (
             <p className="text-muted-foreground text-center py-6">
               Chưa có giao dịch nào.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border border-border rounded-lg">
-                <thead className="bg-muted/30">
-                  <tr className="border-b border-border">
-                    <th className="py-3 px-4 text-left font-semibold">Mã GD</th>
-                    <th className="py-3 px-4 text-left font-semibold">
-                      Mã Thanh Toán
-                    </th>
-                    <th className="py-3 px-4 text-left font-semibold">Loại</th>
-                    <th className="py-3 px-4 text-left font-semibold">
-                      Số Tiền
-                    </th>
-                    <th className="py-3 px-4 text-left font-semibold">
-                      Trạng Thái
-                    </th>
-                    <th className="py-3 px-4 text-left font-semibold">
-                      Ngân Hàng
-                    </th>
-                    <th className="py-3 px-4 text-left font-semibold">
-                      Số Tài Khoản
-                    </th>
-                    <th className="py-3 px-4 text-left font-semibold">Ngày</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((t) => {
-                    // 🔍 Xác định loại giao dịch từ nội dung
-                    const isDeposit =
-                      t.transaction_content?.includes("NAPTIEN");
-                    const typeText = isDeposit ? "Nạp tiền" : "Rút tiền";
+            <>
+              <div className="overflow-y-scroll max-h-80 rounded-md border border-border scrollbar-thin">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background z-10 border-b border-border">
+                    <tr>
+                      <th className="py-3 px-4 text-left font-semibold">
+                        Mã GD
+                      </th>
+                      <th className="py-3 px-4 text-left font-semibold">
+                        Mã Thanh Toán
+                      </th>
+                      <th className="py-3 px-4 text-left font-semibold">
+                        Loại
+                      </th>
+                      <th className="py-3 px-4 text-left font-semibold">
+                        Số Tiền
+                      </th>
+                      <th className="py-3 px-4 text-left font-semibold">
+                        Trạng Thái
+                      </th>
+                      <th className="py-3 px-4 text-left font-semibold">
+                        Ngân Hàng
+                      </th>
+                      <th className="py-3 px-4 text-left font-semibold">
+                        Số Tài Khoản
+                      </th>
+                      <th className="py-3 px-4 text-left font-semibold">
+                        Ngày
+                      </th>
+                    </tr>
+                  </thead>
 
-                    // 🔍 Lấy số tiền từ nội dung (ví dụ: “NAPTIEN 50000”)
-                    const matchAmount = t.transaction_content?.match(
-                      /(\d+)(?=\s*paymentCode)/
-                    );
-                    const amount = matchAmount ? Number(matchAmount[1]) : 0;
+                  <tbody>
+                    {transactions.map((t) => {
+                      const isDeposit =
+                        t.transaction_content?.includes("NAPTIEN");
+                      const typeText = isDeposit ? "Nạp tiền" : "Rút tiền";
 
-                    return (
-                      <tr
-                        key={t.transactionId}
-                        className="border-b border-border hover:bg-muted/50 transition-colors"
-                      >
-                        <td className="py-3 px-4">{t.transactionId}</td>
-                        <td className="py-3 px-4">{t.paymentId}</td>
-                        <td className="py-3 px-4">{typeText}</td>
-                        <td
-                          className={`py-3 px-4 font-semibold ${
-                            isDeposit ? "text-green-600" : "text-red-600"
-                          }`}
+                      const matchAmount = t.transaction_content?.match(
+                        /(\d+)(?=\s*paymentCode)/
+                      );
+                      const amount = matchAmount ? Number(matchAmount[1]) : 0;
+
+                      return (
+                        <tr
+                          key={t.transactionId}
+                          className="border-b border-border hover:bg-muted/50 transition-colors"
                         >
-                          {amount.toLocaleString("vi-VN")} VND
-                        </td>
-                        <td
-                          className={`py-3 px-4 font-semibold ${
-                            t.status === "SUCCESS"
-                              ? "text-green-600"
-                              : t.status === "EXPIRED"
-                              ? "text-red-600"
-                              : "text-yellow-600"
-                          }`}
-                        >
-                          {t.status}
-                        </td>
-                        <td className="py-3 px-4">
-                          {t.account?.bankName || "-"}
-                        </td>
-                        <td className="py-3 px-4">
-                          {t.account?.accountNumber || "-"}
-                        </td>
-                        <td className="py-3 px-4 text-muted-foreground">
-                          {new Date(t.transaction_date).toLocaleString("vi-VN")}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          <td className="py-3 px-4">{t.transactionId}</td>
+                          <td className="py-3 px-4">{t.paymentId}</td>
+                          <td className="py-3 px-4">{typeText}</td>
+                          <td
+                            className={`py-3 px-4 font-semibold ${
+                              isDeposit ? "text-green-600" : "text-red-600"
+                            }`}
+                          >
+                            {amount.toLocaleString("vi-VN")} VND
+                          </td>
+
+                          <td
+                            className={`py-3 px-4 font-semibold ${
+                              t.status === "SUCCESS"
+                                ? "text-green-600"
+                                : t.status === "EXPIRED"
+                                ? "text-red-600"
+                                : "text-yellow-600"
+                            }`}
+                          >
+                            {t.status}
+                          </td>
+
+                          <td className="py-3 px-4">
+                            {t.account?.bankName || "-"}
+                          </td>
+                          <td className="py-3 px-4">
+                            {t.account?.accountNumber || "-"}
+                          </td>
+
+                          <td className="py-3 px-4 text-muted-foreground">
+                            {new Date(t.transaction_date).toLocaleString(
+                              "vi-VN"
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* PHÂN TRANG */}
+              <div className="flex items-center justify-center gap-4 mt-4">
+                <Button
+                  variant="outline"
+                  disabled={currentPage === 1}
+                  onClick={() => fetchTransactions(currentPage - 1)}
+                >
+                  Trang trước
+                </Button>
+
+                <span className="text-sm">
+                  Trang <strong>{currentPage}</strong> / {totalPages}
+                </span>
+
+                <Button
+                  variant="outline"
+                  disabled={currentPage === totalPages}
+                  onClick={() => fetchTransactions(currentPage + 1)}
+                >
+                  Trang sau
+                </Button>
+              </div>
+            </>
           )}
         </Card>
       </div>

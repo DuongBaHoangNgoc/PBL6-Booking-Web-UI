@@ -16,6 +16,7 @@ import {
 import axios from "axios";
 import { Calendar, Users, DollarSign } from "lucide-react";
 import { Link } from "react-router-dom";
+import { io } from "socket.io-client";
 
 export function TourDashboard() {
   const [stats, setStats] = useState({
@@ -34,6 +35,10 @@ export function TourDashboard() {
   const [destPeriod, setDestPeriod] = useState("month"); // Top destinations
 
   useEffect(() => {
+    // Kết nối socket
+    const socket = io(import.meta.env.VITE_API_URL || "http://localhost:3000");
+
+    // Hàm gọi API
     const fetchData = async () => {
       try {
         const [bookingsRes, usersRes, transactionsRes] = await Promise.all([
@@ -50,18 +55,20 @@ export function TourDashboard() {
         const users = usersRes.data?.data?.users || [];
         const transactions = transactionsRes.data?.data || [];
 
-        // ✅ 1. Tổng số booking
-        const totalBookings = bookings.length;
+        // --- PHẦN TÍNH TOÁN ---
+        const confirmedBookings = bookings.filter(
+          (b) => b.bookingStatus === "confirmed"
+        );
+        const totalBookings = confirmedBookings.length;
 
-        // ✅ 2. Tổng số người dùng
         const totalUsers = users.length;
 
-        // ✅ 3. Tổng doanh thu (chỉ tính SUCCESS)
-        const totalEarnings = transactions
-          .filter((t) => t.status === "SUCCESS")
-          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+        // 🔥 Doanh thu = tổng tiền của booking đã confirmed
+        const totalEarnings = confirmedBookings.reduce(
+          (sum, b) => sum + Number(b.totalPrice || 0),
+          0
+        );
 
-        // ✅ 4. Tổng chuyến đi (Done / Booked)
         const today = new Date();
         let totalDone = 0;
         let totalBooked = 0;
@@ -74,15 +81,12 @@ export function TourDashboard() {
           }
         });
 
-        // ✅ 5. Revenue Overview (group theo period)
         const grouped = groupRevenue(transactions, period);
 
-        // ✅ 6. Recent bookings
         const sorted = bookings
           .sort((a, b) => new Date(b.bookingDate) - new Date(a.bookingDate))
           .slice(0, 10);
 
-        // ✅ 7. Top Destinations (lọc theo thời gian & confirmed)
         const destinations = {};
         const now = new Date();
 
@@ -125,7 +129,7 @@ export function TourDashboard() {
                 .slice(0, 4)
             : [];
 
-        // ✅ Cập nhật state
+        // --- Cập nhật UI ---
         setStats({
           totalBookings,
           totalUsers,
@@ -143,7 +147,44 @@ export function TourDashboard() {
       }
     };
 
+    const fetchRecentBookings = async () => {
+      const bookingsRes = await axios.get(
+        "http://localhost:3000/bookings/FilterPagination?page=1&limit=1000"
+      );
+      const bookings = bookingsRes.data?.data?.bookings || [];
+
+      const sorted = bookings
+        .sort((a, b) => new Date(b.bookingDate) - new Date(a.bookingDate))
+        .slice(0, 10);
+
+      setRecentBookings(sorted);
+    };
+
+    // Gọi lần đầu
     fetchData();
+
+    // 🔥 Chỉ update Recent Bookings khi có booking mới
+    socket.on("new_booking", () => {
+      console.log("🔥 New booking received");
+      fetchRecentBookings();
+    });
+
+    // 🔥 Update toàn bộ dashboard khi booking được confirmed
+    socket.on("booking_status_changed", () => {
+      console.log("🔥 Booking status changed");
+      fetchData();
+    });
+
+    // 🔥 Cập nhật toàn bộ dashboard
+    socket.on("dashboard_update", () => {
+      console.log("🔥 Dashboard update received");
+      fetchData();
+    });
+
+    // Cleanup socket khi rời trang
+    return () => {
+      socket.disconnect();
+    };
   }, [period, destPeriod]);
 
   // 🔹 Hàm nhóm doanh thu
