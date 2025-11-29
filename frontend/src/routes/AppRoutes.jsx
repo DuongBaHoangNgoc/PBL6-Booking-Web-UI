@@ -9,7 +9,7 @@ import { AdminRoute } from "./AdminRoute";
 import Home from "@/pages/Home";
 import Login from "@/pages/Login";
 import SignUpPage from "@/pages/SignupPage";
-import TourSearchResult from "@/components/pages/tours/ToursList";
+import TourSearchResult from "@/components/pages/tours/TourSearchResult";
 import TourDetail from "@/components/pages/tours/TourDetail";
 import PaymentsPage from "@/components/pages/payments/PaymentsPage";
 import { Profile } from "../pages/Profile";

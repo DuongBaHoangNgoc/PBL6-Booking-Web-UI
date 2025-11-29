@@ -16,6 +16,9 @@ import {
   X,
   Phone,
   Tag,
+  Image as ImageIcon,
+  Calendar as CalendarIcon,
+  Info
 } from "lucide-react";
 import { useLocation, useNavigate, useParams, Link } from "react-router-dom";
 import { DayPicker } from "react-day-picker";
@@ -38,29 +41,28 @@ import { getHashtagsForTour } from "@/api/hashtags";
 import { Badge } from "@/components/ui/badge";
 import TourCard from "@/components/pages/tours/TourCard";
 
+// Component Lightbox (Giữ nguyên logic, chỉnh style nhẹ)
 function ImageLightbox({ images, startIndex, open, onOpenChange }) {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
 
-  // Cập nhật index khi mở dialog
   useEffect(() => {
     if (open) {
       setCurrentIndex(startIndex);
     }
   }, [startIndex, open]);
 
-  // Hàm điều hướng
   const goToNext = (e) => {
-    e.stopPropagation(); // Ngăn dialog đóng
+    e.stopPropagation();
     setCurrentIndex((prev) => (prev + 1) % images.length);
   };
 
   const goToPrev = (e) => {
-    e.stopPropagation(); // Ngăn dialog đóng
+    e.stopPropagation();
     setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
   const handleThumbnailClick = (e, index) => {
-    e.stopPropagation(); // Ngăn dialog đóng
+    e.stopPropagation();
     setCurrentIndex(index);
   };
 
@@ -68,46 +70,49 @@ function ImageLightbox({ images, startIndex, open, onOpenChange }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[90vh] bg-black border-none text-white data-[state=open]:text-white flex flex-col p-4">
-        {/* Ảnh chính (Full-screen) */}
+      <DialogContent className="max-w-7xl h-[95vh] bg-black/95 border-none text-white p-0 overflow-hidden flex flex-col">
+        <div className="absolute top-4 right-4 z-50">
+           <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="text-white/70 hover:text-white hover:bg-white/10">
+             <X className="w-6 h-6" />
+           </Button>
+        </div>
+        
+        {/* Ảnh chính */}
         <div className="flex-1 flex items-center justify-center relative min-h-0">
           <img
             src={images[currentIndex].imageURL}
             alt="Tour full view"
             className="max-w-full max-h-full object-contain"
           />
-          {/* Nút Trái */}
           <Button
             variant="ghost"
             size="icon"
             onClick={goToPrev}
-            className="absolute left-2 md:left-4 h-12 w-12 bg-black/30 hover:bg-black/50 text-white"
+            className="absolute left-4 h-12 w-12 bg-black/20 hover:bg-black/50 text-white rounded-full backdrop-blur-sm"
           >
             <ChevronLeft className="w-8 h-8" />
           </Button>
-          {/* Nút Phải */}
           <Button
             variant="ghost"
             size="icon"
             onClick={goToNext}
-            className="absolute right-2 md:right-4 h-12 w-12 bg-black/30 hover:bg-black/50 text-white"
+            className="absolute right-4 h-12 w-12 bg-black/20 hover:bg-black/50 text-white rounded-full backdrop-blur-sm"
           >
             <ChevronRight className="w-8 h-8" />
           </Button>
         </div>
 
-        {/* Gallery ảnh nhỏ (bên dưới) */}
-        <div className="h-24 flex-shrink-0 overflow-x-auto mt-4">
-          <div className="flex justify-center gap-2 p-2">
+        {/* Thumbnails */}
+        <div className="h-20 bg-black/50 flex items-center justify-center gap-2 p-2 overflow-x-auto">
             {images.map((image, index) => (
               <button
                 key={image.imageId}
                 onClick={(e) => handleThumbnailClick(e, index)}
-                className={`h-20 w-28 flex-shrink-0 rounded-md overflow-hidden transition-all
+                className={`h-16 w-24 flex-shrink-0 rounded-md overflow-hidden transition-all border-2
                   ${
                     index === currentIndex
-                      ? "ring-2 ring-white"
-                      : "opacity-50 hover:opacity-100"
+                      ? "border-cyan-500 opacity-100"
+                      : "border-transparent opacity-50 hover:opacity-100"
                   }
                 `}
               >
@@ -118,7 +123,6 @@ function ImageLightbox({ images, startIndex, open, onOpenChange }) {
                 />
               </button>
             ))}
-          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -130,26 +134,22 @@ export default function TourDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  
+  // State
   const [tour, setTour] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [expandedDay, setExpandedDay] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [hashtags, setHashtags] = useState([]);
+  const [hashtags, setHashtags] = useState({ tourHashtags: [] }); // Khởi tạo mặc định tránh lỗi
   const [relativeTour, setRelativeTour] = useState([]);
-
   const [images, setImages] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
-
   const [loading, setLoading] = useState(true);
   const [isBooking, setIsBooking] = useState(false);
   const [error, setError] = useState(null);
-  const [travelers, setTravelers] = useState({
-    adults: 2,
-    children: 0,
-  });
-
+  const [travelers, setTravelers] = useState({ adults: 2, children: 0 });
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxStartIndex, setLightboxStartIndex] = useState(0);
 
@@ -157,7 +157,6 @@ export default function TourDetail() {
     async function fetchTourData() {
       try {
         setLoading(true);
-
         const tourData = await getTourById(id);
         const priceData = await getTourPriceById(id);
         const timelineData = await getTimelineByTourId(id);
@@ -172,36 +171,23 @@ export default function TourDetail() {
           originalPrice: Number(priceData?.maxPriceAdult) || 0,
         };
 
-        const params = {
-          page: 1,
-          limit: 4,
-          destination: mergedTour.destination,
-        };
-
-        // Lấy các tour có cùng destination với tour hiện tại
+        const params = { page: 1, limit: 4, destination: mergedTour.destination };
         const relativeTourData = await filterTours(params);
+        
         setRelativeTour(relativeTourData);
         setTour(mergedTour);
         setTimeline(timelineData);
         setAvailableDates(startDatesData);
         setReviews(reviewData);
-        setHashtags(hashtagData);
+        setHashtags(hashtagData || { tourHashtags: [] });
 
-        const coverImage = {
-          imageId: "cover",
-          imageURL: mergedTour.image,
-        };
-
+        const coverImage = { imageId: "cover", imageURL: mergedTour.image };
         const galleryImages = Array.isArray(imagesData) ? imagesData : [];
-
-        const filteredGallery = galleryImages.filter(
-          (img) => img.imageURL !== coverImage.imageURL
-        );
-
+        const filteredGallery = galleryImages.filter((img) => img.imageURL !== coverImage.imageURL);
         const allImages = [coverImage, ...filteredGallery];
 
         setImages(allImages);
-        setSelectedImage(allImages[0].imageURL);
+        setSelectedImage(allImages[0]?.imageURL);
       } catch (err) {
         console.error("❌ Lỗi khi tải tour:", err);
         setError("Không thể tải dữ liệu tour từ server.");
@@ -209,31 +195,25 @@ export default function TourDetail() {
         setLoading(false);
       }
     }
-
     fetchTourData();
   }, [id]);
 
-  // Function handleBookNow, calculateTotalPrice
   const handleBookNow = async () => {
     if (!user) {
       alert("Bạn cần đăng nhập để đặt tour.");
       navigate("/auth/login", { state: { from: location } });
       return;
     }
-    if (!selectedDate) {
+    if (!selectedDate || selectedDate === "datepicker") {
       alert("Vui lòng chọn ngày khởi hành.");
       return;
     }
     if (travelers.adults === 0) {
-      alert("Vui long chọn ít nhất 1 người lớn.");
+      alert("Vui lòng chọn ít nhất 1 người lớn.");
       return;
     }
     setIsBooking(true);
     try {
-      const totalPrice =
-        selectedDate.priceAdult * travelers.adults +
-        selectedDate.priceChildren * travelers.children;
-
       const bookingData = {
         tourId: tour.tourId,
         userId: user.userId,
@@ -248,9 +228,7 @@ export default function TourDetail() {
         bookingStatus: "pending",
         receiveEmail: true,
       };
-
-      console.log("XP-DEBUG-ZZZZZ: ", bookingData);
-      const newBooking = await createBooking(bookingData);
+      await createBooking(bookingData);
       alert("Đặt tour thành công! Đang chuyển đến trang booking của bạn...");
       navigate("/bookings");
     } catch (err) {
@@ -261,625 +239,413 @@ export default function TourDetail() {
     }
   };
 
-  const calculateTotalPrice = () => {
-    if (!selectedDate) return 0;
-    return (
-      selectedDate.priceAdult * travelers.adults +
-      selectedDate.priceChildren * travelers.children
-    );
-  };
-
-  if (loading)
-    return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        Đang tải chi tiết tour...
-      </div>
-    );
-
-  if (error || !tour)
-    return (
-      <div className="min-h-screen flex items-center justify-center text-red-500">
-        {error || "Không tìm thấy tour."}
-      </div>
-    );
-
   const toggleAll = (expand) => {
     setExpandedDay(expand ? "all" : null);
   };
 
-  // 5. (MỚI) HÀM MỞ LIGHTBOX
   const openLightbox = (index) => {
     setLightboxStartIndex(index);
     setLightboxOpen(true);
   };
 
-  return (
-    <section className="p-6 md:p-14">
-      <div className="container mx-auto px-4">
-        {/* Ảnh chính */}
-        <div className="mb-4 rounded-lg overflow-hidden h-96 bg-muted relative group cursor-pointer">
-          <img
-            src={selectedImage}
-            alt={tour.title}
-            className="w-full h-full object-cover"
-          />
-          {/* Lớp phủ (overlay) để mở lightbox */}
-          <div
-            className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={() => {
-              const mainIndex = images.findIndex(
-                (img) => img.imageURL === selectedImage
-              );
-              openLightbox(mainIndex >= 0 ? mainIndex : 0);
-            }}
-          >
-            <span className="text-white font-semibold text-lg border-2 border-white rounded-lg px-4 py-2">
-              Phóng to ảnh
-            </span>
-          </div>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3 text-cyan-600">
+          <div className="w-10 h-10 border-4 border-cyan-200 border-t-cyan-600 rounded-full animate-spin"></div>
+          <span className="font-medium animate-pulse">Đang tải thông tin tour...</span>
         </div>
+      </div>
+    );
+  }
 
-        {images.length > 1 && (
-          <div className="grid grid-cols-5 gap-4 mb-8">
-            {images.slice(0, 5).map(
-              (
-                image,
-                index // Giới hạn 5 ảnh
-              ) => (
-                <button
-                  key={image.imageId}
-                  onClick={() => {
-                    setSelectedImage(image.imageURL);
-                    openLightbox(index);
-                  }}
-                  className={`rounded-lg overflow-hidden h-24 transition-all duration-200
-                  ${
-                    selectedImage === image.imageURL
-                      ? "ring-4 ring-primary ring-offset-2"
-                      : "opacity-70 hover:opacity-100"
-                  }
-                `}
-                >
-                  <img
-                    src={image.imageURL}
-                    alt="Tour thumbnail"
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              )
+  if (error || !tour) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Không tìm thấy tour</h2>
+          <Button onClick={() => navigate("/tours")} variant="outline" className="mt-4">
+            Quay lại danh sách
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-900">
+      
+      {/* ================= HERO SECTION (Theme Bright Ocean) ================= */}
+      <div className="relative pt-24 pb-32 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg">
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+        
+        <div className="container mx-auto px-4 md:px-6 relative z-10">
+          <div className="max-w-5xl">
+            {/* Breadcrumb / Back */}
+            <Link to="/tours" className="inline-flex items-center gap-1 text-blue-100 hover:text-white mb-6 text-sm font-medium transition-colors">
+              <ChevronLeft className="w-4 h-4" /> Quay lại danh sách
+            </Link>
+
+            {/* Badges & Rating */}
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold border border-white/30 flex items-center gap-1">
+                <MapPin className="w-3 h-3" /> {tour.destination}
+              </span>
+              <div className="bg-yellow-400/90 text-yellow-950 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm">
+                <Star className="w-3 h-3 fill-current" /> {Number(tour.starAvg || 0).toFixed(1)} 
+                <span className="font-normal opacity-80 ml-1">({tour.reviewCount || 0} đánh giá)</span>
+              </div>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-3xl md:text-5xl font-extrabold mb-6 leading-tight drop-shadow-md text-balance">
+              {tour.title}
+            </h1>
+
+            {/* Hashtags */}
+            {hashtags.tourHashtags && hashtags.tourHashtags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-6">
+                {hashtags.tourHashtags.map((item) => (
+                  <Link key={item.tourHashTagId} to={`/hashtags/${item.hashtag.name.replace("#", "")}`}>
+                    <Badge variant="secondary" className="bg-white/10 hover:bg-white/20 text-white border-none px-3 py-1 text-sm font-medium backdrop-blur-sm">
+                      #{item.hashtag.name.replace("#", "")}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
             )}
           </div>
-        )}
+        </div>
+      </div>
 
+      {/* ================= MAIN CONTENT (Overlapping) ================= */}
+      <div className="container mx-auto px-4 md:px-6 -mt-20 relative z-20 pb-20">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Nội dung chính */}
+          
+          {/* LEFT COLUMN: Content */}
           <div className="lg:col-span-2 space-y-8">
-            <div>
-              <h1 className="text-4xl font-bold text-foreground mb-2">
-                {tour.title}
-              </h1>
-              <div className="flex items-center gap-2 text-muted-foreground mb-4">
-                <MapPin className="w-4 h-4" />
-                <span>{tour.destination}</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground mb-4">
-                {/* ⭐ Hiển thị sao */}
-                <div className="flex items-center">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-4 h-4 ${
-                        i < Math.round(tour.starAvg || 0)
-                          ? "text-yellow-400 fill-yellow-400"
-                          : "text-gray-300"
-                      }`}
-                    />
-                  ))}
+            
+            {/* Gallery Section (Styled) */}
+            <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100 p-2">
+              <div className="relative h-[400px] md:h-[500px] rounded-2xl overflow-hidden group cursor-pointer" 
+                   onClick={() => {
+                     const idx = images.findIndex(img => img.imageURL === selectedImage);
+                     openLightbox(idx >= 0 ? idx : 0);
+                   }}>
+                <img
+                  src={selectedImage || "/placeholder.svg"}
+                  alt={tour.title}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                   <div className="bg-white/20 backdrop-blur-md border border-white/50 text-white px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0 font-medium flex items-center gap-2">
+                     <ImageIcon className="w-4 h-4" /> Xem toàn bộ ảnh
+                   </div>
                 </div>
-
-                {/* 🔢 Hiển thị điểm trung bình & số đánh giá */}
-                <span className="font-semibold text-foreground">
-                  {Number(tour.starAvg || 0).toFixed(1)}
-                </span>
-
-                {tour.reviewCount && (
-                  <span className="text-sm text-muted-foreground">
-                    ({tour.reviewCount} reviews)
-                  </span>
-                )}
               </div>
-
-              {hashtags.tourHashtags.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 mb-4">
-                  <Tag className="w-4 h-4 text-muted-foreground" />
-                  {/* Giả định API trả về: { hashtag: { name: "#danang" } } */}
-                  {hashtags.tourHashtags.map((item) => (
-                    <Link
-                      key={item.tourHashTagId}
-                      to={`/hashtags/${item.hashtag.name.replace("#", "")}`}
+              
+              {/* Thumbnails */}
+              {images.length > 1 && (
+                <div className="grid grid-cols-5 gap-2 mt-2">
+                  {images.slice(0, 5).map((image, index) => (
+                    <div 
+                      key={image.imageId}
+                      onClick={() => {
+                        setSelectedImage(image.imageURL);
+                        // openLightbox(index); // Optional: open lightbox directly or just switch main image
+                      }}
+                      className={`h-20 rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${selectedImage === image.imageURL ? 'border-cyan-500 ring-2 ring-cyan-100' : 'border-transparent opacity-70 hover:opacity-100'}`}
                     >
-                      <Badge
-                        variant="outline"
-                        className="text-xl hover:bg-muted"
-                      >
-                        {item.hashtag.name}
-                      </Badge>
-                    </Link>
+                      <img src={image.imageURL} alt="thumb" className="w-full h-full object-cover" />
+                    </div>
                   ))}
                 </div>
               )}
+            </div>
 
-              <p className="text-lg text-muted-foreground whitespace-pre-line">
-                {tour.description || "Không có mô tả cho tour này."}
+            {/* Description */}
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                  <Info className="w-5 h-5" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-800">Tổng quan Tour</h3>
+              </div>
+              <p className="text-slate-600 leading-relaxed whitespace-pre-line text-lg">
+                {tour.description || "Chưa có mô tả chi tiết."}
               </p>
             </div>
 
-            {/* Tour bao gồm */}
+            {/* Highlights (Tour Includes) */}
             {tour.highlight && (
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-4">
-                  Tour bao gồm
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {tour.highlight
-                    .split("\n")
-                    .filter((line) => line.trim() !== "")
-                    .map((item, index) => (
-                      <div key={index} className="flex items-start gap-3">
-                        <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                        <span className="text-foreground">
-                          {item.replace(/^-/, "").trim()}
-                        </span>
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
+                <h3 className="text-xl font-bold text-slate-800 mb-6">Dịch vụ bao gồm</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {tour.highlight.split("\n").filter(l => l.trim()).map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Check className="w-3.5 h-3.5 text-green-600" />
                       </div>
-                    ))}
+                      <span className="text-slate-700 text-sm font-medium">{item.replace(/^-/, "").trim()}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Chương trình tour */}
+            {/* Timeline Accordion */}
             {timeline.length > 0 && (
-              <div id="tour-schedule">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold text-foreground">
-                    Chương trình tour
-                  </h2>
-                  <div className="flex gap-4 text-primary cursor-pointer">
-                    <span onClick={() => toggleAll(true)}>Xem tất cả</span>
-                    <span onClick={() => toggleAll(false)}>Thu gọn</span>
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <CalendarIcon className="text-cyan-500" /> Lịch trình chi tiết
+                  </h3>
+                  <div className="flex gap-3 text-sm font-medium">
+                    <button onClick={() => toggleAll(true)} className="text-cyan-600 hover:bg-cyan-50 px-3 py-1 rounded-full transition-colors">Mở tất cả</button>
+                    <button onClick={() => toggleAll(false)} className="text-slate-500 hover:bg-slate-100 px-3 py-1 rounded-full transition-colors">Thu gọn</button>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   {timeline.map((item, index) => (
-                    <Card key={item.timeLineId} className="overflow-hidden">
+                    <div key={item.timeLineId} className="border border-slate-200 rounded-2xl overflow-hidden transition-all hover:border-cyan-200">
                       <div
-                        className="flex justify-between items-center cursor-pointer p-4 bg-muted hover:bg-muted/50 transition"
-                        onClick={() =>
-                          setExpandedDay(expandedDay === index ? null : index)
-                        }
+                        className="flex justify-between items-center cursor-pointer p-4 bg-slate-50 hover:bg-white transition-colors"
+                        onClick={() => setExpandedDay(expandedDay === index ? null : index)}
                       >
                         <div className="flex items-center gap-4">
-                          {item.imageTimeLine && (
-                            <img
-                              src={item.imageTimeLine}
-                              alt={item.tl_title}
-                              className="w-20 h-16 object-cover rounded-md"
-                            />
-                          )}
+                          <div className="w-12 h-12 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg flex-shrink-0">
+                            {index + 1}
+                          </div>
                           <div>
-                            <h3 className="font-semibold text-lg text-foreground">
-                              {item.tl_title}
-                            </h3>
+                            <h4 className="font-bold text-slate-800">{item.tl_title}</h4>
+                            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">Nhấn để xem chi tiết</p>
                           </div>
                         </div>
-                        {expandedDay === index || expandedDay === "all" ? (
-                          <ChevronUp className="w-5 h-5 text-primary" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5 text-primary" />
-                        )}
+                        {expandedDay === index || expandedDay === "all" ? <ChevronUp className="text-cyan-500" /> : <ChevronDown className="text-slate-400" />}
                       </div>
 
                       {(expandedDay === index || expandedDay === "all") && (
-                        <div className="p-4 border-t border-border">
-                          <p
-                            className="text-muted-foreground"
-                            dangerouslySetInnerHTML={{
-                              __html: item.tl_description,
-                            }}
-                          />
+                        <div className="p-5 border-t border-slate-100 bg-white">
+                          <div className="prose prose-sm max-w-none text-slate-600" dangerouslySetInnerHTML={{ __html: item.tl_description }} />
+                          {item.imageTimeLine && (
+                            <img src={item.imageTimeLine} alt="Timeline" className="mt-4 rounded-xl w-full h-64 object-cover" />
+                          )}
                         </div>
                       )}
-                    </Card>
+                    </div>
                   ))}
                 </div>
               </div>
             )}
-            {/* Đánh giá & Nhận xét */}
-            {reviews.length > 0 && (
-              <div id="reviews-section">
-                <h2 className="text-2xl font-bold text-foreground mb-4">
-                  Đánh giá & Nhận xét ({reviews.length})
-                </h2>
-                <div className="space-y-4">
-                  {reviews.map((review) => (
-                    <Card key={review.reviewId} className="p-4">
-                      <div className="flex items-start gap-4 mb-2">
-                        <div className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0">
-                          <img
-                            src={
-                              review.user.avatar ||
-                              `https://placehold.co/60x60/0D9488/FFFFFF?text=${
-                                review.user.fullName?.charAt(0) || "U"
-                              }`
-                            }
-                            alt={review.user.fullName || "avatar"}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
 
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg text-foreground">
-                            {review.user?.fullName || "Người dùng ẩn danh"}
-                          </h3>
-                          <div className="flex items-center gap-1">
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`w-4 h-4 ${
-                                  i < review.rating
-                                    ? "text-yellow-400 fill-yellow-400"
-                                    : "text-muted"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                        <span className="text-sm text-muted-foreground flex-shrink-0">
-                          {formatDistanceToNow(new Date(review.timestamp), {
-                            addSuffix: true,
-                            locale: vi,
-                          })}
-                        </span>
+            {/* Reviews Section */}
+            {reviews.length > 0 && (
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
+                <h3 className="text-xl font-bold text-slate-800 mb-6">Đánh giá từ khách hàng ({reviews.length})</h3>
+                <div className="grid gap-6">
+                  {reviews.map((review) => (
+                    <div key={review.reviewId} className="flex gap-4 pb-6 border-b border-slate-100 last:border-0 last:pb-0">
+                      <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden flex-shrink-0">
+                        <img 
+                          src={review.user?.avatar || `https://ui-avatars.com/api/?name=${review.user?.fullName}&background=random`} 
+                          alt="user" 
+                          className="w-full h-full object-cover" 
+                        />
                       </div>
-                      <p className="text-muted-foreground whitespace-pre-line">
-                        {review.comment || "Không có nội dung đánh giá."}
-                      </p>
-                    </Card>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start mb-1">
+                          <h4 className="font-bold text-slate-900">{review.user?.fullName || "Ẩn danh"}</h4>
+                          <span className="text-xs text-slate-400">
+                            {formatDistanceToNow(new Date(review.timestamp), { addSuffix: true, locale: vi })}
+                          </span>
+                        </div>
+                        <div className="flex text-yellow-400 mb-2">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className={`w-3.5 h-3.5 ${i < review.rating ? "fill-current" : "text-slate-200 fill-slate-200"}`} />
+                          ))}
+                        </div>
+                        <p className="text-slate-600 text-sm bg-slate-50 p-3 rounded-xl rounded-tl-none">{review.comment}</p>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Sidebar đặt tour */}
-          <div>
-            <Card className="p-6 sticky top-20 space-y-6">
-              {/* 💰 Giá tour */}
-              <div>
-                <p className="text-sm text-muted-foreground">Giá tour từ</p>
-                <div className="flex items-baseline gap-2 mb-2">
-                  <span className="text-3xl font-bold text-primary">
-                    {(selectedDate?.priceAdult || tour.price).toLocaleString(
-                      "vi-VN"
-                    )}
-                    ₫
-                  </span>
-                  {tour.originalPrice > 0 &&
-                    tour.originalPrice >
-                      (selectedDate?.priceAdult || tour.price) && (
-                      <span className="text-lg text-muted-foreground line-through">
+          {/* RIGHT COLUMN: Booking Sidebar */}
+          <aside className="lg:col-span-1">
+            <div className="sticky top-24 space-y-6">
+              
+              {/* BOOKING CARD */}
+              <div className="bg-white rounded-3xl shadow-xl shadow-cyan-900/5 border border-slate-100 p-6 overflow-hidden relative">                
+                <div className="mb-6">
+                  <span className="text-sm text-slate-500 font-medium uppercase tracking-wider">Giá khởi điểm</span>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-3xl font-extrabold text-blue-600">
+                      {(selectedDate?.priceAdult || tour.price || 0).toLocaleString("vi-VN")}₫
+                    </span>
+                    {tour.originalPrice > (selectedDate?.priceAdult || tour.price) && (
+                      <span className="text-sm text-slate-400 line-through decoration-slate-400">
                         {tour.originalPrice.toLocaleString("vi-VN")}₫
                       </span>
                     )}
+                  </div>
                 </div>
-              </div>
 
-              {/* 🗓️ Lịch khởi hành */}
-              <div className="space-y-3 pb-6 border-b border-border">
-                <label className="text-sm font-medium text-foreground block">
-                  Chọn Lịch Trình và Xem Giá:
-                </label>
-
-                {/* 3 ngày gần nhất + ngày được chọn + Tất cả */}
-                <div className="flex flex-wrap gap-3">
-                  {[
-                    ...availableDates
-                      .filter((d) => new Date(d.startDate) >= new Date())
-                      .sort(
-                        (a, b) => new Date(a.startDate) - new Date(b.startDate)
-                      )
-                      .slice(0, 3),
-                    ...availableDates.filter((d) => {
-                      const formatted = new Date(
-                        d.startDate
-                      ).toLocaleDateString("vi-VN", {
-                        day: "2-digit",
-                        month: "2-digit",
-                      });
-                      return formatted === selectedDate;
-                    }),
-                  ]
-                    // loại trùng ngày (nếu có)
-                    .filter(
-                      (v, i, self) =>
-                        i ===
-                        self.findIndex(
-                          (x) =>
-                            new Date(x.startDate).toDateString() ===
-                            new Date(v.startDate).toDateString()
+                {/* Date Selection Grid */}
+                <div className="mb-6">
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-3">Lịch khởi hành</label>
+                  <div className="flex flex-wrap gap-2">
+                    {/* Render 3 ngày gần nhất */}
+                    {availableDates
+                      .filter(d => new Date(d.startDate) >= new Date())
+                      .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+                      .slice(0, 3)
+                      .map((d) => {
+                        const dateObj = new Date(d.startDate);
+                        const dateStr = dateObj.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+                        const isSelected = selectedDate?.dateId === d.dateId;
+                        return (
+                          <button
+                            key={d.dateId}
+                            onClick={() => setSelectedDate(d)}
+                            className={`flex flex-col items-center justify-center px-3 py-2 rounded-xl border transition-all min-w-[4.5rem]
+                              ${isSelected ? "border-cyan-500 bg-cyan-50 text-cyan-700 ring-1 ring-cyan-500" : "border-slate-200 bg-white hover:border-cyan-300 text-slate-600"}
+                            `}
+                          >
+                            <span className="font-bold text-sm">{dateStr}</span>
+                          </button>
                         )
-                    )
-                    .map((d) => {
-                      const date = new Date(d.startDate);
-                      const formatted = date.toLocaleDateString("vi-VN", {
-                        day: "2-digit",
-                        month: "2-digit",
-                      });
-
-                      return (
-                        <button
-                          key={d.dateId}
-                          onClick={() => {
-                            setSelectedDate(d);
-                            setTour((prev) => ({
-                              ...prev,
-                              price: Number(d.priceAdult),
-                            }));
-                          }}
-                          className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
-                            selectedDate === formatted
-                              ? "border-primary text-primary bg-primary/10"
-                              : "border-border hover:border-primary/50"
-                          }`}
-                        >
-                          <div>{formatted}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {(Number(d.priceAdult) / 1000).toFixed(0)}k
-                          </div>
-                        </button>
-                      );
-                    })}
-
-                  {/* Nút mở DatePicker */}
-                  <button
-                    onClick={() =>
-                      setSelectedDate((prev) =>
-                        prev === "datepicker" ? "" : "datepicker"
-                      )
+                      })
                     }
-                    className={`px-4 py-2 rounded-lg border flex items-center justify-center gap-1 transition ${
-                      selectedDate === "datepicker"
-                        ? "border-primary text-primary bg-primary/10"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+                    {/* Nút mở lịch */}
+                    <button
+                      onClick={() => setSelectedDate(prev => prev === "datepicker" ? null : "datepicker")}
+                      className={`flex flex-col items-center justify-center px-3 py-2 rounded-xl border transition-all min-w-[4.5rem]
+                        ${selectedDate === "datepicker" ? "border-cyan-500 bg-cyan-50 text-cyan-700" : "border-slate-200 bg-white hover:border-cyan-300 text-slate-600"}
+                      `}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M8 7V3m8 4V3m-9 8h10m-9 6h4m-8 4h12a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <span>Tất cả</span>
-                  </button>
-                </div>
+                      <CalendarIcon className="w-5 h-5 mb-1" />
+                      <span className="text-[10px] font-bold uppercase">Khác</span>
+                    </button>
+                  </div>
 
-                {/* 🗓️ DatePicker chỉ hiển thị khi bấm “Tất cả” */}
-                {selectedDate === "datepicker" && (
-                  <div className="mt-3 border border-border rounded-lg p-3 bg-background">
-                    <DayPicker
-                      mode="single"
-                      onSelect={(date) => {
-                        if (date) {
-                          const formatted = date.toLocaleDateString("vi-VN", {
-                            day: "2-digit",
-                            month: "2-digit",
-                          });
-
-                          const selectedTourDate = availableDates.find(
-                            (d) =>
-                              new Date(d.startDate).toDateString() ===
-                              date.toDateString()
-                          );
-
-                          if (selectedTourDate) {
-                            setSelectedDate(formatted);
-                            setTour((prev) => ({
-                              ...prev,
-                              price: Number(selectedTourDate.priceAdult),
-                            }));
+                  {/* Calendar Picker Dropdown */}
+                  {selectedDate === "datepicker" && (
+                    <div className="mt-4 p-2 bg-slate-50 rounded-xl border border-slate-200 animate-in slide-in-from-top-2">
+                      <DayPicker
+                        mode="single"
+                        disabled={(date) => !availableDates.some(d => new Date(d.startDate).toDateString() === date.toDateString())}
+                        onSelect={(date) => {
+                          if (date) {
+                            const found = availableDates.find(d => new Date(d.startDate).toDateString() === date.toDateString());
+                            if (found) {
+                              setSelectedDate(found); // Set object date
+                            }
                           }
+                        }}
+                        modifiersStyles={{ available: { color: "#0891b2", fontWeight: "bold" } }}
+                        className="mx-auto"
+                      />
+                    </div>
+                  )}
+                </div>
 
-                          // Ẩn lịch sau khi chọn
-                          setTimeout(() => setSelectedDate(formatted), 200);
-                        }
-                      }}
-                      disabled={(date) =>
-                        !availableDates.some(
-                          (d) =>
-                            new Date(d.startDate).toDateString() ===
-                            date.toDateString()
-                        )
-                      }
-                      modifiers={{
-                        available: availableDates.map(
-                          (d) => new Date(d.startDate)
-                        ),
-                      }}
-                      modifiersStyles={{
-                        available: { color: "#16a34a", fontWeight: "bold" },
-                      }}
-                    />
-
-                    <p className="text-xs text-muted-foreground mt-2 italic text-center">
-                      * Chỉ có thể chọn những ngày có tour khởi hành
-                    </p>
+                {/* Travelers */}
+                <div className="space-y-4 mb-6">
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <div>
+                      <span className="block font-bold text-slate-700 text-sm">Người lớn</span>
+                      <span className="text-xs text-slate-400">Trên 9 tuổi</span>
+                    </div>
+                    <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm">
+                      <button onClick={() => setTravelers(p => ({...p, adults: Math.max(1, p.adults - 1)}))} className="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-slate-500 rounded-l-lg">-</button>
+                      <span className="w-8 text-center font-bold text-sm">{travelers.adults}</span>
+                      <button onClick={() => setTravelers(p => ({...p, adults: p.adults + 1}))} className="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-cyan-600 rounded-r-lg">+</button>
+                    </div>
                   </div>
-                )}
-              </div>
-
-              {/* 👨‍👩‍👧 Số lượng khách */}
-              <div className="space-y-4">
-                <label className="text-sm font-medium text-foreground block mb-2">
-                  Chọn số lượng khách
-                </label>
-
-                {/* Người lớn */}
-                <div className="flex items-center justify-between border border-border rounded-lg p-2 mb-2">
-                  <div>
-                    <p className="font-medium text-foreground">Người lớn</p>
-                    <p className="text-xs text-muted-foreground">&gt; 9 tuổi</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="w-8 h-8"
-                      onClick={() =>
-                        setTravelers((prev) => ({
-                          ...prev,
-                          adults: Math.max(prev.adults - 1, 0),
-                        }))
-                      }
-                    >
-                      –
-                    </Button>
-                    <span className="w-6 text-center">{travelers.adults}</span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="w-8 h-8"
-                      onClick={() =>
-                        setTravelers((prev) => ({
-                          ...prev,
-                          adults: prev.adults + 1,
-                        }))
-                      }
-                    >
-                      +
-                    </Button>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <div>
+                      <span className="block font-bold text-slate-700 text-sm">Trẻ em</span>
+                      <span className="text-xs text-slate-400">5 - 9 tuổi</span>
+                    </div>
+                    <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm">
+                      <button onClick={() => setTravelers(p => ({...p, children: Math.max(0, p.children - 1)}))} className="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-slate-500 rounded-l-lg">-</button>
+                      <span className="w-8 text-center font-bold text-sm">{travelers.children}</span>
+                      <button onClick={() => setTravelers(p => ({...p, children: p.children + 1}))} className="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-cyan-600 rounded-r-lg">+</button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Trẻ em */}
-                <div className="flex items-center justify-between border border-border rounded-lg p-2">
-                  <div>
-                    <p className="font-medium text-foreground">Trẻ em</p>
-                    <p className="text-xs text-muted-foreground">5 - 9 tuổi</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="w-8 h-8"
-                      onClick={() =>
-                        setTravelers((prev) => ({
-                          ...prev,
-                          children: Math.max(prev.children - 1, 0),
-                        }))
-                      }
-                    >
-                      –
-                    </Button>
-                    <span className="w-6 text-center">
-                      {travelers.children}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="w-8 h-8"
-                      onClick={() =>
-                        setTravelers((prev) => ({
-                          ...prev,
-                          children: prev.children + 1,
-                        }))
-                      }
-                    >
-                      +
-                    </Button>
-                  </div>
+                {/* Total Price */}
+                <div className="flex justify-between items-center py-4 border-t border-slate-100 mb-4">
+                  <span className="font-bold text-slate-600">Tạm tính</span>
+                  <span className="text-2xl font-extrabold text-blue-600">
+                    {selectedDate && typeof selectedDate !== 'string' 
+                      ? ((selectedDate.priceAdult * travelers.adults + selectedDate.priceChildren * travelers.children).toLocaleString("vi-VN") + "₫")
+                      : "---"}
+                  </span>
                 </div>
 
-                {/* Tổng giá */}
-                <div className="bg-muted p-3 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Tổng giá</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {(
-                      tour.price * travelers.adults +
-                      tour.price * 0.7 * travelers.children
-                    ).toLocaleString("vi-VN")}
-                    ₫
-                  </p>
-                </div>
-
-                <Button
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-lg"
-                  onClick={handleBookNow}
+                <Button 
+                  onClick={handleBookNow} 
+                  disabled={isBooking || !selectedDate || selectedDate === "datepicker"}
+                  className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold py-6 rounded-xl shadow-lg shadow-cyan-200 text-lg transition-all"
                 >
-                  Đặt ngay
+                  {isBooking ? "Đang xử lý..." : "Đặt Tour Ngay"}
                 </Button>
 
-                {/* Thông tin chủ tour */}
+                {/* Host Info */}
                 {tour.user && (
-                  <div className="space-y-3 pt-6 border-t border-border">
-                    <label className="text-sm font-medium text-foreground block">
-                      Người tổ chức
-                    </label>
-                    {/* Áp dụng style giống các ô chọn số lượng */}
-                    <div className="border border-border rounded-lg p-3">
-                      <div className="flex items-center gap-3">
-                        {/* Avatar */}
-                        <div className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0">
-                          <img
-                            src={
-                              tour.user.avatar ||
-                              `https://placehold.co/60x60/0D9488/FFFFFF?text=${
-                                tour.user.fullName?.charAt(0) || "U"
-                              }`
-                            }
-                            alt={tour.user.fullName}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        {/* Info */}
-                        <div>
-                          <p className="font-semibold text-foreground">
-                            {tour.user.fullName}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            @{tour.user.userName}
-                          </p>
-                        </div>
+                  <div className="mt-6 pt-6 border-t border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden">
+                        <img src={tour.user.avatar || "https://github.com/shadcn.png"} className="w-full h-full object-cover" alt="host" />
                       </div>
-                      {/* Phone Number */}
-                      {tour.user.phoneNumber && (
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground mt-3 pt-3 border-t border-border">
-                          <Phone className="w-4 h-4 text-primary" />
-                          <span>{tour.user.phoneNumber}</span>
-                        </div>
-                      )}
+                      <div className="flex-1">
+                        <p className="text-xs text-slate-400 font-bold uppercase">Tổ chức bởi</p>
+                        <p className="text-sm font-bold text-slate-800">{tour.user.fullName}</p>
+                      </div>
+                      <Button variant="outline" size="sm" className="rounded-full text-xs h-8 border-cyan-200 text-cyan-700 hover:bg-cyan-50">
+                        Liên hệ
+                      </Button>
                     </div>
                   </div>
                 )}
               </div>
-            </Card>
-          </div>
+
+              {/* Support Box */}
+              <div className="bg-blue-50 rounded-2xl p-6 text-center border border-blue-100">
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 text-blue-600 shadow-sm">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <h4 className="font-bold text-blue-900 mb-1">Cần hỗ trợ tư vấn?</h4>
+                <p className="text-xs text-blue-600 mb-3">Liên hệ ngay để được giải đáp 24/7</p>
+                <a href="tel:19001234" className="text-lg font-black text-blue-700 hover:underline">1900 1234</a>
+              </div>
+            </div>
+          </aside>
         </div>
-        <h2 className="text-3xl font-bold text-foreground mt-8">
-          Tour du lịch {tour.destination} liên quan
-        </h2>
+
+        {/* RELATED TOURS */}
         {relativeTour.totalItems > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
-            {relativeTour.items.map((tour) => (
-              <TourCard key={tour.tourId} tour={tour} />
-            ))}
+          <div className="mt-20">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="h-8 w-1.5 bg-gradient-to-b from-blue-500 to-cyan-400 rounded-full"></div>
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
+                Tour du lịch <span className="text-cyan-600">{tour.destination}</span> liên quan
+              </h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {relativeTour.items.map((t) => (
+                <div key={t.tourId} className="transform transition-all hover:-translate-y-1">
+                  <TourCard tour={t} />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -890,6 +656,6 @@ export default function TourDetail() {
         open={lightboxOpen}
         onOpenChange={setLightboxOpen}
       />
-    </section>
+    </div>
   );
 }
