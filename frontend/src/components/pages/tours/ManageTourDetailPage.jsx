@@ -72,6 +72,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ta } from "date-fns/locale";
 import { param } from "express-validator";
+import { useAuth } from "@/context/useAuth";
 
 // (Hàm formatHashtag - nên để ở file hashtag.js, nhưng để đây cho component dùng)
 const formatHashtag = (text) => {
@@ -97,6 +98,7 @@ function EditTourInfo({ tour, onTourUpdated }) {
     setLoading(true);
     try {
       const { tourId, ...updateData } = formData;
+      console.log("XP-Debug: ", tourId);
       const updated = await updateTour(tourId, updateData);
       onTourUpdated(updated); // Cập nhật lại state ở trang cha
       alert("Cập nhật thông tin tour thành công!");
@@ -979,6 +981,7 @@ function EditTourHashtags({ tourId, linkedHashtags, onHashtagsUpdated }) {
 
 // --- Trang Cha (Page) ---
 export function ManageTourDetailPage() {
+  const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   const [tour, setTour] = useState(null);
@@ -1059,8 +1062,8 @@ export function ManageTourDetailPage() {
     );
 
   return (
-    <div className="p-6 md:p-14 space-y-8">
-      <Button variant="outline" onClick={() => navigate("/admin/tours")}>
+    <div className="p-6 md:p-14 space-y-8 bg-white rounded-lg shadow-md">
+      <Button variant="outline" onClick={user.role === "admin" ? () => navigate("/admin/tours") : () => navigate("/supplier/tours")}>
         <ArrowLeft className="w-4 h-4 mr-2" />
         Quay lại danh sách
       </Button>

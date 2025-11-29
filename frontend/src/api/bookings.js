@@ -1,6 +1,6 @@
 import api from "./axiosInstance";
 
-// 🟢 Tạo booking mới
+// Tạo booking mới
 export async function createBooking(formData) {
   try {
     const res = await api.post("/bookings", formData);
@@ -28,7 +28,7 @@ export const getMyBookings = async () => {
   return data;
 };
 
-// 🔴 Xóa booking theo ID
+// Xóa booking theo ID
 export async function deleteBooking(bookingId) {
   try {
     console.log("🗑️ Gửi request DELETE /bookings/" + bookingId);
@@ -41,7 +41,7 @@ export async function deleteBooking(bookingId) {
   }
 }
 
-// 🟢 Cập nhật trạng thái booking
+// Cập nhật trạng thái booking
 export async function updateBookingStatus(bookingId, status) {
   try {
     const res = await api.patch(`/bookings/${bookingId}`, {

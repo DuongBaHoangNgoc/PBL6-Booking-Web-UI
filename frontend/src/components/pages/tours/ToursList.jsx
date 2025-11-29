@@ -6,7 +6,7 @@ import {
   ChevronRight,
   Filter,
 } from "lucide-react";
-import TourCard from "@/components/TourCard";
+import TourCard from "@/components/pages/tours/TourCard";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -42,7 +42,6 @@ export default function TourSearchResult() {
   // 🆕 Pagination
   const [page, setPage] = useState(1);
   const [limit] = useState(6); // số tour mỗi trang
-  const [totalPages, setTotalPages] = useState(1);
 
   //State cho phân trang
   const [pagination, setPagination] = useState({
@@ -108,6 +107,10 @@ export default function TourSearchResult() {
   }, [debouncedSlug]);
 
   // 3. THÊM HÀM: Xử lý bấm nút phân trang
+  const totalPages = useMemo(() => {
+    return Math.ceil(pagination.totalItems / pagination.limit);
+  }, [pagination.totalItems, pagination.limit]);
+
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {

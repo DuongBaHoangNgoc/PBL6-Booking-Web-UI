@@ -1,8 +1,6 @@
-"use client"
-
 import { useNavigate } from "react-router-dom"
 import FeaturedDestinations from "../components/FeaturedDestinations"
-import TourSearchBar from "../components/TourSearchBar"
+import TourSearchBar from "../components/pages/tours/TourSearchBar"
 import { useState } from "react"
 import { useAuth } from "@/context/useAuth"
 import { ArrowRight, MapPin, Users, Award } from "lucide-react"

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Edit2, CreditCard, Ticket, X, Plus, Upload, Award as IdCard } from "lucide-react"
-import { getUserById, updateUser } from "../../api/user"
+import { getUserById, updateUser } from "../api/user"
 import Navbar from "@/components/layout/Header"
 import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
@@ -182,8 +182,6 @@ export function Profile() {
 
   return (
     <section className="py-12 bg-gradient-to-b from-[#f0faf9] to-white overscroll-y-scroll">
-      <Navbar user={user} setUser={setUser} />
-
       <div className="flex flex-1">
         <main className="flex-1 p-6 md:p-14 overflow-y-auto">
           <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8 mt-10">

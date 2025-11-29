@@ -1,5 +1,3 @@
-"use client"
-
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import Navbar from "../components/layout/Header"
@@ -7,7 +5,7 @@ import { getTourById } from "../api/tours"
 import { FaMapMarkerAlt, FaClock, FaStar, FaRegCalendarAlt } from "react-icons/fa"
 import ImageCarousel from "../components/ImageCarousel"
 import HtmlBlock from "../components/HtmlBlock"
-import TourScheduleAccordion from "../components/TourScheduleAccordion"
+import TourScheduleAccordion from "../components/pages/tours/TourScheduleAccordion"
 import CustomerReviews from "../components/CustomerReviews"
 
 /* ================= Helpers ================= */

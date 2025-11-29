@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
-import FeaturedDestinations from "../../components/FeaturedDestinations";
+import FeaturedDestinations from "../components/FeaturedDestinations";
 import Navbar from "../components/Navbar";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";

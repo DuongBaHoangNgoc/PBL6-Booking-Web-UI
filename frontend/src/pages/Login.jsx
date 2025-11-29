@@ -24,6 +24,9 @@ export default function Login() {
         if(loggedInUser.role === "admin") {
           navigate("/admin");
           return;
+        } else if (loggedInUser.role === "supplier"){
+          navigate("/supplier/dashboard");
+          return;
         } else {
           navigate("/tours");
           return;

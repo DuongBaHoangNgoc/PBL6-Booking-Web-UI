@@ -36,7 +36,7 @@ import { useAuth } from "@/context/useAuth";
 import { createBooking } from "@/api/bookings";
 import { getHashtagsForTour } from "@/api/hashtags";
 import { Badge } from "@/components/ui/badge";
-import TourCard from "@/components/TourCard";
+import TourCard from "@/components/pages/tours/TourCard";
 import { addToFavorites, getFavorites, deleteFavorite } from "@/api/favourites";
 
 function ImageLightbox({ images, startIndex, open, onOpenChange }) {
