@@ -1,12 +1,11 @@
 "use client";
 import { useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   MapPin,
   Calendar,
-  Users,
   ArrowLeft,
   CreditCard,
   XCircle,
@@ -25,7 +24,6 @@ import { payBookingWithCoin } from "@/api/bookings";
 export default function BookingDetailPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { bookingId } = useParams();
   const booking = location.state?.booking;
 
   const [open, setOpen] = useState(false);
@@ -33,7 +31,7 @@ export default function BookingDetailPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
-  const userId = booking?.user?.userId || 1;
+  const userId = booking?.user?.userId;
   const totalPrice = Number(booking?.totalPrice || 0);
   const tour = booking?.tour || {};
   const dateInfo = booking?.date || {};
@@ -244,11 +242,19 @@ export default function BookingDetailPage() {
             />
             <Info
               label="Ngày khởi hành"
-              value={new Date(dateInfo.startDate).toLocaleDateString("vi-VN")}
+              value={
+                dateInfo.startDate
+                  ? new Date(dateInfo.startDate).toLocaleDateString("vi-VN")
+                  : "Chưa có"
+              }
             />
             <Info
               label="Ngày kết thúc"
-              value={new Date(dateInfo.endDate).toLocaleDateString("vi-VN")}
+              value={
+                dateInfo.endDate
+                  ? new Date(dateInfo.endDate).toLocaleDateString("vi-VN")
+                  : "Chưa có"
+              }
             />
 
             <Info label="Số người lớn" value={`${booking.numAdults} người`} />

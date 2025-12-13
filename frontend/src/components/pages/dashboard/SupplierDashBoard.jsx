@@ -101,15 +101,15 @@ export function SupplierDashboard() {
         // ====== TÍNH TOÁN THỐNG KÊ ======
         const totalBookings = bookings.length;
 
-        const totalParticipants = bookings.reduce((sum, b) => {
+        const confirmedBookings = bookings.filter(
+          (b) => b.bookingStatus === "confirmed"
+        );
+
+        const totalParticipants = confirmedBookings.reduce((sum, b) => {
           const adults = Number(b.numAdults || 0);
           const children = Number(b.numChildren || 0);
           return sum + adults + children;
         }, 0);
-
-        const confirmedBookings = bookings.filter(
-          (b) => b.bookingStatus === "confirmed"
-        );
 
         const totalEarnings = confirmedBookings.reduce(
           (sum, b) => sum + Number(b.totalPrice || 0),
@@ -228,7 +228,6 @@ export function SupplierDashboard() {
     // Gọi lần đầu
     fetchData();
 
-    // Nếu backend có emit socket giống admin, ta có thể nghe:
     socket.on("new_booking", () => {
       console.log("🔥 Supplier new_booking");
       fetchRecentOnly();

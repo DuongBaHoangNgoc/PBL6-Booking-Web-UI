@@ -345,6 +345,7 @@ export default function BookingsPage() {
                 <div className="grid md:grid-cols-2 gap-4">
                   {favorites.map((fav) => {
                     const tour = fav.tour;
+                    if (!tour) return null;
                     return (
                       <Card
                         key={fav.favouriteId}

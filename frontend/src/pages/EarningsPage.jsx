@@ -1,379 +1,440 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Card } from "@/components/ui/card";
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import {
-  Loader2,
-  AlertCircle,
-  ChevronLeft,
-  ChevronRight,
-  DollarSign,
-  CreditCard,
-  Package,
-} from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  ResponsiveContainer,
   BarChart,
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
   CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
 } from "recharts";
-import { format } from "date-fns";
-// 1. XÓA IMPORT API
-// import { getEarningsStats, getEarningsChartData, getTransactions } from "@/api/earnings";
+import axios from "axios";
+import { io } from "socket.io-client";
 import { useAuth } from "@/context/useAuth";
-// Format tiền tệ
-const formatCurrency = (value) => {
-  return `${(value / 1000).toLocaleString("vi-VN")}k ₫`;
-};
 
-// ===================================================================
-// 2. (MỚI) DỮ LIỆU GIẢ LẬP (MOCK DATA)
-// ===================================================================
-
-// Dữ liệu cho Thẻ KPI
-const mockStats = {
-  totalRevenue: 125000000,
-  currentPeriodRevenue: 15000000,
-  paidBookings: 32,
-  pendingPayout: 5000000,
-};
-
-// Dữ liệu cho Biểu đồ
-const mockChartData = [
-  { date: "11/01", revenue: 1200000 },
-  { date: "11/02", revenue: 800000 },
-  { date: "11/03", revenue: 2500000 },
-  { date: "11/04", revenue: 1100000 },
-  { date: "11/05", revenue: 3000000 },
-  { date: "11/06", revenue: 1800000 },
-  { date: "11/07", revenue: 2200000 },
+const PERIOD_OPTIONS = [
+  { value: "7", label: "7 ngày qua" },
+  { value: "30", label: "30 ngày qua" },
+  { value: "90", label: "90 ngày qua" },
+  { value: "all", label: "Tất cả" },
 ];
 
-// Dữ liệu cho Bảng Giao dịch (Giả lập 25 item, nhưng chỉ trả về 3)
-const mockTransactions = {
-  items: [
-    {
-      transactionId: "TRX1001",
-      bookingId: 101,
-      tourTitle: "Tour Du thuyền 5 sao Vịnh Hạ Long",
-      amount: 2500000,
-      paymentMethod: "VNPAY",
-      status: "SUCCESS",
-      createdAt: "2025-11-10T10:00:00Z",
-    },
-    {
-      transactionId: "TRX1002",
-      bookingId: 102,
-      tourTitle: "Khám phá Phố cổ Hội An & Đà Nẵng",
-      amount: 3200000,
-      paymentMethod: "MOMO",
-      status: "SUCCESS",
-      createdAt: "2025-11-09T14:30:00Z",
-    },
-    {
-      transactionId: "TRX1003",
-      bookingId: 103,
-      tourTitle: "Chinh phục Cung đường Hà Giang",
-      amount: 4500000,
-      paymentMethod: "CASH",
-      status: "PENDING",
-      createdAt: "2025-11-09T09:15:00Z",
-    },
-  ],
-  totalItems: 25, // Giả lập 25 item để hiển thị phân trang
-};
-// ===================================================================
-// (Kết thúc Mock Data)
-// ===================================================================
+const toVND = (n) => `${Number(n || 0).toLocaleString("vi-VN")} ₫`;
+
+// Format trục X (MM/DD)
+const fmtMMDD = (d) =>
+  `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(
+    2,
+    "0"
+  )}`;
+
+function startOfDay(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function isWithinPeriod(date, period) {
+  if (period === "all") return true;
+  const days = Number(period);
+  const now = startOfDay(new Date());
+  const from = new Date(now);
+  from.setDate(from.getDate() - (days - 1));
+  const x = startOfDay(date);
+  return x >= from && x <= now;
+}
+
+// Series doanh thu theo ngày
+function buildDailySeries(bookings, period) {
+  const now = startOfDay(new Date());
+
+  let from = new Date(now);
+  if (period === "all") {
+    const dates = bookings
+      .map((b) => new Date(b.bookingDate))
+      .filter((d) => !Number.isNaN(d.getTime()))
+      .map(startOfDay)
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    from = dates[0] ?? new Date(now);
+    if (!dates[0]) from.setDate(from.getDate() - 29);
+  } else {
+    from.setDate(from.getDate() - (Number(period) - 1));
+  }
+
+  const map = new Map();
+
+  bookings
+    .filter((b) => b.bookingStatus === "confirmed")
+    .forEach((b) => {
+      const d = startOfDay(new Date(b.bookingDate));
+      if (Number.isNaN(d.getTime())) return;
+      if (!isWithinPeriod(d, period)) return;
+
+      const key = d.toISOString().slice(0, 10);
+      map.set(key, (map.get(key) || 0) + Number(b.totalPrice || 0));
+    });
+
+  const series = [];
+  for (
+    let d = new Date(from);
+    d.getTime() <= now.getTime();
+    d.setDate(d.getDate() + 1)
+  ) {
+    const key = startOfDay(d).toISOString().slice(0, 10);
+    series.push({
+      name: fmtMMDD(new Date(d)),
+      value: map.get(key) || 0,
+      _key: key,
+    });
+  }
+
+  return series;
+}
+
+function getPeriodRevenue(bookings, period) {
+  return bookings
+    .filter((b) => b.bookingStatus === "confirmed")
+    .filter((b) => isWithinPeriod(new Date(b.bookingDate), period))
+    .reduce((sum, b) => sum + Number(b.totalPrice || 0), 0);
+}
+
+function getAllRevenue(bookings) {
+  return bookings
+    .filter((b) => b.bookingStatus === "confirmed")
+    .reduce((sum, b) => sum + Number(b.totalPrice || 0), 0);
+}
+
+function getPaidCount(bookings, period) {
+  return bookings
+    .filter((b) => b.bookingStatus === "confirmed")
+    .filter((b) => isWithinPeriod(new Date(b.bookingDate), period)).length;
+}
+
+function getPendingPayout(bookings, period) {
+  // tạm coi pending = "chờ thanh toán"
+  return bookings
+    .filter((b) => b.bookingStatus === "pending")
+    .filter((b) => isWithinPeriod(new Date(b.bookingDate), period))
+    .reduce((sum, b) => sum + Number(b.totalPrice || 0), 0);
+}
+
+
+function statusBadge(status) {
+  const s = String(status || "").toLowerCase();
+  if (s === "confirmed") {
+    return (
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+        Thành công
+      </span>
+    );
+  }
+  if (s === "pending") {
+    return (
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+        PENDING
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+      {status || "N/A"}
+    </span>
+  );
+}
 
 export function EarningsPage() {
   const { user } = useAuth();
-  const [stats, setStats] = useState(null);
-  const [chartData, setChartData] = useState([]);
-  const [transactions, setTransactions] = useState([]);
 
+  const [period, setPeriod] = useState("30");
+  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  const [dateRange, setDateRange] = useState("30day"); // Mặc định 30 ngày
+  // pagination
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
 
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    totalItems: 0,
-  });
+  const baseURL = useMemo(
+    () => import.meta.env.VITE_API_URL || "http://localhost:3000",
+    []
+  );
 
-  // 3. CẬP NHẬT HÀM FETCH (DÙNG MOCK DATA)
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const fetchBookings = async () => {
+    if (!user) return;
 
-      // (Xóa các lệnh gọi API thật)
+    const res = await axios.get(
+      `${baseURL}/bookings/FilterPagination?supplierId=${user.userId}&page=1&limit=1000`
+    );
 
-      // Giả lập độ trễ mạng
-      await new Promise((resolve) => setTimeout(resolve, 800));
+    const list =
+      res.data?.data?.bookings && Array.isArray(res.data.data.bookings)
+        ? res.data.data.bookings
+        : [];
 
-      // (Kiểm tra nếu params thay đổi, ta có thể trả về data khác,
-      // nhưng hiện tại chỉ cần trả về 1 bộ mock)
-
-      setStats(mockStats);
-      setChartData(mockChartData);
-      setTransactions(mockTransactions.items);
-      setPagination((prev) => ({
-        ...prev,
-        totalItems: mockTransactions.totalItems,
-      }));
-    } catch (err) {
-      console.error("Lỗi khi tải dữ liệu Doanh thu:", err);
-      setError("Không thể tải dữ liệu thống kê từ server.");
-    } finally {
-      setLoading(false);
-    }
+    setBookings(list);
   };
 
-  // Tải dữ liệu khi 'dateRange' hoặc 'page' thay đổi
   useEffect(() => {
-    fetchData();
-  }, [dateRange, pagination.page]);
+    if (!user) return;
 
-  // Xử lý phân trang
-  const totalPages = useMemo(() => {
-    return Math.ceil(pagination.totalItems / pagination.limit);
-  }, [pagination.totalItems, pagination.limit]);
+    const socket = io(baseURL);
 
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setPagination((prev) => ({ ...prev, page: newPage }));
-    }
-  };
+    const run = async () => {
+      try {
+        setLoading(true);
+        await fetchBookings();
+      } catch (e) {
+        console.error("❌ Lỗi tải dữ liệu doanh thu:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    run();
+
+    socket.on("new_booking", fetchBookings);
+    socket.on("booking_status_changed", fetchBookings);
+    socket.on("dashboard_update", fetchBookings);
+
+    return () => socket.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, baseURL]);
+
+  // reset trang khi đổi period
+  useEffect(() => {
+    setPage(1);
+  }, [period]);
+
+  const totalRevenue = useMemo(() => getAllRevenue(bookings), [bookings]);
+  const periodRevenue = useMemo(
+    () => getPeriodRevenue(bookings, period),
+    [bookings, period]
+  );
+  const paidCount = useMemo(
+    () => getPaidCount(bookings, period),
+    [bookings, period]
+  );
+  const pendingPayout = useMemo(
+    () => getPendingPayout(bookings, period),
+    [bookings, period]
+  );
+
+  const chartData = useMemo(
+    () => buildDailySeries(bookings, period),
+    [bookings, period]
+  );
+
+  const filteredForTable = useMemo(() => {
+    return [...bookings]
+      .filter((b) => isWithinPeriod(new Date(b.bookingDate), period))
+      .sort(
+        (a, b) =>
+          new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime()
+      );
+  }, [bookings, period]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredForTable.length / pageSize));
+  const pageRows = filteredForTable.slice(
+    (page - 1) * pageSize,
+    page * pageSize
+  );
+
+  if (!user) {
+    return (
+      <p className="text-center py-20 text-muted-foreground">
+        Đang tải thông tin nhà cung cấp...
+      </p>
+    );
+  }
+
+  if (loading) {
+    return (
+      <p className="text-center py-20 text-muted-foreground">
+        Đang tải dữ liệu doanh thu...
+      </p>
+    );
+  }
 
   return (
-    <div className="p-6 md:p-14 space-y-8">
-      {/* Header và Bộ lọc Ngày */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-foreground">
-          {user?.role === "admin" ? "Tổng quan Doanh thu" : "Doanh thu của tôi"}
-        </h1>
-        <Select value={dateRange} onValueChange={setDateRange}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Chọn khoảng thời gian" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7day">7 ngày qua</SelectItem>
-            <SelectItem value="30day">30 ngày qua</SelectItem>
-            <SelectItem value="month">Tháng này</SelectItem>
-            <SelectItem value="year">Năm nay</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {loading && !stats && (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      )}
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* --- Thẻ KPI --- */}
-      {/* 4. SỬA JSX: Đổi `stats && !loading` thành `stats`
-          (vì stats sẽ là null cho đến khi mock data được load)
-      */}
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Tổng Doanh thu
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {formatCurrency(stats.totalRevenue)}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Doanh thu (Kỳ này)
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {formatCurrency(stats.currentPeriodRevenue)}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Booking đã thanh toán
-              </CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">+{stats.paidBookings}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Chờ thanh toán (Payout)
-              </CardTitle>
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {formatCurrency(stats.pendingPayout)}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* --- Biểu đồ --- */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Biểu đồ Doanh thu</CardTitle>
-          <CardDescription>
-            Doanh thu theo ngày trong kỳ đã chọn.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* 5. SỬA JSX: Thêm kiểm tra `chartData.length`
-              (Mặc dù không cần thiết với mock data, nhưng đây là good practice)
-          */}
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" stroke="#888888" fontSize={12} />
-                <YAxis
-                  stroke="#888888"
-                  fontSize={12}
-                  tickFormatter={(value) => formatCurrency(value)}
-                />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Bar
-                  dataKey="revenue"
-                  fill="var(--color-primary)"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[350px] flex items-center justify-center text-muted-foreground">
-              {loading ? "Đang tải biểu đồ..." : "Không có dữ liệu biểu đồ."}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* --- Bảng Giao dịch --- */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Giao dịch gần đây</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Booking ID</TableHead>
-                  <TableHead>Tên Tour</TableHead>
-                  <TableHead>Tổng tiền</TableHead>
-                  <TableHead>Phương thức</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Ngày</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions.map((tx) => (
-                  <TableRow key={tx.transactionId}>
-                    <TableCell className="font-medium">
-                      #{tx.bookingId}
-                    </TableCell>
-                    <TableCell>{tx.tourTitle}</TableCell>
-                    <TableCell>{formatCurrency(tx.amount)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{tx.paymentMethod}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {tx.status === "SUCCESS" ? (
-                        <Badge className="bg-green-600">Thành công</Badge>
-                      ) : (
-                        <Badge variant="destructive">{tx.status}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(tx.createdAt), "dd/MM/yyyy")}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+    <section className="min-h-screen my-8 pb-24">
+      <div className="container mx-auto px-4">
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-[#111827]">
+              Doanh thu của tôi
+            </h1>
           </div>
 
-          {/* Phân trang cho Bảng */}
-          {!loading && totalPages > 1 && (
-            <div className="flex justify-between items-center mt-6">
-              <Button
-                variant="outline"
-                onClick={() => handlePageChange(pagination.page - 1)}
-                disabled={pagination.page === 1 || loading}
-              >
-                <ChevronLeft className="w-4 h-4 mr-2" />
-                Trang trước
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Trang {pagination.page} trên {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                onClick={() => handlePageChange(pagination.page + 1)}
-                disabled={pagination.page >= totalPages || loading}
-              >
-                Trang sau
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm shadow-sm"
+          >
+            {PERIOD_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 4 stat cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+          <Card className="p-5 shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-600 mb-2">Tổng Doanh thu</p>
+            <p className="text-2xl font-bold text-[#111827]">
+              {toVND(totalRevenue)}
+            </p>
+          </Card>
+
+          <Card className="p-5 shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-600 mb-2">Doanh thu (Kỳ này)</p>
+            <p className="text-2xl font-bold text-[#111827]">
+              {toVND(periodRevenue)}
+            </p>
+          </Card>
+
+          <Card className="p-5 shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-600 mb-2">Booking đã thanh toán</p>
+            <p className="text-2xl font-bold text-[#111827]">+{paidCount}</p>
+          </Card>
+
+          <Card className="p-5 shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-600 mb-2">Chờ thanh toán</p>
+            <p className="text-2xl font-bold text-[#111827]">
+              {toVND(pendingPayout)}
+            </p>
+          </Card>
+        </div>
+
+        {/* Chart */}
+        <Card className="p-5 shadow-sm border border-gray-100 mb-6">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-[#111827]">
+              Biểu đồ Doanh thu
+            </h2>
+            <p className="text-xs text-gray-500">
+              Doanh thu theo ngày trong kỳ đã chọn.
+            </p>
+          </div>
+
+          <div className="h-[340px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" />
+                <YAxis
+                  tickFormatter={(v) =>
+                    v >= 1000000
+                      ? `${(v / 1000000).toFixed(1)}m`
+                      : v >= 1000
+                      ? `${Math.round(v / 1000)}k`
+                      : `${v}`
+                  }
+                />
+                <Tooltip
+                  formatter={(value) => [
+                    toVND(Number(value || 0)),
+                    "Doanh thu",
+                  ]}
+                />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        {/* Table */}
+        <Card className="p-5 shadow-sm border border-gray-100">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-[#111827]">
+              Giao dịch gần đây
+            </h2>
+          </div>
+
+          {filteredForTable.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              Chưa có giao dịch trong kỳ này.
+            </p>
+          ) : (
+            <>
+              <div className="overflow-x-auto rounded-md border border-gray-200">
+                <table className="w-full text-sm">
+                  <thead className="bg-white border-b border-gray-200">
+                    <tr>
+                      <th className="text-left py-3 px-4 font-semibold">
+                        Booking ID
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold">
+                        Tên Tour
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold">
+                        Tổng tiền
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold">
+                        Trạng thái
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold">
+                        Ngày
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageRows.map((b) => (
+                      <tr
+                        key={b.bookingId}
+                        className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="py-3 px-4 font-medium">
+                          #{String(b.bookingId ?? "").replace("#", "")}
+                        </td>
+                        <td className="py-3 px-4">{b.tour?.title || "N/A"}</td>
+                        <td className="py-3 px-4 font-semibold">
+                          {toVND(Number(b.totalPrice || 0))}
+                        </td>
+                        <td className="py-3 px-4">
+                          {statusBadge(b.bookingStatus)}
+                        </td>
+                        <td className="py-3 px-4">
+                          {b.bookingDate
+                            ? new Date(b.bookingDate).toLocaleDateString(
+                                "vi-VN"
+                              )
+                            : "N/A"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between mt-4">
+                <button
+                  className="px-3 py-2 rounded-lg border border-gray-200 text-sm disabled:opacity-50"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                >
+                  ← Trang trước
+                </button>
+
+                <p className="text-sm text-gray-600">
+                  Trang {page} trên {totalPages}
+                </p>
+
+                <button
+                  className="px-3 py-2 rounded-lg border border-gray-200 text-sm disabled:opacity-50"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                >
+                  Trang sau →
+                </button>
+              </div>
+            </>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </Card>
+      </div>
+    </section>
   );
 }
