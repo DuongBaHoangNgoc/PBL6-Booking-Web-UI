@@ -185,7 +185,7 @@ export function AdminDashboard() {
     return () => {
       socket.disconnect();
     };
-  }, [period, destPeriod]);
+  }, [period, destPeriod])
 
   // 🔹 Hàm nhóm doanh thu
   const groupRevenue = (transactions, mode) => {

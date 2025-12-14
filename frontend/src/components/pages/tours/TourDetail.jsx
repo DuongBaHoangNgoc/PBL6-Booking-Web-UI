@@ -42,7 +42,7 @@ import { Badge } from "@/components/ui/badge";
 import TourCard from "@/components/pages/tours/TourCard";
 import { addToFavorites, getFavorites, deleteFavorite } from "@/api/favourites";
 
-// Component Lightbox (Giữ nguyên logic, chỉnh style nhẹ)
+// Component Lightbox (Giữ nguyên logic)
 function ImageLightbox({ images, startIndex, open, onOpenChange }) {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
 
@@ -143,7 +143,7 @@ export default function TourDetail() {
   const [reviews, setReviews] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [hashtags, setHashtags] = useState({ tourHashtags: [] }); // Khởi tạo mặc định tránh lỗi
+  const [hashtags, setHashtags] = useState({ tourHashtags: [] }); 
   const [relativeTour, setRelativeTour] = useState([]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteId, setFavoriteId] = useState(null);
@@ -167,12 +167,20 @@ export default function TourDetail() {
     voucher: "",
   });
 
+  // HÀM TÍNH TỔNG TIỀN (Đã thêm mới để fix lỗi trắng màn hình)
+  const calculateTotalPrice = () => {
+    if (!selectedDate || typeof selectedDate === 'string') return 0;
+    return (
+      (selectedDate.priceAdult || 0) * travelers.adults +
+      (selectedDate.priceChildren || 0) * travelers.children
+    );
+  };
+
   useEffect(() => {
     async function fetchTourData() {
       try {
         setLoading(true);
 
-        // ⚡️ Tải song song dữ liệu liên quan đến tour
         const [
           tourData,
           priceData,
@@ -191,14 +199,12 @@ export default function TourDetail() {
           getHashtagsForTour(id),
         ]);
 
-        // ✅ Gộp dữ liệu tour & giá
         const mergedTour = {
           ...tourData,
           price: Number(priceData?.minPriceAdult) || 0,
           originalPrice: Number(priceData?.maxPriceAdult) || 0,
         };
 
-        // 🔍 Lấy các tour liên quan
         const relativeParams = {
           page: 1,
           limit: 4,
@@ -207,16 +213,13 @@ export default function TourDetail() {
         const relativeTourData = await filterTours(relativeParams);
         setRelativeTour(relativeTourData);
 
-        // ✅ Set các dữ liệu còn lại
         setTour(mergedTour);
-
-        console.log("XP-DEBUGGGGG MERGED TOUR: ", mergedTour);
         setTimeline(timelineData);
         setAvailableDates(startDatesData);
         setReviews(reviewData);
-        setHashtags(hashtagData);
+        // Safeguard cho hashtags tránh lỗi undefined
+        setHashtags(hashtagData || { tourHashtags: [] });
 
-        // 🖼️ Ảnh chính + gallery
         const coverImage = { imageId: "cover", imageURL: mergedTour.image };
         const galleryImages = Array.isArray(imagesData) ? imagesData : [];
         const filteredGallery = galleryImages.filter(
@@ -270,7 +273,6 @@ export default function TourDetail() {
       return;
     }
 
-    // ✅ Mở popup nhập thông tin khách hàng
     setFormData({
       fullName: user?.fullName || "",
       email: user?.email || "",
@@ -319,13 +321,11 @@ export default function TourDetail() {
 
     try {
       if (isFavorite && favoriteId) {
-        // ❌ Nếu tour đang được yêu thích → xóa
         await deleteFavorite(favoriteId);
         setIsFavorite(false);
         setFavoriteId(null);
         alert("🖤 Đã xóa khỏi danh sách yêu thích!");
       } else {
-        // 💖 Nếu chưa yêu thích → thêm mới
         const res = await addToFavorites(user.userId, tour.tourId);
         setIsFavorite(true);
         setFavoriteId(res?.data?.favouriteId || null);
@@ -373,18 +373,16 @@ export default function TourDetail() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-900">
       
-      {/* ================= HERO SECTION (Theme Bright Ocean) ================= */}
+      {/* ================= HERO SECTION ================= */}
       <div className="relative pt-24 pb-32 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
         
         <div className="container mx-auto px-4 md:px-6 relative z-10">
           <div className="max-w-5xl">
-            {/* Breadcrumb / Back */}
             <Link to="/tours" className="inline-flex items-center gap-1 text-blue-100 hover:text-white mb-6 text-sm font-medium transition-colors">
               <ChevronLeft className="w-4 h-4" /> Quay lại danh sách
             </Link>
 
-            {/* Badges & Rating */}
             <div className="flex flex-wrap items-center gap-3 mb-4">
               <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold border border-white/30 flex items-center gap-1">
                 <MapPin className="w-3 h-3" /> {tour.destination}
@@ -395,12 +393,10 @@ export default function TourDetail() {
               </div>
             </div>
 
-            {/* Title */}
             <h1 className="text-3xl md:text-5xl font-extrabold mb-6 leading-tight drop-shadow-md text-balance">
               {tour.title}
             </h1>
 
-            {/* Hashtags */}
             {hashtags.tourHashtags && hashtags.tourHashtags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
                 {hashtags.tourHashtags.map((item) => (
@@ -416,70 +412,90 @@ export default function TourDetail() {
         </div>
       </div>
 
-      {/* ================= MAIN CONTENT (Overlapping) ================= */}
+      {/* ================= MAIN CONTENT ================= */}
       <div className="container mx-auto px-4 md:px-6 -mt-20 relative z-20 pb-20">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* LEFT COLUMN: Content */}
           <div className="lg:col-span-2 space-y-8">
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <h1 className="text-4xl font-bold text-foreground">
-                  {tour.title}
-                </h1>
-                <button
-                  onClick={handleToggleFavorite}
-                  className="flex items-center justify-center w-10 h-10 rounded-full border border-border 
-               hover:bg-pink-50 transition group"
+              {/* ================= GALLERY SECTION (UPDATED) ================= */}
+              {/* Đây là phần bạn yêu cầu bổ sung lại */}
+              <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100 p-2">
+                
+                {/* Ảnh chính lớn */}
+                <div 
+                  className="relative h-[400px] md:h-[500px] rounded-2xl overflow-hidden group cursor-pointer bg-slate-100"
+                  onClick={() => {
+                    // Khi click vào ảnh lớn thì mở lightbox
+                    const idx = images.findIndex(img => img.imageURL === selectedImage);
+                    openLightbox(idx >= 0 ? idx : 0);
+                  }}
                 >
-                  <Heart
-                    className={`w-6 h-6 transition-all duration-200 
-        ${
-          isFavorite
-            ? "fill-pink-500 text-pink-500 scale-110"
-            : "text-muted-foreground group-hover:text-pink-500"
-        }`}
+                  <img
+                    key={selectedImage} // Key giúp trigger animation khi đổi ảnh
+                    src={selectedImage || "/placeholder.svg"}
+                    alt={tour.title}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 animate-in fade-in zoom-in-50 duration-300"
                   />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2 text-muted-foreground mb-4">
-                <MapPin className="w-4 h-4" />
-                <span>{tour.destination}</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground mb-4">
-                {/* ⭐ Hiển thị sao */}
-                <div className="flex items-center">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-4 h-4 ${
-                        i < Math.round(tour.starAvg || 0)
-                          ? "text-yellow-400 fill-yellow-400"
-                          : "text-gray-300"
+                  
+                  {/* Nút Favorite nằm trên ảnh */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // Ngăn sự kiện nổi bọt
+                      handleToggleFavorite();
+                    }}
+                    className="absolute top-4 right-4 z-20 w-12 h-12 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-lg transition-all duration-300 hover:bg-white hover:scale-110 group/fav"
+                    title={isFavorite ? "Bỏ yêu thích" : "Thêm vào yêu thích"}
+                  >
+                    <Heart
+                      className={`w-6 h-6 transition-colors duration-300 ${
+                        isFavorite
+                          ? "fill-pink-500 text-pink-500"
+                          : "text-white group-hover/fav:text-pink-500"
                       }`}
                     />
-                  ))}
+                  </button>
+
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                     <div className="bg-white/30 backdrop-blur-md border border-white/50 text-white px-5 py-2.5 rounded-full opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0 font-bold flex items-center gap-2 shadow-lg">
+                       <ImageIcon className="w-5 h-5" /> Xem toàn bộ ảnh ({images.length})
+                     </div>
+                  </div>
                 </div>
+                
+                {/* Danh sách Thumbnails */}
+                {images.length > 1 && (
+                  <div className="grid grid-cols-5 gap-2 mt-2">
+                    {images.slice(0, 5).map((image, index) => (
+                      <button 
+                        key={image.imageId || index}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Ngăn sự kiện nổi bọt
+                          setSelectedImage(image.imageURL); // Cập nhật ảnh chính
+                        }}
+                        className={`h-20 md:h-24 rounded-xl overflow-hidden cursor-pointer border-2 transition-all relative group/thumb
+                          ${selectedImage === image.imageURL 
+                            ? 'border-cyan-500 ring-2 ring-cyan-100 ring-offset-1 opacity-100' 
+                            : 'border-transparent opacity-70 hover:opacity-100'
+                          }`}
+                      >
+                        <img 
+                          src={image.imageURL} 
+                          alt={`Thumbnail ${index + 1}`} 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover/thumb:scale-110" 
+                        />
+                        {/* Overlay mờ cho ảnh chưa chọn */}
+                        {selectedImage !== image.imageURL && (
+                          <div className="absolute inset-0 bg-black/10 group-hover/thumb:bg-transparent transition-colors"></div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              
-              {/* Thumbnails */}
-              {images.length > 1 && (
-                <div className="grid grid-cols-5 gap-2 mt-2">
-                  {images.slice(0, 5).map((image, index) => (
-                    <div 
-                      key={image.imageId}
-                      onClick={() => {
-                        setSelectedImage(image.imageURL);
-                        // openLightbox(index); // Optional: open lightbox directly or just switch main image
-                      }}
-                      className={`h-20 rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${selectedImage === image.imageURL ? 'border-cyan-500 ring-2 ring-cyan-100' : 'border-transparent opacity-70 hover:opacity-100'}`}
-                    >
-                      <img src={image.imageURL} alt="thumb" className="w-full h-full object-cover" />
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* ================= END GALLERY SECTION ================= */}
+
             </div>
 
             {/* Description */}
@@ -495,7 +511,7 @@ export default function TourDetail() {
               </p>
             </div>
 
-            {/* Highlights (Tour Includes) */}
+            {/* Highlights */}
             {tour.highlight && (
               <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
                 <h3 className="text-xl font-bold text-slate-800 mb-6">Dịch vụ bao gồm</h3>
@@ -512,7 +528,7 @@ export default function TourDetail() {
               </div>
             )}
 
-            {/* Timeline Accordion */}
+            {/* Timeline */}
             {timeline.length > 0 && (
               <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
                 <div className="flex justify-between items-center mb-6">
@@ -558,7 +574,7 @@ export default function TourDetail() {
               </div>
             )}
 
-            {/* Reviews Section */}
+            {/* Reviews */}
             {reviews.length > 0 && (
               <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
                 <h3 className="text-xl font-bold text-slate-800 mb-6">Đánh giá từ khách hàng ({reviews.length})</h3>
@@ -617,7 +633,6 @@ export default function TourDetail() {
                 <div className="mb-6">
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-3">Lịch khởi hành</label>
                   <div className="flex flex-wrap gap-2">
-                    {/* Render 3 ngày gần nhất */}
                     {availableDates
                       .filter(d => new Date(d.startDate) >= new Date())
                       .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
@@ -702,9 +717,8 @@ export default function TourDetail() {
                 <div className="flex justify-between items-center py-4 border-t border-slate-100 mb-4">
                   <span className="font-bold text-slate-600">Tạm tính</span>
                   <span className="text-2xl font-extrabold text-blue-600">
-                    {selectedDate && typeof selectedDate !== 'string' 
-                      ? ((selectedDate.priceAdult * travelers.adults + selectedDate.priceChildren * travelers.children).toLocaleString("vi-VN") + "₫")
-                      : "---"}
+                    {/* Tính tổng tiền (đã thêm hàm calculateTotalPrice) */}
+                    {calculateTotalPrice().toLocaleString("vi-VN")}₫
                   </span>
                 </div>
 
@@ -858,6 +872,7 @@ export default function TourDetail() {
             <div className="border-t pt-3 text-sm text-muted-foreground">
               <p>
                 <strong>Tổng tiền:</strong>{" "}
+                {/* Gọi hàm tính tổng tiền */}
                 {calculateTotalPrice().toLocaleString("vi-VN")} ₫
               </p>
             </div>

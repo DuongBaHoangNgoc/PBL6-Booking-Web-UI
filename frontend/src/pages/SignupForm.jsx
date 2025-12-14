@@ -10,16 +10,13 @@ import {
   Upload, 
   Image as ImageIcon,
   Loader2,
-  ArrowLeft,
   CreditCard,
   Building2,
-  Loader2,
   ArrowLeft,
   ShieldCheck,
   Plane
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
 // import { createAccount } from "@/api/wallet_accounts"; // Đã xóa import gây lỗi
 
