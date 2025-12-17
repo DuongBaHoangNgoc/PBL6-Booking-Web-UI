@@ -43,9 +43,7 @@ function ImageLightbox({ images, startIndex, open, onOpenChange }) {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
 
   useEffect(() => {
-    if (open) {
-      setCurrentIndex(startIndex);
-    }
+    if (open) setCurrentIndex(startIndex);
   }, [startIndex, open]);
 
   const goToNext = (e) => {
@@ -143,8 +141,14 @@ export default function TourDetail() {
   const [expandedDay, setExpandedDay] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
+
+  // ✅ selectedDate luôn là OBJECT (StartEndDate)
   const [selectedDate, setSelectedDate] = useState(null);
-  const [hashtags, setHashtags] = useState({ tourHashtags: [] });
+
+  // ✅ state riêng để mở DatePicker
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const [hashtags, setHashtags] = useState([]);
   const [relativeTour, setRelativeTour] = useState([]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteId, setFavoriteId] = useState(null);
@@ -158,7 +162,6 @@ export default function TourDetail() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxStartIndex, setLightboxStartIndex] = useState(0);
 
-  // 🧾 Thông tin form đặt tour
   const [openBookingForm, setOpenBookingForm] = useState(false);
   const [formData, setFormData] = useState({
     fullName: user?.fullName || "",
@@ -231,7 +234,6 @@ export default function TourDetail() {
         setImages(allImages);
         setSelectedImage(allImages[0]?.imageURL || "");
 
-        // 💖 Kiểm tra xem tour có trong danh sách yêu thích không
         if (user) {
           try {
             const favRes = await getFavorites(user.userId, 1, 100);
@@ -290,7 +292,7 @@ export default function TourDetail() {
       const bookingData = {
         tourId: tour.tourId,
         userId: user.userId,
-        dateId: selectedDate.dateId,
+        dateId: selectedDate.dateId, // ✅ object nên luôn có dateId
         fullName: formData.fullName,
         email: formData.email,
         phoneNumber: formData.phoneNumber,
@@ -337,6 +339,32 @@ export default function TourDetail() {
       alert("Không thể thực hiện thao tác yêu thích. Vui lòng thử lại.");
     }
   };
+
+  const calculateTotalPrice = () => {
+    if (!selectedDate) return 0;
+    const adultPrice = Number(selectedDate.priceAdult || 0);
+    const childPrice = Number(selectedDate.priceChildren || 0);
+    return adultPrice * travelers.adults + childPrice * travelers.children;
+  };
+
+  // ✅ chỉ lấy ngày còn chỗ + từ hôm nay
+  const availableDatesInStock = (availableDates || []).filter((d) => {
+    return new Date(d.startDate) >= new Date() && Number(d.availability) > 0;
+  });
+
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        Đang tải chi tiết tour...
+      </div>
+    );
+
+  if (error || !tour)
+    return (
+      <div className="min-h-screen flex items-center justify-center text-red-500">
+        {error || "Không tìm thấy tour."}
+      </div>
+    );
 
   const toggleAll = (expand) => {
     setExpandedDay(expand ? "all" : null);
@@ -724,166 +752,206 @@ export default function TourDetail() {
                   </div>
                 </div>
 
-                {/* Date Selection Grid */}
-                <div className="mb-6">
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-3">
-                    Lịch khởi hành
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {availableDates
-                      .filter((d) => new Date(d.startDate) >= new Date())
-                      .sort(
-                        (a, b) => new Date(a.startDate) - new Date(b.startDate)
-                      )
-                      .slice(0, 3)
-                      .map((d) => {
-                        const dateObj = new Date(d.startDate);
-                        const dateStr = dateObj.toLocaleDateString("vi-VN", {
-                          day: "2-digit",
-                          month: "2-digit",
-                        });
-                        const isSelected = selectedDate?.dateId === d.dateId;
-                        return (
-                          <button
-                            key={d.dateId}
-                            onClick={() => setSelectedDate(d)}
-                            className={`flex flex-col items-center justify-center px-3 py-2 rounded-xl border transition-all min-w-[4.5rem]
-                              ${
-                                isSelected
-                                  ? "border-cyan-500 bg-cyan-50 text-cyan-700 ring-1 ring-cyan-500"
-                                  : "border-slate-200 bg-white hover:border-cyan-300 text-slate-600"
-                              }
-                            `}
-                          >
-                            <span className="font-bold text-sm">{dateStr}</span>
-                          </button>
-                        );
-                      })}
-                    {/* Nút mở lịch */}
-                    <button
-                      onClick={() =>
-                        setSelectedDate((prev) =>
-                          prev === "datepicker" ? null : "datepicker"
-                        )
-                      }
-                      className={`flex flex-col items-center justify-center px-3 py-2 rounded-xl border transition-all min-w-[4.5rem]
-                        ${
-                          selectedDate === "datepicker"
-                            ? "border-cyan-500 bg-cyan-50 text-cyan-700"
-                            : "border-slate-200 bg-white hover:border-cyan-300 text-slate-600"
-                        }
-                      `}
-                    >
-                      <CalendarIcon className="w-5 h-5 mb-1" />
-                      <span className="text-[10px] font-bold uppercase">
-                        Khác
-                      </span>
-                    </button>
-                  </div>
+              {/* 🗓️ Lịch khởi hành */}
+              <div className="space-y-3 pb-6 border-b border-border">
+                <label className="text-sm font-medium text-foreground block">
+                  Chọn Lịch Trình và Xem Giá:
+                </label>
 
-                  {/* Calendar Picker Dropdown */}
-                  {selectedDate === "datepicker" && (
-                    <div className="mt-4 p-2 bg-slate-50 rounded-xl border border-slate-200 animate-in slide-in-from-top-2">
-                      <DayPicker
-                        mode="single"
-                        disabled={(date) =>
-                          !availableDates.some(
-                            (d) =>
-                              new Date(d.startDate).toDateString() ===
-                              date.toDateString()
-                          )
-                        }
-                        onSelect={(date) => {
-                          if (date) {
-                            const found = availableDates.find(
-                              (d) =>
-                                new Date(d.startDate).toDateString() ===
-                                date.toDateString()
-                            );
-                            if (found) {
-                              setSelectedDate(found); // Set object date
-                            }
-                          }
-                        }}
-                        modifiersStyles={{
-                          available: { color: "#0891b2", fontWeight: "bold" },
-                        }}
-                        className="mx-auto"
+                <div className="flex flex-wrap gap-3">
+                  {availableDatesInStock
+                    .slice()
+                    .sort(
+                      (a, b) => new Date(a.startDate) - new Date(b.startDate)
+                    )
+                    .slice(0, 3)
+                    .map((d) => {
+                      const formatted = new Date(
+                        d.startDate
+                      ).toLocaleDateString("vi-VN", {
+                        day: "2-digit",
+                        month: "2-digit",
+                      });
+
+                      const isActive = selectedDate?.dateId === d.dateId;
+
+                      return (
+                        <button
+                          key={d.dateId}
+                          onClick={() => {
+                            setSelectedDate(d); // ✅ object
+                            setShowDatePicker(false);
+                            setTour((prev) => ({
+                              ...prev,
+                              price: Number(d.priceAdult),
+                            }));
+                          }}
+                          className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
+                            isActive
+                              ? "border-primary text-primary bg-primary/10"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          <div>{formatted}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {(Number(d.priceAdult) / 1000).toFixed(0)}k
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Còn {Number(d.availability)} chỗ
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                  {/* Nút mở DatePicker */}
+                  <button
+                    onClick={() => setShowDatePicker((prev) => !prev)}
+                    className={`px-4 py-2 rounded-lg border flex items-center justify-center gap-1 transition ${
+                      showDatePicker
+                        ? "border-primary text-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M8 7V3m8 4V3m-9 8h10m-9 6h4m-8 4h12a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z"
                       />
-                    </div>
-                  )}
+                    </svg>
+                    <span>Tất cả</span>
+                  </button>
                 </div>
 
-                {/* Travelers */}
-                <div className="space-y-4 mb-6">
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <div>
-                      <span className="block font-bold text-slate-700 text-sm">
-                        Người lớn
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        Trên 9 tuổi
-                      </span>
-                    </div>
-                    <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm">
-                      <button
-                        onClick={() =>
-                          setTravelers((p) => ({
-                            ...p,
-                            adults: Math.max(1, p.adults - 1),
-                          }))
+                {showDatePicker && (
+                  <div className="mt-3 border border-border rounded-lg p-3 bg-background">
+                    <DayPicker
+                      mode="single"
+                      onSelect={(date) => {
+                        if (!date) return;
+
+                        const selectedTourDate = availableDatesInStock.find(
+                          (d) =>
+                            new Date(d.startDate).toDateString() ===
+                            date.toDateString()
+                        );
+
+                        if (selectedTourDate) {
+                          setSelectedDate(selectedTourDate);
+                          setTour((prev) => ({
+                            ...prev,
+                            price: Number(selectedTourDate.priceAdult),
+                          }));
+                          setShowDatePicker(false);
                         }
-                        className="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-slate-500 rounded-l-lg"
-                      >
-                        -
-                      </button>
-                      <span className="w-8 text-center font-bold text-sm">
-                        {travelers.adults}
-                      </span>
-                      <button
-                        onClick={() =>
-                          setTravelers((p) => ({ ...p, adults: p.adults + 1 }))
-                        }
-                        className="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-cyan-600 rounded-r-lg"
-                      >
-                        +
-                      </button>
-                    </div>
+                      }}
+                      disabled={(date) =>
+                        !availableDatesInStock.some(
+                          (d) =>
+                            new Date(d.startDate).toDateString() ===
+                            date.toDateString()
+                        )
+                      }
+                      modifiers={{
+                        available: availableDatesInStock.map(
+                          (d) => new Date(d.startDate)
+                        ),
+                      }}
+                      modifiersStyles={{
+                        available: { color: "#16a34a", fontWeight: "bold" },
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground mt-2 italic text-center">
+                      * Chỉ có thể chọn những ngày có tour khởi hành và còn chỗ
+                    </p>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <div>
-                      <span className="block font-bold text-slate-700 text-sm">
-                        Trẻ em
-                      </span>
-                      <span className="text-xs text-slate-400">5 - 9 tuổi</span>
-                    </div>
-                    <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm">
-                      <button
-                        onClick={() =>
-                          setTravelers((p) => ({
-                            ...p,
-                            children: Math.max(0, p.children - 1),
-                          }))
-                        }
-                        className="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-slate-500 rounded-l-lg"
-                      >
-                        -
-                      </button>
-                      <span className="w-8 text-center font-bold text-sm">
-                        {travelers.children}
-                      </span>
-                      <button
-                        onClick={() =>
-                          setTravelers((p) => ({
-                            ...p,
-                            children: p.children + 1,
-                          }))
-                        }
-                        className="w-8 h-8 flex items-center justify-center hover:bg-slate-100 text-cyan-600 rounded-r-lg"
-                      >
-                        +
-                      </button>
-                    </div>
+                )}
+              </div>
+
+              {/* 👨‍👩‍👧 Số lượng khách */}
+              <div className="space-y-4">
+                <label className="text-sm font-medium text-foreground block mb-2">
+                  Chọn số lượng khách
+                </label>
+
+                <div className="flex items-center justify-between border border-border rounded-lg p-2 mb-2">
+                  <div>
+                    <p className="font-medium text-foreground">Người lớn</p>
+                    <p className="text-xs text-muted-foreground">&gt; 9 tuổi</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="w-8 h-8"
+                      onClick={() =>
+                        setTravelers((prev) => ({
+                          ...prev,
+                          adults: Math.max(prev.adults - 1, 0),
+                        }))
+                      }
+                    >
+                      –
+                    </Button>
+                    <span className="w-6 text-center">{travelers.adults}</span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="w-8 h-8"
+                      onClick={() =>
+                        setTravelers((prev) => ({
+                          ...prev,
+                          adults: prev.adults + 1,
+                        }))
+                      }
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between border border-border rounded-lg p-2">
+                  <div>
+                    <p className="font-medium text-foreground">Trẻ em</p>
+                    <p className="text-xs text-muted-foreground">5 - 9 tuổi</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="w-8 h-8"
+                      onClick={() =>
+                        setTravelers((prev) => ({
+                          ...prev,
+                          children: Math.max(prev.children - 1, 0),
+                        }))
+                      }
+                    >
+                      –
+                    </Button>
+                    <span className="w-6 text-center">
+                      {travelers.children}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="w-8 h-8"
+                      onClick={() =>
+                        setTravelers((prev) => ({
+                          ...prev,
+                          children: prev.children + 1,
+                        }))
+                      }
+                    >
+                      +
+                    </Button>
                   </div>
                 </div>
 
@@ -994,7 +1062,6 @@ export default function TourDetail() {
         onOpenChange={setLightboxOpen}
       />
 
-      {/* 🧾 Popup form đặt tour */}
       <Dialog open={openBookingForm} onOpenChange={setOpenBookingForm}>
         <DialogContent className="max-w-md">
           <h2 className="text-xl font-semibold mb-4 text-center">

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import {
   CreditCard,
   XCircle,
   CheckCircle,
+  Ban,
 } from "lucide-react";
 import {
   Dialog,
@@ -21,20 +22,51 @@ import {
 import { getAccountsFilterPagination } from "@/api/wallet_accounts";
 import { payBookingWithCoin } from "@/api/bookings";
 
+// ✅ thêm 3 api mới
+import {
+  getPriceBookingCancel,
+  cancelBookingQueued,
+  getCancelJobStatus,
+} from "@/api/bookings";
+
 export default function BookingDetailPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const booking = location.state?.booking;
+  const bookingFromState = location.state?.booking;
 
+  // 🔥 local booking state để update UI sau khi pay/cancel
+  const [booking, setBooking] = useState(bookingFromState || null);
+
+  // Payment dialog
   const [open, setOpen] = useState(false);
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
+  // Cancel flow dialog
+  const [openCancel, setOpenCancel] = useState(false);
+  const [cancelInfo, setCancelInfo] = useState({
+    priceToRefund: null,
+    infoText: "",
+  });
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelMsg, setCancelMsg] = useState({ type: "", text: "" });
+
+  // poll ref
+  const cancelPollRef = useRef(null);
+
   const userId = booking?.user?.userId;
   const totalPrice = Number(booking?.totalPrice || 0);
   const tour = booking?.tour || {};
   const dateInfo = booking?.date || {};
+
+  useEffect(() => {
+    return () => {
+      if (cancelPollRef.current) {
+        clearInterval(cancelPollRef.current);
+      }
+    };
+  }, []);
 
   if (!booking)
     return (
@@ -97,6 +129,15 @@ export default function BookingDetailPage() {
           type: "success",
           text: "Thanh toán thành công! Đang quay lại danh sách booking...",
         });
+
+        // ✅ update UI local nếu backend trả booking đã confirmed
+        if (res?.data?.bookingStatus) {
+          setBooking((prev) => ({
+            ...prev,
+            bookingStatus: res.data.bookingStatus,
+          }));
+        }
+
         setTimeout(() => navigate("/bookings"), 1500);
       } else {
         setMessage({
@@ -113,6 +154,149 @@ export default function BookingDetailPage() {
       setLoading(false);
     }
   };
+
+  // =========================
+  // ✅ CANCEL FLOW
+  // =========================
+
+  // 1) user bấm hủy → gọi getPriceBookingCancel trước
+  const handleOpenCancel = async () => {
+    setCancelMsg({ type: "", text: "" });
+    setCancelInfo({ priceToRefund: null, infoText: "" });
+
+    try {
+      const res = await getPriceBookingCancel(booking.bookingId);
+
+      const data = res?.data;
+
+      // backend bạn gửi: { data: { message: "Cannot cancel..." }, statusCode: 200 }
+      if (data?.message) {
+        // ❌ không được hủy
+        setOpenCancel(true);
+        setCancelInfo({ priceToRefund: null, infoText: data.message });
+        return;
+      }
+
+      if (typeof data?.priceToRefund === "number") {
+        setOpenCancel(true);
+        setCancelInfo({
+          priceToRefund: Number(data.priceToRefund),
+          infoText: "",
+        });
+        return;
+      }
+
+      // fallback
+      setOpenCancel(true);
+      setCancelInfo({
+        priceToRefund: null,
+        infoText: "Không lấy được thông tin hoàn tiền. Vui lòng thử lại.",
+      });
+    } catch (err) {
+      console.error("❌ Lỗi handleOpenCancel:", err);
+      setOpenCancel(true);
+      setCancelInfo({
+        priceToRefund: null,
+        infoText: "Không thể kiểm tra điều kiện hủy tour. Vui lòng thử lại.",
+      });
+    }
+  };
+
+  // 2) user đồng ý hủy → gọi POST cancelBooking (enqueue) → poll job
+  const handleConfirmCancel = async () => {
+    setCancelLoading(true);
+    setCancelMsg({ type: "", text: "" });
+
+    try {
+      // gọi enqueue cancel
+      const enqueueRes = await cancelBookingQueued({
+        bookingId: booking.bookingId,
+        userId,
+        SupplierCancel: false,
+      });
+
+      // enqueueRes có thể là { jobId, bookingId } hoặc wrapper { data: { jobId } }
+      const jobId =
+        enqueueRes?.jobId ??
+        enqueueRes?.data?.jobId ??
+        enqueueRes?.data?.data?.jobId;
+
+      if (!jobId) {
+        setCancelMsg({
+          type: "error",
+          text: "Không nhận được jobId từ server. Kiểm tra lại controller trả về.",
+        });
+        setCancelLoading(false);
+        return;
+      }
+
+      setCancelMsg({
+        type: "success",
+        text: "Yêu cầu hủy tour đã gửi. Đang xử lý...",
+      });
+
+      // poll job status
+      if (cancelPollRef.current) clearInterval(cancelPollRef.current);
+
+      cancelPollRef.current = setInterval(async () => {
+        try {
+          const job = await getCancelJobStatus(jobId);
+
+          // job: { state: 'completed'|'failed'|'active'|... , result, error }
+          if (job?.state === "completed") {
+            clearInterval(cancelPollRef.current);
+            cancelPollRef.current = null;
+
+            const updatedBooking =
+              job?.result ?? job?.result?.booking ?? job?.booking ?? null;
+
+            setCancelMsg({
+              type: "success",
+              text: "Hủy tour thành công! Đang quay lại danh sách booking...",
+            });
+
+            // update UI local
+            setBooking((prev) => ({
+              ...prev,
+              bookingStatus: updatedBooking?.bookingStatus || "canceled",
+            }));
+
+            setTimeout(() => {
+              setOpenCancel(false);
+              navigate("/bookings");
+            }, 1500);
+          }
+
+          if (job?.state === "failed") {
+            clearInterval(cancelPollRef.current);
+            cancelPollRef.current = null;
+
+            setCancelMsg({
+              type: "error",
+              text: job?.error || "Hủy tour thất bại. Vui lòng thử lại.",
+            });
+          }
+        } catch (pollErr) {
+          // poll lỗi thì không clear interval ngay, nhưng show cảnh báo
+          console.warn("⚠️ Poll cancel job error:", pollErr);
+        }
+      }, 1000);
+    } catch (err) {
+      console.error("❌ Lỗi handleConfirmCancel:", err);
+      const serverMsg =
+        err?.response?.data?.message ||
+        err?.response?.data?.data?.message ||
+        "Đã xảy ra lỗi khi gửi yêu cầu hủy.";
+      setCancelMsg({ type: "error", text: serverMsg });
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  const canPay =
+    booking.bookingStatus !== "confirmed" &&
+    booking.bookingStatus !== "canceled";
+  const canCancel = booking.bookingStatus === "confirmed";
 
   return (
     <section className="p-6 md:p-14 bg-background min-h-screen">
@@ -151,7 +335,11 @@ export default function BookingDetailPage() {
                   <Calendar className="w-4 h-4 text-primary" />
                   <span>
                     Ngày đặt:{" "}
-                    {new Date(booking.bookingDate).toLocaleDateString("vi-VN")}
+                    {booking.bookingDate
+                      ? new Date(booking.bookingDate).toLocaleDateString(
+                          "vi-VN"
+                        )
+                      : "—"}
                   </span>
                 </div>
 
@@ -190,7 +378,9 @@ export default function BookingDetailPage() {
                   <p className="text-sm text-muted-foreground">Giá người lớn</p>
                   <p className="font-semibold text-primary">
                     {dateInfo.priceAdult
-                      ? `${dateInfo.priceAdult.toLocaleString("vi-VN")} ₫`
+                      ? `${Number(dateInfo.priceAdult).toLocaleString(
+                          "vi-VN"
+                        )} ₫`
                       : "—"}
                   </p>
                 </div>
@@ -198,7 +388,9 @@ export default function BookingDetailPage() {
                   <p className="text-sm text-muted-foreground">Giá trẻ em</p>
                   <p className="font-semibold text-primary">
                     {dateInfo.priceChildren
-                      ? `${dateInfo.priceChildren.toLocaleString("vi-VN")} ₫`
+                      ? `${Number(dateInfo.priceChildren).toLocaleString(
+                          "vi-VN"
+                        )} ₫`
                       : "—"}
                   </p>
                 </div>
@@ -238,7 +430,11 @@ export default function BookingDetailPage() {
 
             <Info
               label="Ngày đặt"
-              value={new Date(booking.bookingDate).toLocaleString("vi-VN")}
+              value={
+                booking.bookingDate
+                  ? new Date(booking.bookingDate).toLocaleString("vi-VN")
+                  : "—"
+              }
             />
             <Info
               label="Ngày khởi hành"
@@ -258,9 +454,7 @@ export default function BookingDetailPage() {
             />
 
             <Info label="Số người lớn" value={`${booking.numAdults} người`} />
-
             <Info label="Số trẻ em" value={`${booking.numChildren} người`} />
-
             <Info label="Mã coupon" value={booking.codeCoupon || "Không có"} />
             <Info
               label="Nhận email xác nhận"
@@ -282,7 +476,7 @@ export default function BookingDetailPage() {
           </div>
 
           {/* Nút hành động */}
-          <div className="flex justify-end mt-8 gap-3">
+          <div className="flex justify-end mt-8 gap-3 flex-wrap">
             <Button
               variant="outline"
               onClick={() => navigate("/bookings")}
@@ -291,13 +485,25 @@ export default function BookingDetailPage() {
               <ArrowLeft className="w-4 h-4" /> Quay lại
             </Button>
 
-            {booking.bookingStatus !== "confirmed" && (
+            {canPay && (
               <Button
                 onClick={handleOpenPayment}
                 className="bg-primary hover:bg-primary/90 gap-2"
               >
                 <CreditCard className="w-4 h-4" />
                 Thanh toán ngay
+              </Button>
+            )}
+
+            {/* ✅ NÚT HỦY TOUR: chỉ hiện sau khi đã confirmed */}
+            {canCancel && (
+              <Button
+                variant="destructive"
+                onClick={handleOpenCancel}
+                className="gap-2"
+              >
+                <Ban className="w-4 h-4" />
+                Hủy tour
               </Button>
             )}
           </div>
@@ -342,6 +548,56 @@ export default function BookingDetailPage() {
             >
               {loading ? "Đang xử lý..." : "Xác nhận thanh toán"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ✅ Popup hủy tour */}
+      <Dialog open={openCancel} onOpenChange={setOpenCancel}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Hủy tour</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm">
+            {cancelInfo.infoText && (
+              <div className="p-3 rounded-md bg-red-50 text-red-700">
+                {cancelInfo.infoText}
+              </div>
+            )}
+
+            {typeof cancelInfo.priceToRefund === "number" && (
+              <div className="space-y-2">
+                <p>Bạn có chắc muốn hủy tour này không?</p>
+                <p>
+                  <strong>Số tiền dự kiến hoàn:</strong>{" "}
+                  {cancelInfo.priceToRefund.toLocaleString("vi-VN")} đ
+                </p>
+                <p className="text-muted-foreground">
+                  * Số tiền hoàn phụ thuộc vào thời gian trước ngày khởi hành
+                  (theo backend).
+                </p>
+              </div>
+            )}
+
+            {cancelMsg.text && <AlertMessage message={cancelMsg} />}
+          </div>
+
+          <DialogFooter className="mt-4 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setOpenCancel(false)}>
+              Đóng
+            </Button>
+
+            {/* chỉ cho confirm khi có priceToRefund */}
+            {typeof cancelInfo.priceToRefund === "number" && (
+              <Button
+                variant="destructive"
+                onClick={handleConfirmCancel}
+                disabled={cancelLoading}
+              >
+                {cancelLoading ? "Đang gửi yêu cầu..." : "Xác nhận hủy"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
