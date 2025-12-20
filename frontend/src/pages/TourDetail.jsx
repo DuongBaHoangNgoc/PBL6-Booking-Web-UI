@@ -1,13 +1,11 @@
-"use client"
-
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import Navbar from "../components/layout/Header"
 import { getTourById } from "../api/tours"
-import { FaMapMarkerAlt, FaClock, FaStar, FaRegCalendarAlt } from "react-icons/fa"
+import { FaMapMarkerAlt, FaClock, FaStar, FaRegCalendarAlt, FaCheckCircle, FaInfoCircle } from "react-icons/fa"
 import ImageCarousel from "../components/ImageCarousel"
 import HtmlBlock from "../components/HtmlBlock"
-import TourScheduleAccordion from "../components/TourScheduleAccordion"
+import TourScheduleAccordion from "../components/pages/tours/TourScheduleAccordion"
 import CustomerReviews from "../components/CustomerReviews"
 
 /* ================= Helpers ================= */
@@ -145,178 +143,275 @@ export default function TourDetail({ user, setUser }) {
   }, [chosen, adult, child])
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-500">Đang tải...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-cyan-600">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-cyan-200 border-t-cyan-600 rounded-full animate-spin"></div>
+          <span className="font-medium animate-pulse">Đang tải thông tin tour...</span>
+        </div>
+      </div>
+    )
   }
   if (!tour) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-500">Không tìm thấy tour</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Không tìm thấy tour</h2>
+          <button onClick={() => navigate("/tours")} className="text-cyan-600 hover:underline">Quay lại danh sách</button>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      <div
-        className="absolute inset-0 -z-10"
-        style={{
-          background: `linear-gradient(to bottom, #1a5f7a 40%, #f9fafb 40%)`,
-        }}
-      >
-        <img src="/backgrounds/login-bg.png" alt="plane" className="w-full h-full object-cover" />
-      </div>
-
+    <div className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-900">
       <Navbar user={user} setUser={setUser} />
 
-      <div className="flex flex-1 pt-20">
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
-          <div className="max-w-6xl mx-auto">
-            <h1 className="text-2xl md:text-3xl font-bold text-[#1a5f7a]">{tour.title}</h1>
-            <div className="mt-2 flex items-center gap-4 text-sm text-gray-600">
-              <span className="inline-flex items-center gap-1">
-                <FaStar className="text-yellow-500" />
-                {tour.reviews || "Chưa có đánh giá"}
+      {/* ================= HERO SECTION (Theme Bright Ocean) ================= */}
+      <div className="relative pt-28 pb-32 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg">
+        {/* Decorative Background Pattern */}
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+        
+        <div className="container mx-auto px-4 md:px-6 relative z-10">
+          <div className="max-w-4xl">
+            {/* Badges */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold border border-white/30 flex items-center gap-1">
+                <FaMapMarkerAlt /> {tour.destination || tour.address || "Việt Nam"}
               </span>
-              <span className="inline-flex items-center gap-1">
-                <FaClock />
-                {tour.time || "—"}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <FaMapMarkerAlt />
-                {tour.destination || tour.address || "—"}
+              <span className="bg-yellow-400/90 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm">
+                <FaStar /> {tour.reviews ? `${tour.reviews} đánh giá` : "Mới"}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
-              {/* LEFT */}
-              <div className="lg:col-span-2">
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                  <ImageCarousel images={images} interval={3500} height="h-96" />
-                </div>
+            {/* Title */}
+            <h1 className="text-3xl md:text-5xl font-extrabold mb-6 leading-tight drop-shadow-md text-balance">
+              {tour.title}
+            </h1>
 
-                {tour.description && (
-                  <div className="mt-4 bg-white rounded-lg shadow p-4">
-                    <h3 className="font-semibold mb-2">Tour Trọn Gói bao gồm</h3>
-                    <hr className="my-4" />
-                    <p className="text-gray-700 whitespace-pre-line">{tour.description}</p>
-                  </div>
-                )}
-
-                {timelinesCompat.length > 1 ? (
-                  <TourScheduleAccordion timelines={timelinesCompat} />
-                ) : (
-                  richTimeline && (
-                    <div className="mt-4 bg-white rounded-lg shadow p-4">
-                      <h3 className="font-semibold mb-2">{richTimeline.title}</h3>
-                      {hasHtml(richTimeline.description) ? (
-                        <HtmlBlock html={richTimeline.description} />
-                      ) : (
-                        <p className="text-gray-700 whitespace-pre-line">{richTimeline.description}</p>
-                      )}
-                    </div>
-                  )
-                )}
-
-                <CustomerReviews
-                  tourTitle={tour.title}
-                  reviews={tour.reviewsComment || tour.reviews || tour.reviewList || []}
-                />
+            {/* Quick Info Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm md:text-base font-medium text-blue-50">
+              <div className="flex items-center gap-2">
+                <FaClock className="text-cyan-200" />
+                <span>Thời gian: {tour.time || "Đang cập nhật"}</span>
               </div>
-
-              {/* RIGHT */}
-              <aside className="lg:col-span-1">
-                <div className="bg-[#e8f5f3] rounded-lg border border-[#5dd9c1] p-4 sticky top-24">
-                  <h3 className="font-semibold text-[#1a5f7a]">Lịch Trình và Giá Tour</h3>
-
-                  <label className="block text-xs text-gray-500 mt-3 mb-1 uppercase">Chọn lịch khởi hành</label>
-                  <select
-                    value={chosenDateId ?? ""}
-                    onChange={(e) => setChosenDateId(e.target.value)}
-                    className="w-full border border-[#5dd9c1] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#5dd9c1]"
-                  >
-                    <option value="" disabled>
-                      {dateOptions.length ? "Chọn ngày" : "Chưa có lịch"}
-                    </option>
-                    {dateOptions.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <div className="mt-3 space-y-2">
-                    <RowQty
-                      label="Người lớn"
-                      note="> 9 tuổi"
-                      value={adult}
-                      onChange={setAdult}
-                      price={chosen?.priceAdult}
-                    />
-                    <RowQty
-                      label="Trẻ em"
-                      note="5 - 9 tuổi"
-                      value={child}
-                      onChange={setChild}
-                      price={chosen?.priceChild}
-                    />
-                    <RowQty label="Trẻ nhỏ" note="< 5 tuổi" value={infant} onChange={setInfant} price={0} />
-                  </div>
-
-                  <div className="mt-4 border-t border-[#5dd9c1] pt-3">
-                    <div className="text-sm text-gray-600">Tổng Giá Tour</div>
-                    <div className="text-2xl font-bold text-[#ff6b6b]">{fmtVND(total)}</div>
-                  </div>
-
-                  <button
-                    className="mt-3 w-full bg-[#5dd9c1] hover:bg-[#4bc9b0] text-[#1a5f7a] font-semibold py-2 rounded-lg transition-all active:scale-95"
-                    disabled={!chosenDateId}
-                    onClick={() => alert("Đặt giữ chỗ (demo)")}
-                  >
-                    Đặt giữ chỗ ngay
-                  </button>
-                  <button
-                    className="mt-2 w-full border-2 border-[#5dd9c1] text-[#1a5f7a] font-semibold py-2 rounded-lg hover:bg-[#5dd9c1]/10 transition-all active:scale-95"
-                    onClick={() => alert("Liên hệ tư vấn (demo)")}
-                  >
-                    Liên hệ tư vấn
-                  </button>
-
-                  {chosen && (
-                    <div className="mt-4 text-sm text-gray-600 inline-flex items-center gap-2">
-                      <FaRegCalendarAlt className="text-[#1a5f7a]" />
-                      <span>Khởi hành: {chosen.label}</span>
-                    </div>
-                  )}
-                </div>
-              </aside>
+              <div className="flex items-center gap-2">
+                <FaCheckCircle className="text-cyan-200" />
+                <span>Khởi hành: Hàng tuần</span>
+              </div>
+              {/* Add more info if available */}
             </div>
           </div>
-        </main>
+        </div>
+      </div>
+
+      {/* ================= MAIN CONTENT (Overlapping) ================= */}
+      <div className="container mx-auto px-4 md:px-6 -mt-20 relative z-20 pb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* LEFT COLUMN: Content */}
+          <div className="lg:col-span-2 space-y-8">
+            
+            {/* Gallery */}
+            <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
+              <ImageCarousel images={images} interval={4000} height="h-80 md:h-[500px]" />
+            </div>
+
+            {/* Description */}
+            {tour.description && (
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                    <FaInfoCircle className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800">Tổng quan Tour</h3>
+                </div>
+                <div className="prose prose-slate max-w-none text-slate-600 leading-relaxed whitespace-pre-line">
+                  {tour.description}
+                </div>
+              </div>
+            )}
+
+            {/* Timelines */}
+            {timelinesCompat.length > 1 ? (
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
+                 <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <FaRegCalendarAlt className="text-cyan-500" /> Lịch trình chi tiết
+                 </h3>
+                 <TourScheduleAccordion timelines={timelinesCompat} />
+              </div>
+            ) : (
+              richTimeline && (
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
+                  <h3 className="text-xl font-bold text-slate-800 mb-6">{richTimeline.title}</h3>
+                  <div className="prose prose-slate max-w-none text-slate-600">
+                    {hasHtml(richTimeline.description) ? (
+                      <HtmlBlock html={richTimeline.description} />
+                    ) : (
+                      <p className="whitespace-pre-line">{richTimeline.description}</p>
+                    )}
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* Reviews */}
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
+               <CustomerReviews
+                tourTitle={tour.title}
+                reviews={tour.reviewsComment || tour.reviews || tour.reviewList || []}
+              />
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Booking Sidebar */}
+          <aside className="lg:col-span-1">
+            <div className="sticky top-28 space-y-6">
+              
+              {/* Pricing Card */}
+              <div className="bg-white rounded-3xl shadow-xl shadow-cyan-900/5 border border-slate-100 p-6 overflow-hidden relative">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-cyan-400"></div>
+                
+                <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                  <span className="bg-cyan-100 p-1.5 rounded text-cyan-600"><FaRegCalendarAlt size={16}/></span> 
+                  Đặt Tour Ngay
+                </h3>
+
+                {/* Date Selection */}
+                <div className="mb-6">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Chọn ngày khởi hành</label>
+                  <div className="relative">
+                    <select
+                      value={chosenDateId ?? ""}
+                      onChange={(e) => setChosenDateId(e.target.value)}
+                      className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-shadow cursor-pointer hover:border-cyan-300"
+                    >
+                      <option value="" disabled>
+                        {dateOptions.length ? "-- Chọn ngày --" : "Đang cập nhật lịch"}
+                      </option>
+                      {dateOptions.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <FaRegCalendarAlt />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quantity Selectors */}
+                <div className="space-y-4 mb-6">
+                  <RowQty
+                    label="Người lớn"
+                    note="> 9 tuổi"
+                    value={adult}
+                    onChange={setAdult}
+                    price={chosen?.priceAdult}
+                  />
+                  <RowQty
+                    label="Trẻ em"
+                    note="5 - 9 tuổi"
+                    value={child}
+                    onChange={setChild}
+                    price={chosen?.priceChild}
+                  />
+                  <RowQty 
+                    label="Trẻ nhỏ" 
+                    note="< 5 tuổi" 
+                    value={infant} 
+                    onChange={setInfant} 
+                    price={0} 
+                  />
+                </div>
+
+                {/* Total Price & Divider */}
+                <div className="border-t border-slate-100 pt-4 mb-6">
+                  <div className="flex justify-between items-end">
+                    <span className="text-sm font-medium text-slate-500 mb-1">Tổng cộng</span>
+                    <span className="text-3xl font-bold text-blue-600 tracking-tight">
+                      {fmtVND(total)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="space-y-3">
+                  <button
+                    className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-cyan-500/30 transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!chosenDateId}
+                    onClick={() => alert("Chức năng đang phát triển")}
+                  >
+                    Đặt Giữ Chỗ
+                  </button>
+                  <button
+                    className="w-full bg-white border-2 border-cyan-100 text-cyan-600 font-bold py-3 rounded-xl hover:bg-cyan-50 hover:border-cyan-200 transition-all transform active:scale-[0.98]"
+                    onClick={() => alert("Liên hệ tư vấn")}
+                  >
+                    Tư Vấn Miễn Phí
+                  </button>
+                </div>
+
+                {/* Footer Info */}
+                {chosen && (
+                  <div className="mt-4 pt-4 border-t border-slate-100 text-center">
+                    <p className="text-xs text-slate-400 font-medium">
+                      Ngày đã chọn: <span className="text-cyan-600">{chosen.label}</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Need Help Card */}
+              <div className="bg-blue-50 rounded-2xl p-6 text-center border border-blue-100">
+                <h4 className="font-bold text-blue-800 mb-2">Cần hỗ trợ?</h4>
+                <p className="text-sm text-blue-600 mb-4">Đội ngũ tư vấn của chúng tôi luôn sẵn sàng 24/7</p>
+                <a href="tel:+84123456789" className="text-blue-700 font-bold text-lg hover:underline">
+                  1900 1234
+                </a>
+              </div>
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   )
 }
 
-/* =============== Sub component =============== */
+/* =============== Sub component UI Updated =============== */
 
 function RowQty({ label, note, value, onChange, price }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between group">
       <div>
-        <div className="font-medium text-[#1a5f7a]">{label}</div>
-        <div className="text-xs text-gray-500">{note}</div>
+        <div className="font-bold text-slate-700">{label}</div>
+        <div className="text-xs text-slate-400 group-hover:text-cyan-500 transition-colors">{note}</div>
       </div>
-      <div className="flex items-center gap-2">
-        {price != null && <span className="text-sm text-gray-600 mr-3">{fmtVND(price)}</span>}
-        <button
-          className="px-2 py-1 border border-[#5dd9c1] rounded hover:bg-[#5dd9c1]/10 transition-all active:scale-90"
-          onClick={() => onChange(Math.max(0, value - 1))}
-        >
-          −
-        </button>
-        <span className="w-6 text-center font-medium">{value}</span>
-        <button
-          className="px-2 py-1 border border-[#5dd9c1] rounded hover:bg-[#5dd9c1]/10 transition-all active:scale-90"
-          onClick={() => onChange(value + 1)}
-        >
-          +
-        </button>
+      <div className="flex items-center gap-3">
+        {price != null && (
+          <div className="text-right mr-2 hidden sm:block">
+             <span className="text-xs text-slate-400 block">đơn giá</span>
+             <span className="text-sm font-semibold text-slate-600">{fmtVND(price)}</span>
+          </div>
+        )}
+        
+        <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 p-1">
+          <button
+            className="w-7 h-7 flex items-center justify-center rounded-md bg-white text-slate-500 hover:bg-rose-50 hover:text-rose-500 border border-transparent hover:border-rose-100 transition-all disabled:opacity-30"
+            onClick={() => onChange(Math.max(0, value - 1))}
+            disabled={value <= 0}
+          >
+            -
+          </button>
+          <span className="w-8 text-center font-bold text-slate-700 text-sm">{value}</span>
+          <button
+            className="w-7 h-7 flex items-center justify-center rounded-md bg-white text-slate-500 hover:bg-cyan-50 hover:text-cyan-600 border border-transparent hover:border-cyan-100 transition-all"
+            onClick={() => onChange(value + 1)}
+          >
+            +
+          </button>
+        </div>
       </div>
     </div>
   )

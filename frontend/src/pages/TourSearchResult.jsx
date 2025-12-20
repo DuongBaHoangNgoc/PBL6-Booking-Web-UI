@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import Navbar from "../components/layout/Header"
-import TourCard from "../components/TourCard"
-import TourSearchBar from "../components/TourSearchBar"
+import TourCard from "../components/pages/tours/TourCard"
+import TourSearchBar from "../components/pages/tours/TourSearchBar"
 import { filterToursBySlug } from "../api/tours"
 import { toSlug } from "../utils/slug"
 

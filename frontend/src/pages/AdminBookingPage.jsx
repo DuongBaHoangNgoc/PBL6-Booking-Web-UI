@@ -10,6 +10,20 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { useDebounce } from "@/hook/useDebounce";
+
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+
+import { MoreHorizontal, Trash2, Ban } from "lucide-react";
+
+import { deleteBooking, cancelBooking } from "@/api/bookings";
 
 export default function AdminBookingPage() {
   const [bookings, setBookings] = useState([]);
@@ -21,6 +35,10 @@ export default function AdminBookingPage() {
     phoneNumber: "",
     bookingStatus: "",
   });
+  const debouncedEmail = useDebounce(filters.email, 500);
+  const debouncedName = useDebounce(filters.fullName, 500);
+  const debouncedPhone = useDebounce(filters.phoneNumber, 500);
+  const debouncedStatus = useDebounce(filters.bookingStatus, 200);
 
   const limit = 10;
 
@@ -28,26 +46,56 @@ export default function AdminBookingPage() {
     const params = new URLSearchParams({
       page,
       limit,
-      email: filters.email,
-      fullName: filters.fullName,
-      phoneNumber: filters.phoneNumber,
-      bookingStatus: filters.bookingStatus,
+      email: debouncedEmail,
+      fullName: debouncedName,
+      phoneNumber: debouncedPhone,
+      bookingStatus: debouncedStatus,
     });
+
     const res = await axios.get(
       `http://localhost:3000/bookings/FilterPagination?${params.toString()}`
     );
+
     setBookings(res.data.data.bookings);
     setTotal(res.data.data.countBookings || 0);
   };
 
+  // ❌ Xóa booking
+  const handleDelete = async (id) => {
+    if (!confirm("Bạn có chắc muốn xóa booking này?")) return;
+
+    try {
+      await deleteBooking(id);
+      alert("Đã xóa booking!");
+      fetchBookings();
+    } catch (err) {
+      alert("Lỗi khi xóa booking!");
+    }
+  };
+
+  // 🛑 Hủy booking
+  const handleCancel = async (id) => {
+    if (!confirm("Bạn có chắc muốn HỦY booking này?")) return;
+
+    try {
+      await cancelBooking(id);
+      alert("Đã hủy booking!");
+      fetchBookings();
+    } catch (err) {
+      alert("Hủy booking thất bại!");
+    }
+  };
+
+  // Khi đổi trang → gọi API
   useEffect(() => {
     fetchBookings();
   }, [page]);
 
-  const handleFilter = () => {
+  // Khi filter thay đổi → luôn reset về page 1 + gọi API
+  useEffect(() => {
     setPage(1);
     fetchBookings();
-  };
+  }, [debouncedEmail, debouncedName, debouncedPhone, debouncedStatus]);
 
   return (
     <section className="min-h-screen my-20 pb-24">
@@ -82,7 +130,10 @@ export default function AdminBookingPage() {
             />
             <Select
               onValueChange={(v) =>
-                setFilters({ ...filters, bookingStatus: v === "all" ? "" : v })
+                setFilters({
+                  ...filters,
+                  bookingStatus: v === "all" ? "" : v,
+                })
               }
               value={filters.bookingStatus || "all"}
             >
@@ -97,26 +148,24 @@ export default function AdminBookingPage() {
               </SelectContent>
             </Select>
           </div>
-
-          <Button className="mt-4" onClick={handleFilter}>
-            Apply Filter
-          </Button>
         </Card>
 
-        {/* Bảng danh sách booking */}
+        {/* Bảng Booking */}
         <Card className="p-6 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left py-3 px-4 font-semibold">ID</th>
-                <th className="text-left py-3 px-4 font-semibold">Full Name</th>
-                <th className="text-left py-3 px-4 font-semibold">Email</th>
-                <th className="text-left py-3 px-4 font-semibold">Phone</th>
-                <th className="text-left py-3 px-4 font-semibold">Tour</th>
-                <th className="text-left py-3 px-4 font-semibold">Status</th>
-                <th className="text-left py-3 px-4 font-semibold">Price</th>
+                <th className="py-3 px-4 font-semibold">ID</th>
+                <th className="py-3 px-4 font-semibold">Full Name</th>
+                <th className="py-3 px-4 font-semibold">Email</th>
+                <th className="py-3 px-4 font-semibold">Phone</th>
+                <th className="py-3 px-4 font-semibold">Tour</th>
+                <th className="py-3 px-4 font-semibold">Status</th>
+                <th className="py-3 px-4 font-semibold">Price</th>
+                <th className="py-3 px-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
+
             <tbody>
               {bookings.map((b) => (
                 <tr
@@ -128,6 +177,7 @@ export default function AdminBookingPage() {
                   <td className="py-3 px-4">{b.email}</td>
                   <td className="py-3 px-4">{b.phoneNumber}</td>
                   <td className="py-3 px-4">{b.tour?.title}</td>
+
                   <td className="py-3 px-4">
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -141,8 +191,46 @@ export default function AdminBookingPage() {
                       {b.bookingStatus}
                     </span>
                   </td>
+
                   <td className="py-3 px-4">
                     {Number(b.totalPrice).toLocaleString("vi-VN")}₫
+                  </td>
+
+                  {/* Dropdown Actions */}
+                  <td className="py-3 px-4 text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuLabel>Hành động</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+
+                        {/* HỦY BOOKING */}
+                        <DropdownMenuItem
+                          onClick={() => handleCancel(b.bookingId)}
+                          disabled={b.bookingStatus === "canceled"}
+                          className="cursor-pointer flex items-center gap-2"
+                        >
+                          <Ban className="h-4 w-4 text-yellow-600" />
+                          <span className="text-yellow-700">Hủy booking</span>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuSeparator />
+
+                        {/* XÓA BOOKING */}
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(b.bookingId)}
+                          className="cursor-pointer flex items-center gap-2 text-red-600 focus:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Xóa booking
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
               ))}
@@ -158,9 +246,11 @@ export default function AdminBookingPage() {
             >
               Prev
             </Button>
+
             <span className="text-sm text-muted-foreground">
               Page {page} / {Math.ceil(total / limit) || 1}
             </span>
+
             <Button
               variant="outline"
               disabled={page * limit >= total}

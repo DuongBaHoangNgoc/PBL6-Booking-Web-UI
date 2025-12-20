@@ -561,13 +561,12 @@ export function CreateTourWizard({ open, onOpenChange, onSuccess }) {
     try {
       setLoading(true);
       const newTour = await createTour(formData); 
-      console.log("XP-DEBUG-NewTour: ", newTour);
       setNewTourId(newTour.tourId);
 
       if (hashtags && hashtags.length > 0) {
         for (const tag of hashtags) {
           await linkTourToHashTag({
-            tourId: newTourId,
+            tourId: newTour.tourId,
             hashtagId: tag.hashtagId
           });
         }

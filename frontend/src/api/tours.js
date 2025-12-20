@@ -248,6 +248,7 @@ export async function createImages(formData) {
 export async function updateTour(id, data) {
   try {
     const res = await api.patch(`/tours/${id}`, data);
+    console.log("XP-DEBUG: ", res.data)
     return res.data?.data ?? res.data;
   } catch (err) {
     console.error(`Lỗi khi cập nhật tour ${id}:`, err);

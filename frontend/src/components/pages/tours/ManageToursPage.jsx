@@ -46,6 +46,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { useDebounce } from "@/hook/useDebounce";
+import { useAuth } from "@/context/useAuth";
+import { Alert } from "@/components/ui/alert";
+
 const getStatusBadge = (status) => {
   if (status === 'active') {
     return <Badge variant="default" className="bg-green-600">Active</Badge>;
@@ -65,6 +68,9 @@ export function ManageToursPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState("");
+  const { user } = useAuth();
+
+  console.log("XP-DEBUG-User-Info: ", user);
   
   // State cho phân trang
   const [pagination, setPagination] = useState({
@@ -97,7 +103,8 @@ export function ManageToursPage() {
         limit: pagination.limit, 
         slug: currentFilters.slug || undefined, 
         destination: currentFilters.destination || undefined, 
-        status: currentFilters.status !== "all" ? currentFilters.status : undefined 
+        status: currentFilters.status !== "all" ? currentFilters.status : undefined,
+        userId: user.role === 'supplier' ? user.userId : undefined, 
       };
       const data = await filterTours(params); 
 
@@ -160,7 +167,11 @@ export function ManageToursPage() {
   };
 
   const handleEditTour = (tourId) => {
-    navigate(`/admin/tours/edit/${tourId}`);
+    if (user.role === "admin") {
+      navigate(`/admin/tours/edit/${tourId}`);
+    } else {
+      navigate(`/supplier/tours/edit/${tourId}`);
+    }
   };
 
   const handleStatusChange = async (tourId, newStatus, currentStatus) => {
@@ -185,10 +196,10 @@ export function ManageToursPage() {
   }
 
   return (
-    <div className="p-6 md:p-14">
+    <div className="p-2 md:p-6 bg-white rounded-lg">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Quản lý Tour</h1>
-        <Button onClick={() => setIsCreateOpen(true)}>
+        <h1 className="text-3xl font-bold text-blue-600">Quản lý Tour</h1>
+        <Button className="bg-blue-600" onClick={() => setIsCreateOpen(true)}>
           <PlusCircle className="w-4 h-4 mr-2" />
           Tạo Tour Mới
         </Button>
