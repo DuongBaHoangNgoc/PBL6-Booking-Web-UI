@@ -36,19 +36,15 @@ export function AdminDashboard() {
 
   useEffect(() => {
     // Kết nối socket
-    const socket = io(import.meta.env.VITE_API_URL || "http://localhost:3000");
-
+    const baseURL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const socket = io(baseURL);
     // Hàm gọi API
     const fetchData = async () => {
       try {
         const [bookingsRes, usersRes, transactionsRes] = await Promise.all([
-          axios.get(
-            "http://localhost:3000/bookings/FilterPagination?page=1&limit=1000"
-          ),
-          axios.get(
-            "http://localhost:3000/user/FilterPagination?page=1&limit=1000"
-          ),
-          axios.get("http://localhost:3000/transactions-coins"),
+          axios.get(`${baseURL}/bookings/FilterPagination?page=1&limit=1000`),
+          axios.get(`${baseURL}/user/FilterPagination?page=1&limit=1000`),
+          axios.get(`${baseURL}/transactions-coins`),
         ]);
 
         const bookings = bookingsRes.data?.data?.bookings || [];
@@ -106,7 +102,9 @@ export function AdminDashboard() {
               (destPeriod === "year" && isSameYear)
             ) {
               const dest = b.tour.destination;
-              destinations[dest] = (destinations[dest] || 0) + 1;
+              const participants =
+                Number(b.numAdults || 0) + Number(b.numChildren || 0);
+              destinations[dest] = (destinations[dest] || 0) + participants;
             }
           }
         });
@@ -149,7 +147,7 @@ export function AdminDashboard() {
 
     const fetchRecentBookings = async () => {
       const bookingsRes = await axios.get(
-        "http://localhost:3000/bookings/FilterPagination?page=1&limit=1000"
+        `${baseURL}/bookings/FilterPagination?page=1&limit=1000`
       );
       const bookings = bookingsRes.data?.data?.bookings || [];
 
@@ -188,7 +186,7 @@ export function AdminDashboard() {
   }, [period, destPeriod])
 
   // 🔹 Hàm nhóm doanh thu
-  const groupRevenue = (transactions, mode) => {
+  function groupRevenue(transactions, mode) {
     const map = new Map();
     transactions
       .filter((t) => t.status === "SUCCESS")
@@ -216,7 +214,7 @@ export function AdminDashboard() {
       });
 
     return Array.from(map, ([name, value]) => ({ name, value }));
-  };
+  }
 
   if (loading) return <p className="text-center py-20">Đang tải dữ liệu...</p>;
 

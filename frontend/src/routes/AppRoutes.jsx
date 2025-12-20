@@ -94,7 +94,7 @@ export const AppRoutes = () => {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<ManageUsersPage />} />
           <Route path="tours" element={<ManageToursPage />} />
-          <Route path="admin/bookings" element={<AdminBookingPage />} />
+          <Route path="bookings" element={<AdminBookingPage />} />
           <Route path="tours/edit/:id" element={<ManageTourDetailPage />} />
           <Route path="revenue" element={<EarningsPage />} />
         </Route>

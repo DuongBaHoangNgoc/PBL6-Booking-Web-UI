@@ -31,18 +31,23 @@ export default function BookingsPage() {
     const fetchBookings = async () => {
       try {
         setLoading(true);
-        const data = await getFilteredBookings({
+
+        const res = await getFilteredBookings({
           userId: user.userId,
           limit,
           page,
         });
 
-        const normalized = data.map((b) => ({
+        const list = res?.bookings ?? []; // ✅ lấy mảng bookings
+
+        const normalized = list.map((b) => ({
           ...b,
           date: b.date || { startDate: null, endDate: null },
         }));
 
         setBookings(normalized);
+        // nếu bạn cần total:
+        // setTotal(res?.total ?? 0);
       } catch (err) {
         console.error("❌ Lỗi khi tải danh sách booking:", err);
       } finally {
@@ -345,6 +350,7 @@ export default function BookingsPage() {
                 <div className="grid md:grid-cols-2 gap-4">
                   {favorites.map((fav) => {
                     const tour = fav.tour;
+                    if (!tour) return null;
                     return (
                       <Card
                         key={fav.favouriteId}
