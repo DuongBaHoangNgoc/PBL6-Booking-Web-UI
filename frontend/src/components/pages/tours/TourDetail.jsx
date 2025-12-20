@@ -73,7 +73,7 @@ function ImageLightbox({ images, startIndex, open, onOpenChange }) {
             onClick={() => onOpenChange(false)}
             className="text-white/70 hover:text-white hover:bg-white/10"
           >
-            <X className="w-6 h-6" />
+            {/* <X className="w-6 h-6" /> */}
           </Button>
         </div>
 
@@ -170,15 +170,6 @@ export default function TourDetail() {
     address: user?.address || "",
     voucher: "",
   });
-
-  // HÀM TÍNH TỔNG TIỀN (Đã thêm mới để fix lỗi trắng màn hình)
-  const calculateTotalPrice = () => {
-    if (!selectedDate || typeof selectedDate === "string") return 0;
-    return (
-      (selectedDate.priceAdult || 0) * travelers.adults +
-      (selectedDate.priceChildren || 0) * travelers.children
-    );
-  };
 
   useEffect(() => {
     async function fetchTourData() {
@@ -752,278 +743,289 @@ export default function TourDetail() {
                   </div>
                 </div>
 
-              {/* 🗓️ Lịch khởi hành */}
-              <div className="space-y-3 pb-6 border-b border-border">
-                <label className="text-sm font-medium text-foreground block">
-                  Chọn Lịch Trình và Xem Giá:
-                </label>
+                {/* 🗓️ Lịch khởi hành */}
+                <div className="space-y-3 pb-6 border-b border-border">
+                  <label className="text-sm font-medium text-foreground block">
+                    Chọn Lịch Trình và Xem Giá:
+                  </label>
 
-                <div className="flex flex-wrap gap-3">
-                  {availableDatesInStock
-                    .slice()
-                    .sort(
-                      (a, b) => new Date(a.startDate) - new Date(b.startDate)
-                    )
-                    .slice(0, 3)
-                    .map((d) => {
-                      const formatted = new Date(
-                        d.startDate
-                      ).toLocaleDateString("vi-VN", {
-                        day: "2-digit",
-                        month: "2-digit",
-                      });
+                  <div className="flex flex-wrap gap-3">
+                    {availableDatesInStock
+                      .slice()
+                      .sort(
+                        (a, b) => new Date(a.startDate) - new Date(b.startDate)
+                      )
+                      .slice(0, 3)
+                      .map((d) => {
+                        const formatted = new Date(
+                          d.startDate
+                        ).toLocaleDateString("vi-VN", {
+                          day: "2-digit",
+                          month: "2-digit",
+                        });
 
-                      const isActive = selectedDate?.dateId === d.dateId;
+                        const isActive = selectedDate?.dateId === d.dateId;
 
-                      return (
-                        <button
-                          key={d.dateId}
-                          onClick={() => {
-                            setSelectedDate(d); // ✅ object
-                            setShowDatePicker(false);
+                        return (
+                          <button
+                            key={d.dateId}
+                            onClick={() => {
+                              setSelectedDate(d); // ✅ object
+                              setShowDatePicker(false);
+                              setTour((prev) => ({
+                                ...prev,
+                                price: Number(d.priceAdult),
+                              }));
+                            }}
+                            className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
+                              isActive
+                                ? "border-primary text-primary bg-primary/10"
+                                : "border-border hover:border-primary/50"
+                            }`}
+                          >
+                            <div>{formatted}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {(Number(d.priceAdult) / 1000).toFixed(0)}k
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Còn {Number(d.availability)} chỗ
+                            </div>
+                          </button>
+                        );
+                      })}
+
+                    {/* Nút mở DatePicker */}
+                    <button
+                      onClick={() => setShowDatePicker((prev) => !prev)}
+                      className={`px-4 py-2 rounded-lg border flex items-center justify-center gap-1 transition ${
+                        showDatePicker
+                          ? "border-primary text-primary bg-primary/10"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M8 7V3m8 4V3m-9 8h10m-9 6h4m-8 4h12a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <span>Tất cả</span>
+                    </button>
+                  </div>
+
+                  {showDatePicker && (
+                    <div className="mt-3 border border-border rounded-lg p-3 bg-background">
+                      <DayPicker
+                        mode="single"
+                        onSelect={(date) => {
+                          if (!date) return;
+
+                          const selectedTourDate = availableDatesInStock.find(
+                            (d) =>
+                              new Date(d.startDate).toDateString() ===
+                              date.toDateString()
+                          );
+
+                          if (selectedTourDate) {
+                            setSelectedDate(selectedTourDate);
                             setTour((prev) => ({
                               ...prev,
-                              price: Number(d.priceAdult),
+                              price: Number(selectedTourDate.priceAdult),
                             }));
-                          }}
-                          className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
-                            isActive
-                              ? "border-primary text-primary bg-primary/10"
-                              : "border-border hover:border-primary/50"
-                          }`}
-                        >
-                          <div>{formatted}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {(Number(d.priceAdult) / 1000).toFixed(0)}k
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Còn {Number(d.availability)} chỗ
-                          </div>
-                        </button>
-                      );
-                    })}
-
-                  {/* Nút mở DatePicker */}
-                  <button
-                    onClick={() => setShowDatePicker((prev) => !prev)}
-                    className={`px-4 py-2 rounded-lg border flex items-center justify-center gap-1 transition ${
-                      showDatePicker
-                        ? "border-primary text-primary bg-primary/10"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M8 7V3m8 4V3m-9 8h10m-9 6h4m-8 4h12a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <span>Tất cả</span>
-                  </button>
-                </div>
-
-                {showDatePicker && (
-                  <div className="mt-3 border border-border rounded-lg p-3 bg-background">
-                    <DayPicker
-                      mode="single"
-                      onSelect={(date) => {
-                        if (!date) return;
-
-                        const selectedTourDate = availableDatesInStock.find(
-                          (d) =>
-                            new Date(d.startDate).toDateString() ===
-                            date.toDateString()
-                        );
-
-                        if (selectedTourDate) {
-                          setSelectedDate(selectedTourDate);
-                          setTour((prev) => ({
-                            ...prev,
-                            price: Number(selectedTourDate.priceAdult),
-                          }));
-                          setShowDatePicker(false);
-                        }
-                      }}
-                      disabled={(date) =>
-                        !availableDatesInStock.some(
-                          (d) =>
-                            new Date(d.startDate).toDateString() ===
-                            date.toDateString()
-                        )
-                      }
-                      modifiers={{
-                        available: availableDatesInStock.map(
-                          (d) => new Date(d.startDate)
-                        ),
-                      }}
-                      modifiersStyles={{
-                        available: { color: "#16a34a", fontWeight: "bold" },
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground mt-2 italic text-center">
-                      * Chỉ có thể chọn những ngày có tour khởi hành và còn chỗ
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* 👨‍👩‍👧 Số lượng khách */}
-              <div className="space-y-4">
-                <label className="text-sm font-medium text-foreground block mb-2">
-                  Chọn số lượng khách
-                </label>
-
-                <div className="flex items-center justify-between border border-border rounded-lg p-2 mb-2">
-                  <div>
-                    <p className="font-medium text-foreground">Người lớn</p>
-                    <p className="text-xs text-muted-foreground">&gt; 9 tuổi</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="w-8 h-8"
-                      onClick={() =>
-                        setTravelers((prev) => ({
-                          ...prev,
-                          adults: Math.max(prev.adults - 1, 0),
-                        }))
-                      }
-                    >
-                      –
-                    </Button>
-                    <span className="w-6 text-center">{travelers.adults}</span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="w-8 h-8"
-                      onClick={() =>
-                        setTravelers((prev) => ({
-                          ...prev,
-                          adults: prev.adults + 1,
-                        }))
-                      }
-                    >
-                      +
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between border border-border rounded-lg p-2">
-                  <div>
-                    <p className="font-medium text-foreground">Trẻ em</p>
-                    <p className="text-xs text-muted-foreground">5 - 9 tuổi</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="w-8 h-8"
-                      onClick={() =>
-                        setTravelers((prev) => ({
-                          ...prev,
-                          children: Math.max(prev.children - 1, 0),
-                        }))
-                      }
-                    >
-                      –
-                    </Button>
-                    <span className="w-6 text-center">
-                      {travelers.children}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="w-8 h-8"
-                      onClick={() =>
-                        setTravelers((prev) => ({
-                          ...prev,
-                          children: prev.children + 1,
-                        }))
-                      }
-                    >
-                      +
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Total Price */}
-                <div className="flex justify-between items-center py-4 border-t border-slate-100 mb-4">
-                  <span className="font-bold text-slate-600">Tạm tính</span>
-                  <span className="text-2xl font-extrabold text-blue-600">
-                    {/* Tính tổng tiền (đã thêm hàm calculateTotalPrice) */}
-                    {calculateTotalPrice().toLocaleString("vi-VN")}₫
-                  </span>
-                </div>
-
-                <Button
-                  onClick={handleBookNow}
-                  disabled={
-                    isBooking || !selectedDate || selectedDate === "datepicker"
-                  }
-                  className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold py-6 rounded-xl shadow-lg shadow-cyan-200 text-lg transition-all"
-                >
-                  {isBooking ? "Đang xử lý..." : "Đặt Tour Ngay"}
-                </Button>
-
-                {/* Host Info */}
-                {tour.user && (
-                  <div className="mt-6 pt-6 border-t border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden">
-                        <img
-                          src={
-                            tour.user.avatar || "https://github.com/shadcn.png"
+                            setShowDatePicker(false);
                           }
-                          className="w-full h-full object-cover"
-                          alt="host"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs text-slate-400 font-bold uppercase">
-                          Tổ chức bởi
-                        </p>
-                        <p className="text-sm font-bold text-slate-800">
-                          {tour.user.fullName}
-                        </p>
-                      </div>
+                        }}
+                        disabled={(date) =>
+                          !availableDatesInStock.some(
+                            (d) =>
+                              new Date(d.startDate).toDateString() ===
+                              date.toDateString()
+                          )
+                        }
+                        modifiers={{
+                          available: availableDatesInStock.map(
+                            (d) => new Date(d.startDate)
+                          ),
+                        }}
+                        modifiersStyles={{
+                          available: { color: "#16a34a", fontWeight: "bold" },
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground mt-2 italic text-center">
+                        * Chỉ có thể chọn những ngày có tour khởi hành và còn
+                        chỗ
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* 👨‍👩‍👧 Số lượng khách */}
+                <div className="space-y-4">
+                  <label className="text-sm font-medium text-foreground block mb-2">
+                    Chọn số lượng khách
+                  </label>
+
+                  <div className="flex items-center justify-between border border-border rounded-lg p-2 mb-2">
+                    <div>
+                      <p className="font-medium text-foreground">Người lớn</p>
+                      <p className="text-xs text-muted-foreground">
+                        &gt; 9 tuổi
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
                       <Button
                         variant="outline"
-                        size="sm"
-                        className="rounded-full text-xs h-8 border-cyan-200 text-cyan-700 hover:bg-cyan-50"
+                        size="icon"
+                        className="w-8 h-8"
+                        onClick={() =>
+                          setTravelers((prev) => ({
+                            ...prev,
+                            adults: Math.max(prev.adults - 1, 0),
+                          }))
+                        }
                       >
-                        Liên hệ
+                        –
+                      </Button>
+                      <span className="w-6 text-center">
+                        {travelers.adults}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="w-8 h-8"
+                        onClick={() =>
+                          setTravelers((prev) => ({
+                            ...prev,
+                            adults: prev.adults + 1,
+                          }))
+                        }
+                      >
+                        +
                       </Button>
                     </div>
                   </div>
-                )}
-              </div>
 
-              {/* Support Box */}
-              <div className="bg-blue-50 rounded-2xl p-6 text-center border border-blue-100">
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 text-blue-600 shadow-sm">
-                  <Phone className="w-5 h-5" />
+                  <div className="flex items-center justify-between border border-border rounded-lg p-2">
+                    <div>
+                      <p className="font-medium text-foreground">Trẻ em</p>
+                      <p className="text-xs text-muted-foreground">
+                        5 - 9 tuổi
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="w-8 h-8"
+                        onClick={() =>
+                          setTravelers((prev) => ({
+                            ...prev,
+                            children: Math.max(prev.children - 1, 0),
+                          }))
+                        }
+                      >
+                        –
+                      </Button>
+                      <span className="w-6 text-center">
+                        {travelers.children}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="w-8 h-8"
+                        onClick={() =>
+                          setTravelers((prev) => ({
+                            ...prev,
+                            children: prev.children + 1,
+                          }))
+                        }
+                      >
+                        +
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Total Price */}
+                  <div className="flex justify-between items-center py-4 border-t border-slate-100 mb-4">
+                    <span className="font-bold text-slate-600">Tạm tính</span>
+                    <span className="text-2xl font-extrabold text-blue-600">
+                      {/* Tính tổng tiền (đã thêm hàm calculateTotalPrice) */}
+                      {calculateTotalPrice().toLocaleString("vi-VN")}₫
+                    </span>
+                  </div>
+
+                  <Button
+                    onClick={handleBookNow}
+                    disabled={
+                      isBooking ||
+                      !selectedDate ||
+                      selectedDate === "datepicker"
+                    }
+                    className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold py-6 rounded-xl shadow-lg shadow-cyan-200 text-lg transition-all"
+                  >
+                    {isBooking ? "Đang xử lý..." : "Đặt Tour Ngay"}
+                  </Button>
+
+                  {/* Host Info */}
+                  {tour.user && (
+                    <div className="mt-6 pt-6 border-t border-slate-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden">
+                          <img
+                            src={
+                              tour.user.avatar ||
+                              "https://github.com/shadcn.png"
+                            }
+                            className="w-full h-full object-cover"
+                            alt="host"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-slate-400 font-bold uppercase">
+                            Tổ chức bởi
+                          </p>
+                          <p className="text-sm font-bold text-slate-800">
+                            {tour.user.fullName}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full text-xs h-8 border-cyan-200 text-cyan-700 hover:bg-cyan-50"
+                        >
+                          Liên hệ
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <h4 className="font-bold text-blue-900 mb-1">
-                  Cần hỗ trợ tư vấn?
-                </h4>
-                <p className="text-xs text-blue-600 mb-3">
-                  Liên hệ ngay để được giải đáp 24/7
-                </p>
-                <a
-                  href="tel:19001234"
-                  className="text-lg font-black text-blue-700 hover:underline"
-                >
-                  1900 1234
-                </a>
+
+                {/* Support Box */}
+                <div className="bg-blue-50 rounded-2xl p-6 text-center border border-blue-100">
+                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 text-blue-600 shadow-sm">
+                    <Phone className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-blue-900 mb-1">
+                    Cần hỗ trợ tư vấn?
+                  </h4>
+                  <p className="text-xs text-blue-600 mb-3">
+                    Liên hệ ngay để được giải đáp 24/7
+                  </p>
+                  <a
+                    href="tel:19001234"
+                    className="text-lg font-black text-blue-700 hover:underline"
+                  >
+                    1900 1234
+                  </a>
+                </div>
               </div>
             </div>
           </aside>
