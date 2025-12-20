@@ -1,53 +1,29 @@
 import { useState, useEffect } from "react";
 import { 
-  ChevronLeft, 
-  Eye, 
-  EyeOff, 
-  User, 
-  Mail, 
-  Phone, 
-  Lock, 
-  Upload, 
-  Image as ImageIcon,
-  Loader2,
-  CreditCard,
-  Building2,
-  ArrowLeft,
-  ShieldCheck,
-  Plane
+  ChevronLeft, Eye, EyeOff, User, Mail, Phone, Lock, 
+  Loader2, CreditCard, Building2, ShieldCheck, Plane 
 } from "lucide-react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
-// import { createAccount } from "@/api/wallet_accounts"; // Đã xóa import gây lỗi
 
-// --- API CONFIG ---
-const API_URL = "http://localhost:3000";
+// --- Cấu hình API ---
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-// --- COMPONENT: STEP 1 - SIGNUP FORM (Tối ưu hóa) ---
+// --- COMPONENT CON 1: STEP 1 - SIGNUP FORM ---
 function SignupForm({ role, onNext, loading }) {
   const [showPassword, setShowPassword] = useState(false);
   
-  // Chỉ giữ lại các trường thiết yếu
   const [formData, setFormData] = useState({
     fullName: "",
-    userName: "", // Vẫn cần nếu DB yêu cầu, có thể auto-gen hoặc để user nhập
+    userName: "", 
     email: "",
     passWord: "",
     confirmPassword: "",
-    phoneNumber: "",
-    avatar: null, // Thêm trường avatar
+    avatar: null, 
     agreeToTerms: false,
   });
   const [err, setErr] = useState("");
 
-  // Cleanup URL preview khi unmount để tránh memory leak
-  useEffect(() => {
-    return () => {
-      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-    };
-  }, [avatarPreview]);
-
-  // Xử lý thay đổi input thường
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -60,7 +36,6 @@ function SignupForm({ role, onNext, loading }) {
     e.preventDefault();
     setErr("");
 
-    // Validate cơ bản
     if (formData.passWord.length < 6) {
       setErr("Mật khẩu phải có ít nhất 6 ký tự.");
       return;
@@ -74,19 +49,16 @@ function SignupForm({ role, onNext, loading }) {
       return;
     }
 
-    // Chuẩn bị FormData (Gửi kèm các giá trị mặc định cho các trường đã ẩn)
     const apiForm = new FormData();
     apiForm.append("fullName", formData.fullName);
-    apiForm.append("userName", formData.userName || formData.email.split('@')[0]); // Fallback userName
+    // Tự động tạo userName nếu không nhập
+    apiForm.append("userName", formData.userName || formData.email.split('@')[0]); 
     apiForm.append("email", formData.email);
-    apiForm.append("passWord", formData.passWord);
-    apiForm.append("phoneNumber", formData.phoneNumber);
-    
-    // Các trường ẩn điền giá trị mặc định hoặc rỗng để tránh lỗi API
+    apiForm.append("passWord", formData.passWord);    
+    // Các trường mặc định để tránh lỗi API
     apiForm.append("address", ""); 
-    apiForm.append("birthDay", "2000-01-01"); // Default date
+    apiForm.append("birthDay", "2000-01-01"); 
     apiForm.append("role", role);
-    // Không gửi file avatar, để null
 
     // Gửi lên Parent
     onNext(apiForm, formData.email); 
@@ -95,7 +67,9 @@ function SignupForm({ role, onNext, loading }) {
   return (
     <div className="w-full animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="mb-6">
-        <h2 className="text-3xl font-bold text-slate-900 mb-2">Đăng ký thành viên</h2>
+        <h2 className="text-3xl font-bold text-slate-900 mb-2">
+            Đăng ký {role === 'supplier' ? 'Nhà cung cấp' : 'Thành viên'}
+        </h2>
         <p className="text-slate-500">
           {role === "supplier" 
             ? "Trở thành đối tác và phát triển kinh doanh cùng chúng tôi." 
@@ -110,8 +84,6 @@ function SignupForm({ role, onNext, loading }) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        
-        {/* Full Name */}
         <div className="space-y-1">
           <label className="text-sm font-semibold text-slate-700">Họ và tên</label>
           <div className="relative group">
@@ -128,8 +100,6 @@ function SignupForm({ role, onNext, loading }) {
           </div>
         </div>
 
-        {/* Username & Phone (2 cột) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="text-sm font-semibold text-slate-700">Tên đăng nhập</label>
             <div className="relative group">
@@ -144,25 +114,8 @@ function SignupForm({ role, onNext, loading }) {
                 required 
               />
             </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-slate-700">Số điện thoại</label>
-            <div className="relative group">
-              <Phone className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-cyan-600 transition-colors" />
-              <input 
-                type="tel" 
-                name="phoneNumber" 
-                value={formData.phoneNumber} 
-                onChange={handleChange} 
-                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white" 
-                placeholder="098..." 
-                required 
-              />
-            </div>
-          </div>
         </div>
 
-        {/* Email */}
         <div className="space-y-1">
           <label className="text-sm font-semibold text-slate-700">Email</label>
           <div className="relative group">
@@ -179,7 +132,6 @@ function SignupForm({ role, onNext, loading }) {
           </div>
         </div>
 
-        {/* Passwords (2 cột) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="text-sm font-semibold text-slate-700">Mật khẩu</label>
@@ -216,7 +168,6 @@ function SignupForm({ role, onNext, loading }) {
           </div>
         </div>
 
-        {/* Terms Checkbox */}
         <div className="flex items-center gap-3 pt-2">
           <input 
             id="terms" 
@@ -244,7 +195,7 @@ function SignupForm({ role, onNext, loading }) {
   );
 }
 
-// --- COMPONENT: STEP 2 - OTP VERIFICATION (Clean UI) ---
+// --- COMPONENT CON 2: STEP 2 - OTP VERIFICATION ---
 function OTPForm({ email, onVerify, onResend, loading }) {
   const [otp, setOtp] = useState("");
 
@@ -288,7 +239,7 @@ function OTPForm({ email, onVerify, onResend, loading }) {
   );
 }
 
-// --- COMPONENT: STEP 3 - WALLET SETUP (Clean UI) ---
+// --- COMPONENT CON 3: STEP 3 - WALLET SETUP ---
 function WalletForm({ userId, onSubmit, loading }) {
   const [walletData, setWalletData] = useState({
     accountNumber: "",
@@ -346,8 +297,8 @@ function WalletForm({ userId, onSubmit, loading }) {
   );
 }
 
-// --- MAIN PAGE COMPONENT ---
-export default function Signup({ role = "user", onBack }) {
+// --- MAIN WIZARD COMPONENT ---
+export default function SignupWizard({ role = "user", onBack }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [registeredData, setRegisteredData] = useState({ userId: null, email: "" });
@@ -357,6 +308,7 @@ export default function Signup({ role = "user", onBack }) {
   const handleRegister = async (formData, email) => {
     setLoading(true);
     try {
+      // Gửi FormData (đã chứa 'role') lên API
       const res = await axios.post(`${API_URL}/auth/Register`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -438,7 +390,7 @@ export default function Signup({ role = "user", onBack }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-centerpx-4 py-10 relative">
+    <div className="min-h-screen flex items-center justify-center px-4 py-10 relative">
       {/* Back Button */}
       {step === 1 && (
         <button onClick={handleBack} className="absolute top-6 left-6 text-slate-500 flex items-center gap-2 hover:text-blue-600 font-medium transition-colors">
@@ -461,7 +413,7 @@ export default function Signup({ role = "user", onBack }) {
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-2 opacity-80">
                 <Plane className="w-5 h-5" />
-                <span className="text-sm font-semibold tracking-wider uppercase">Booking Travel</span>
+                <span className="text-sm font-semibold tracking-wider uppercase">Travelie</span>
               </div>
               <h3 className="text-3xl font-bold leading-tight">
                 {step === 1 ? "Khám phá thế giới theo cách của bạn" : step === 2 ? "Bảo mật tài khoản" : "Đối tác tin cậy"}

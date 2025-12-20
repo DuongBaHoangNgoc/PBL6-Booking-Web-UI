@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
-import Signup from './SignupForm'
+import SignupWizard from './SignupForm'
 import RoleSelector from '@/components/pages/signup/RoleSelector'
 
 export default function SignUpPage() {
@@ -13,7 +12,7 @@ export default function SignUpPage() {
         {!selectedRole ? (
           <RoleSelector onSelectRole={setSelectedRole} />
         ) : (
-            <Signup role={selectedRole} onBack={()=>setSelectedRole(null)}/>
+            <SignupWizard role={selectedRole} onBack={()=>setSelectedRole(null)}/>
         )}
       </div>
     </main>
