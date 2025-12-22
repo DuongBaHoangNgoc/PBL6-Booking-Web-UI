@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Dialog,
@@ -17,7 +18,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Loader2, Plus, Trash2, Check, X, ChevronsUpDown } from "lucide-react";
-import { useAuth } from "@/context/useAuth"; // Import useAuth
+import { useAuth } from "@/context/useAuth";
 import {
   createTour,
   createTimeline,
@@ -40,39 +41,51 @@ import {
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 
-// Function Format Hashtag
+// ================== Helpers ==================
 const formatHashtag = (text) => {
-  // Bỏ dấu '#', ' ', v.v.
   const cleaned = text.replace(/#/g, "").trim();
   if (!cleaned) return null;
 
-  // "5 ngày 4 đêm" -> "5-ngay-4-dem"
   const slug = slugify(cleaned, {
-    lower: true, // Chữ thường
-    strict: true, // Bỏ ký tự đặc biệt
-    locale: "vi", // Xử lý tiếng Việt
+    lower: true,
+    strict: true,
+    locale: "vi",
   });
 
-  // "5-ngay-4-dem" -> "5ngay4dem" (Bỏ dấu gạch ngang)
   const formatted = slug.replace(/-/g, "");
-
-  return `#${formatted}`; // Trả về #5ngay4dem
+  return `#${formatted}`;
 };
 
+const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+const toISODateInput = (date) => {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const addDaysISO = (startISO, daysToAdd) => {
+  if (!startISO) return "";
+  const d = new Date(startISO);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setDate(d.getDate() + Number(daysToAdd || 0));
+  return toISODateInput(d);
+};
+
+// ================== Hashtag Combobox ==================
 function HashtagCombobox({ value, onChange }) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [availableHashtags, setAvailableHashtags] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Lấy danh sách hashtag khi gõ
   useEffect(() => {
     const fetchTags = async () => {
       setLoading(true);
-      // Format từ khóa tìm kiếm (ví dụ: gõ "Đà Nẵng" -> tìm "#danang")
       const formattedQuery = formatHashtag(searchQuery);
       const params = {
-        hashtag: formattedQuery || undefined, // Gửi #danang
+        hashtag: formattedQuery || undefined,
         limit: 20,
         page: 1,
       };
@@ -87,12 +100,10 @@ function HashtagCombobox({ value, onChange }) {
       }
     };
 
-    // Dùng setTimeout (debounce) để tránh gọi API liên tục
     const timer = setTimeout(fetchTags, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Hàm chọn một tag (từ danh sách)
   const handleSelect = (tag) => {
     if (!value.find((item) => item.hashtagId === tag.hashtagId)) {
       onChange([...value, tag]);
@@ -101,33 +112,29 @@ function HashtagCombobox({ value, onChange }) {
     setOpen(false);
   };
 
-  // Hàm tạo tag mới
   const handleCreate = async () => {
     const formattedName = formatHashtag(searchQuery);
     if (!formattedName) return;
 
-    // Kiểm tra xem tag (đã format) có trong danh sách đã chọn chưa
     if (value.some((tag) => tag.name === formattedName)) {
       setSearchQuery("");
       setOpen(false);
       return;
     }
 
-    // Kiểm tra xem tag (đã format) có trong API trả về không
     const existing = availableHashtags.find((t) => t.name === formattedName);
     if (existing) {
-      handleSelect(existing); // Nếu có, chỉ cần chọn nó
+      handleSelect(existing);
       return;
     }
 
-    // Nếu không có, tạo mới
     setLoading(true);
     try {
       const newTag = await createHashtag({
-        name: formattedName, // Gửi đi: #danang
-        description: searchQuery, // Gửi đi: Đà Nẵng
+        name: formattedName,
+        description: searchQuery,
       });
-      handleSelect(newTag); // Chọn tag mới tạo
+      handleSelect(newTag);
     } catch (err) {
       alert("Lỗi khi tạo tag mới.");
     } finally {
@@ -135,15 +142,15 @@ function HashtagCombobox({ value, onChange }) {
     }
   };
 
-  // Hàm bỏ chọn 1 tag
   const handleUnselect = (tagToRemove) => {
     onChange(value.filter((tag) => tag.hashtagId !== tagToRemove.hashtagId));
   };
 
-  // (SỬA) Xử lý khi bấm Enter (hoặc Space)
+  // ✅ FIX IME: Không chặn Space. Enter chỉ xử lý khi KHÔNG isComposing
   const handleKeyDown = (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault(); // Ngăn submit form / gõ dấu cách
+    if (e.isComposing) return; // đang gõ tiếng Việt/IME thì bỏ qua
+    if (e.key === "Enter") {
+      e.preventDefault();
       handleCreate();
     }
   };
@@ -157,7 +164,7 @@ function HashtagCombobox({ value, onChange }) {
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between h-auto min-h-[40px]" // Sửa: Thêm min-h
+            className="w-full justify-between h-auto min-h-[40px]"
           >
             <div className="flex flex-wrap gap-1">
               {value.length === 0 && (
@@ -171,7 +178,7 @@ function HashtagCombobox({ value, onChange }) {
                   variant="secondary"
                   className="pl-2 pr-1"
                   onClick={(e) => {
-                    e.stopPropagation(); // Ngăn popover mở
+                    e.stopPropagation();
                     handleUnselect(tag);
                   }}
                 >
@@ -190,7 +197,7 @@ function HashtagCombobox({ value, onChange }) {
               placeholder="Gõ tag (ví dụ: Đà Nẵng) rồi Enter..."
               value={searchQuery}
               onValueChange={setSearchQuery}
-              onKeyDown={handleKeyDown} // <-- Bắt sự kiện Enter/Space
+              onKeyDown={handleKeyDown}
             />
             <CommandList>
               {loading && <CommandItem disabled>Đang tải...</CommandItem>}
@@ -213,7 +220,6 @@ function HashtagCombobox({ value, onChange }) {
                     value={tag.name}
                     onSelect={() => handleSelect(tag)}
                   >
-                    {/* ✅ FIX: className trước đây dùng comma operator sai */}
                     <Check
                       className={`mr-2 h-4 w-4 ${
                         value.some((item) => item.hashtagId === tag.hashtagId)
@@ -232,9 +238,10 @@ function HashtagCombobox({ value, onChange }) {
     </div>
   );
 }
+
 // --- Form cho Step 1: Tour cơ bản ---
 function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
-  const { user } = useAuth(); // Lấy user để lấy userId
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState(
     initialData || {
@@ -244,20 +251,24 @@ function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
       nights: "2",
       quantity: 30,
       description: "",
-      highlight: "", // ✅ FIX: trước đó thiếu field này
+      highlight: "",
       file: null,
       hashtags: [],
     }
   );
 
-  // ✅ FIX: cờ để tránh vòng lặp sync (hydrate -> sync -> hydrate...)
+  // ✅ tránh loop hydrate
   const isHydratingRef = useRef(false);
 
-  // ✅ FIX: khi quay lại Step 1, nạp lại draft từ Wizard
+  // ✅ FIX IME: đang gõ tiếng Việt (composition) thì không sync draft lên parent
+  const isComposingRef = useRef(false);
+
+  // ✅ debounce sync để parent không re-render mỗi phím
+  const draftTimerRef = useRef(null);
+
   useEffect(() => {
     if (!initialData) return;
 
-    // Chỉ set nếu initialData thật sự khác formData hiện tại
     const same =
       formData.title === initialData.title &&
       formData.destination === initialData.destination &&
@@ -274,18 +285,89 @@ function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
     if (same) return;
 
     isHydratingRef.current = true;
-    setFormData(initialData);
-  }, [initialData]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ✅ FIX QUAN TRỌNG: sync local -> Wizard SAU render
-  // Nhưng bỏ qua lần render do hydrate để tránh loop
+    // enforce rule days = nights + 1
+    const d = Number(initialData.days) || 3;
+    const n = Number(initialData.nights) || 2;
+    let days = d;
+    let nights = n;
+
+    if (days !== nights + 1) {
+      nights = Math.max(1, nights);
+      days = nights + 1;
+    }
+    if (days < 2) days = 2;
+    if (nights < 1) nights = 1;
+
+    setFormData({
+      ...initialData,
+      days: String(days),
+      nights: String(nights),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData]);
+
+  // ✅ FIX IME + debounce: sync local -> Wizard sau render
   useEffect(() => {
     if (isHydratingRef.current) {
       isHydratingRef.current = false;
       return;
     }
-    onDraftChange?.(formData);
+
+    // đang gõ tiếng Việt thì không sync
+    if (isComposingRef.current) return;
+
+    if (!onDraftChange) return;
+
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      onDraftChange(formData);
+    }, 250);
+
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
   }, [formData, onDraftChange]);
+
+  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+  // chặn nhập tay cho days/nights
+  const preventManualInput = (e) => e.preventDefault();
+  const handleDaysNightsKeyDown = (e) => {
+    if (e.key === "Tab") return;
+    e.preventDefault();
+  };
+
+  const setDays = (nextDays) => {
+    const daysNum = clamp(Number(nextDays) || 2, 2, 365);
+    const nightsNum = clamp(daysNum - 1, 1, 364);
+    setFormData((prev) => ({
+      ...prev,
+      days: String(daysNum),
+      nights: String(nightsNum),
+    }));
+  };
+
+  const setNights = (nextNights) => {
+    const nightsNum = clamp(Number(nextNights) || 1, 1, 364);
+    const daysNum = clamp(nightsNum + 1, 2, 365);
+    setFormData((prev) => ({
+      ...prev,
+      nights: String(nightsNum),
+      days: String(daysNum),
+    }));
+  };
+
+  // ✅ FIX IME: bắt sự kiện composition cho các input text/textarea
+  const handleCompositionStart = () => {
+    isComposingRef.current = true;
+  };
+  const handleCompositionEnd = () => {
+    isComposingRef.current = false;
+    // kết thúc composing thì sync ngay (không chờ debounce lâu)
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    onDraftChange?.(formData);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -300,7 +382,6 @@ function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
     if (e.target.files) {
       const file = e.target.files[0];
 
-      // ✅ Validate file type (ảnh)
       const validTypes = ["image/jpeg", "image/png", "image/webp"];
       if (file && !validTypes.includes(file.type)) {
         alert("Ảnh đại diện chỉ chấp nhận JPG/PNG/WEBP.");
@@ -308,7 +389,6 @@ function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
         return;
       }
 
-      // ✅ (Tuỳ chọn) Validate size (ví dụ 5MB)
       const maxSize = 5 * 1024 * 1024;
       if (file && file.size > maxSize) {
         alert("Ảnh đại diện quá lớn. Vui lòng chọn ảnh <= 5MB.");
@@ -323,70 +403,42 @@ function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // ✅ VALIDATE input fields (Step 1)
-    if (!formData.title.trim()) {
-      alert("Vui lòng nhập tên tour.");
-      return;
-    }
-
-    if (!formData.destination.trim()) {
-      alert("Vui lòng nhập điểm đến.");
-      return;
-    }
+    if (!formData.title.trim()) return alert("Vui lòng nhập tên tour.");
+    if (!formData.destination.trim()) return alert("Vui lòng nhập điểm đến.");
 
     const daysNum = Number(formData.days);
     const nightsNum = Number(formData.nights);
     const quantityNum = Number(formData.quantity);
 
-    if (!Number.isFinite(daysNum) || daysNum <= 0) {
-      alert("Số ngày phải > 0.");
-      return;
-    }
+    if (!Number.isFinite(daysNum) || daysNum <= 0)
+      return alert("Số ngày phải > 0.");
+    if (!Number.isFinite(nightsNum) || nightsNum <= 0)
+      return alert("Số đêm phải > 0.");
+    if (daysNum !== nightsNum + 1)
+      return alert("Thời gian không hợp lệ: Ngày phải bằng Đêm + 1.");
 
-    if (!Number.isFinite(nightsNum) || nightsNum < 0) {
-      alert("Số đêm không hợp lệ.");
-      return;
-    }
+    if (!Number.isFinite(quantityNum) || quantityNum <= 0)
+      return alert("Số lượng chỗ phải > 0.");
 
-    // Bạn có thể bật rule này nếu muốn nights <= days
-    if (nightsNum > daysNum) {
-      alert("Số đêm không thể lớn hơn số ngày.");
-      return;
-    }
+    if (!formData.description.trim())
+      return alert("Vui lòng nhập mô tả chi tiết.");
 
-    if (!Number.isFinite(quantityNum) || quantityNum <= 0) {
-      alert("Số lượng chỗ phải > 0.");
-      return;
-    }
+    if (!formData.highlight.trim())
+      return alert("Vui lòng nhập phần 'Tour bao gồm'.");
 
-    if (!formData.description.trim()) {
-      alert("Vui lòng nhập mô tả chi tiết.");
-      return;
-    }
+    if (!formData.file) return alert("Vui lòng chọn ảnh đại diện cho tour.");
 
-    if (!formData.highlight.trim()) {
-      alert("Vui lòng nhập phần 'Tour bao gồm'.");
-      return;
-    }
-
-    if (!formData.file) {
-      alert("Vui lòng chọn ảnh đại diện cho tour.");
-      return;
-    }
-
-    const timeString = `${formData.days} ngày ${formData.nights} đêm`;
+    const timeString = `${daysNum} ngày ${nightsNum} đêm`;
 
     const apiFormData = new FormData();
     apiFormData.append("title", formData.title.trim());
     apiFormData.append("destination", formData.destination.trim());
     apiFormData.append("time", timeString);
     apiFormData.append("quantity", String(quantityNum));
-    apiFormData.append("highlight", formData.highlight); // string (Tour bao gồm)
+    apiFormData.append("highlight", formData.highlight);
     apiFormData.append("description", formData.description);
     apiFormData.append("file", formData.file);
-    apiFormData.append("userId", String(user.userId)); // Lấy userId từ AuthContext
-
-    console.log("XP-DEBUG-apiFormData: ", apiFormData);
+    apiFormData.append("userId", String(user.userId));
 
     onSubmit(apiFormData, formData.hashtags);
   };
@@ -401,6 +453,8 @@ function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
             name="title"
             value={formData.title}
             onChange={handleChange}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
             required
           />
         </div>
@@ -411,6 +465,8 @@ function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
             name="destination"
             value={formData.destination}
             onChange={handleChange}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
             required
           />
         </div>
@@ -419,41 +475,86 @@ function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Thời gian</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              name="days"
-              type="number"
-              min="1"
-              value={formData.days}
-              onChange={handleChange}
-              className="w-20"
-              required
-            />
-            <span>ngày</span>
-            <Input
-              name="nights"
-              type="number"
-              min="0"
-              value={formData.nights}
-              onChange={handleChange}
-              className="w-20"
-              required
-            />
-            <span>đêm</span>
-          </div>
-        </div>
 
-        <div>
-          <Label htmlFor="quantity">Số lượng chỗ</Label>
-          <Input
-            id="quantity"
-            name="quantity"
-            type="number"
-            min="1"
-            value={formData.quantity}
-            onChange={handleChange}
-            required
-          />
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Days */}
+            <div className="flex items-center gap-2">
+              <Input
+                name="days"
+                type="number"
+                min="2"
+                max="365"
+                value={formData.days}
+                readOnly
+                inputMode="none"
+                onKeyDown={handleDaysNightsKeyDown}
+                onPaste={preventManualInput}
+                onDrop={preventManualInput}
+                onBeforeInput={preventManualInput}
+                className="w-20"
+              />
+              <span>ngày</span>
+
+              <div className="flex flex-col">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-6 px-2"
+                  onClick={() => setDays(Number(formData.days) + 1)}
+                >
+                  ▲
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-6 px-2"
+                  onClick={() => setDays(Number(formData.days) - 1)}
+                  disabled={Number(formData.days) <= 2}
+                >
+                  ▼
+                </Button>
+              </div>
+            </div>
+
+            {/* Nights */}
+            <div className="flex items-center gap-2">
+              <Input
+                name="nights"
+                type="number"
+                min="1"
+                max="364"
+                value={formData.nights}
+                readOnly
+                inputMode="none"
+                onKeyDown={handleDaysNightsKeyDown}
+                onPaste={preventManualInput}
+                onDrop={preventManualInput}
+                onBeforeInput={preventManualInput}
+                className="w-20"
+              />
+              <span>đêm</span>
+
+              <div className="flex flex-col">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-6 px-2"
+                  onClick={() => setNights(Number(formData.nights) + 1)}
+                >
+                  ▲
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-6 px-2"
+                  onClick={() => setNights(Number(formData.nights) - 1)}
+                  disabled={Number(formData.nights) <= 1}
+                >
+                  ▼
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -469,6 +570,8 @@ function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
           name="description"
           value={formData.description}
           onChange={handleChange}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
           required
         />
       </div>
@@ -482,6 +585,8 @@ function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
           name="highlight"
           value={formData.highlight}
           onChange={handleChange}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
           placeholder="-"
           required
         />
@@ -497,7 +602,6 @@ function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
           onChange={handleFileChange}
           required
         />
-        {/* ✅ input file không giữ value khi back step, nên show tên file để biết nó vẫn được lưu */}
         {formData.file && (
           <div className="text-sm text-muted-foreground mt-1">
             Đã chọn: {formData.file.name} (
@@ -516,7 +620,7 @@ function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
   );
 }
 
-// --- Form cho Step 2: Image Gallery ---
+// ================== Step 2 ==================
 function Step2Form({
   onSubmit,
   onBack,
@@ -526,7 +630,6 @@ function Step2Form({
 }) {
   const [files, setFiles] = useState(initialFiles);
 
-  // ✅ FIX (Cách 1): khi quay lại Step 2, nạp lại draft từ Wizard
   useEffect(() => {
     setFiles(initialFiles || []);
   }, [initialFiles]);
@@ -547,7 +650,6 @@ function Step2Form({
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files);
 
-      // ✅ Validate file types
       const validTypes = ["image/jpeg", "image/png", "image/webp"];
       const invalid = selectedFiles.find((f) => !validTypes.includes(f.type));
       if (invalid) {
@@ -556,7 +658,6 @@ function Step2Form({
         return;
       }
 
-      // ✅Validate size per file (5MB)
       const maxSize = 5 * 1024 * 1024;
       const tooBig = selectedFiles.find((f) => f.size > maxSize);
       if (tooBig) {
@@ -565,23 +666,15 @@ function Step2Form({
         return;
       }
 
-      setFiles(selectedFiles); // Chuyển FileList thành Array
-      onDraftChange?.(selectedFiles); // ✅ FIX: lưu ngay để quay lại không mất
+      setFiles(selectedFiles);
+      onDraftChange?.(selectedFiles);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (files.length === 0) {
-      alert("Vui lòng chọn ít nhất một ảnh.");
-      return;
-    }
-    try {
-      // ✅ FIX (Cách 1): Step 2 chưa gọi API, chỉ lưu files lên Wizard
-      onSubmit(files);
-    } catch (err) {
-      alert("Lỗi khi tải ảnh lên.");
-    }
+    if (files.length === 0) return alert("Vui lòng chọn ít nhất một ảnh.");
+    onSubmit(files);
   };
 
   return (
@@ -599,7 +692,6 @@ function Step2Form({
         />
       </div>
 
-      {/* Hiển thị preview tên file (tùy chọn) */}
       {files.length > 0 && (
         <div className="text-sm text-muted-foreground space-y-2">
           <div>
@@ -616,7 +708,7 @@ function Step2Form({
             size="sm"
             onClick={() => {
               setFiles([]);
-              onDraftChange?.([]); // ✅ giữ sync draft
+              onDraftChange?.([]);
             }}
           >
             Xoá tất cả ảnh đã chọn
@@ -642,27 +734,62 @@ function Step2Form({
   );
 }
 
-// --- Form cho Step 3: Lịch trình (Timelines) ---
+// ================== Step 3 ==================
+// ✅ FIX LOOP: chỉ sync theo totalDays (và lần đầu mount), không sync theo initialTimelines mỗi lần props đổi
 function Step3Form({
   onSubmit,
   onBack,
   loading,
   initialTimelines,
   onDraftChange,
+  totalDays,
 }) {
-  const [timelines, setTimelines] = useState(
-    initialTimelines?.length
-      ? initialTimelines
-      : [{ tl_title: "Ngày 1", tl_description: "", file: null }]
+  const days = clamp(Number(totalDays) || 1, 1, 365);
+
+  const isHydratingRef = useRef(false);
+  const initializedRef = useRef(false);
+
+  const normalizeTimelines = (base, targetDays) => {
+    const src = Array.isArray(base) ? base : [];
+    const next = [];
+    for (let i = 0; i < targetDays; i++) {
+      const prev = src[i];
+      next.push({
+        tl_title: prev?.tl_title?.trim() ? prev.tl_title : `Ngày ${i + 1}`,
+        tl_description: prev?.tl_description || "",
+        file: prev?.file || null,
+      });
+    }
+    return next;
+  };
+
+  const [timelines, setTimelines] = useState(() =>
+    normalizeTimelines(initialTimelines, days)
   );
 
-  // ✅ FIX (Cách 1): khi quay lại Step 3, nạp lại draft từ Wizard
+  // ✅ mount: chỉ init 1 lần từ initialTimelines
   useEffect(() => {
-    if (initialTimelines?.length) setTimelines(initialTimelines);
-  }, [initialTimelines]);
+    if (initializedRef.current) return;
+    initializedRef.current = true;
 
-  // ✅ FIX: Sync local -> parent draft sau khi render (tránh setState trong render)
+    isHydratingRef.current = true;
+    setTimelines(normalizeTimelines(initialTimelines, days));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ✅ khi days thay đổi: resize timelines (giữ data theo index)
   useEffect(() => {
+    isHydratingRef.current = true;
+    setTimelines((prev) => normalizeTimelines(prev, days));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days]);
+
+  // ✅ chỉ push draft khi user thực sự thay đổi (không push lúc hydrate)
+  useEffect(() => {
+    if (isHydratingRef.current) {
+      isHydratingRef.current = false;
+      return;
+    }
     onDraftChange?.(timelines);
   }, [timelines, onDraftChange]);
 
@@ -670,7 +797,7 @@ function Step3Form({
     const { name, value } = e.target;
     setTimelines((prev) => {
       const next = [...prev];
-      next[index][name] = value;
+      next[index] = { ...next[index], [name]: value };
       return next;
     });
   };
@@ -679,7 +806,6 @@ function Step3Form({
     if (e.target.files) {
       const file = e.target.files[0];
 
-      // ✅ Validate file type (ảnh) nếu có upload
       if (file) {
         const validTypes = ["image/jpeg", "image/png", "image/webp"];
         if (!validTypes.includes(file.type)) {
@@ -691,31 +817,15 @@ function Step3Form({
 
       setTimelines((prev) => {
         const next = [...prev];
-        next[index].file = file || null;
+        next[index] = { ...next[index], file: file || null };
         return next;
       });
     }
   };
 
-  const addTimeline = () => {
-    setTimelines((prev) => [
-      ...prev,
-      {
-        tl_title: `Ngày ${prev.length + 1}`,
-        tl_description: "",
-        file: null,
-      },
-    ]);
-  };
-
-  const removeTimeline = (index) => {
-    setTimelines((prev) => prev.filter((_, i) => i !== index));
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // ✅ VALIDATE timeline items
     for (let i = 0; i < timelines.length; i++) {
       const item = timelines[i];
       if (!item.tl_title?.trim()) {
@@ -728,7 +838,6 @@ function Step3Form({
       }
     }
 
-    // ✅ FIX (Cách 1): Step 3 chưa gọi API, chỉ lưu timelines lên Wizard
     onSubmit(timelines);
   };
 
@@ -738,8 +847,9 @@ function Step3Form({
       className="space-y-4 max-h-[60vh] overflow-y-auto pr-2"
     >
       {timelines.map((item, index) => (
-        <div key={index} className="space-y-2 border p-4 rounded-lg relative">
+        <div key={index} className="space-y-2 border p-4 rounded-lg">
           <Label>Mục Lịch trình {index + 1}</Label>
+
           <Input
             name="tl_title"
             placeholder="Tiêu đề (ví dụ: Ngày 1: Hà Nội - Đà Lạt)"
@@ -747,6 +857,7 @@ function Step3Form({
             onChange={(e) => handleChange(index, e)}
             required
           />
+
           <Textarea
             name="tl_description"
             placeholder="Mô tả chi tiết (HTML)..."
@@ -754,36 +865,21 @@ function Step3Form({
             onChange={(e) => handleChange(index, e)}
             required
           />
+
           <Input
             name="file"
             type="file"
             accept="image/png,image/jpeg,image/webp"
             onChange={(e) => handleFileChange(index, e)}
           />
+
           {item.file && (
             <div className="text-sm text-muted-foreground">
               Đã chọn: {item.file.name} ({Math.round(item.file.size / 1024)} KB)
             </div>
           )}
-
-          <Button
-            type="button"
-            variant="destructive"
-            size="icon"
-            className="absolute top-2 right-2 w-6 h-6"
-            onClick={() => removeTimeline(index)}
-            disabled={timelines.length === 1} // ✅ tránh xoá hết
-            title={timelines.length === 1 ? "Phải có ít nhất 1 ngày" : "Xóa"}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
         </div>
       ))}
-
-      <Button type="button" variant="outline" onClick={addTimeline}>
-        <Plus className="w-4 h-4 mr-2" />
-        Thêm ngày
-      </Button>
 
       <DialogFooter>
         <Button
@@ -803,7 +899,8 @@ function Step3Form({
   );
 }
 
-// --- Form cho Step 3: Ngày khởi hành & Giá ---
+// ================== Step 4 ==================
+// startDate => auto endDate = startDate + days
 function Step4Form({
   onSubmit,
   onBack,
@@ -811,7 +908,12 @@ function Step4Form({
   initialDates,
   onDraftChange,
   summary,
+  totalDays,
 }) {
+  const daysNum = clamp(Number(totalDays) || 1, 1, 365);
+
+  const isHydratingRef = useRef(false);
+
   const [dates, setDates] = useState(
     initialDates?.length
       ? initialDates
@@ -826,21 +928,36 @@ function Step4Form({
         ]
   );
 
-  // ✅ FIX (Cách 1): khi quay lại Step 4, nạp lại draft từ Wizard
   useEffect(() => {
-    if (initialDates?.length) setDates(initialDates);
+    if (!initialDates?.length) return;
+    // tránh set lại nếu giống (đỡ loop)
+    const same = JSON.stringify(initialDates) === JSON.stringify(dates);
+    if (same) return;
+
+    isHydratingRef.current = true;
+    setDates(initialDates);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialDates]);
 
-  // ✅ FIX: Sync local -> parent draft sau khi render (tránh setState trong render)
   useEffect(() => {
+    if (isHydratingRef.current) {
+      isHydratingRef.current = false;
+      return;
+    }
     onDraftChange?.(dates);
   }, [dates, onDraftChange]);
 
   const handleChange = (index, e) => {
     const { name, value } = e.target;
+
     setDates((prev) => {
       const next = [...prev];
-      next[index][name] = value;
+      next[index] = { ...next[index], [name]: value };
+
+      if (name === "startDate") {
+        next[index].endDate = addDaysISO(value, daysNum);
+      }
+
       return next;
     });
   };
@@ -865,7 +982,6 @@ function Step4Form({
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // ✅ VALIDATE dates
     for (let i = 0; i < dates.length; i++) {
       const item = dates[i];
 
@@ -915,7 +1031,6 @@ function Step4Form({
       onSubmit={handleSubmit}
       className="space-y-4 max-h-[60vh] overflow-y-auto pr-2"
     >
-      {/* ✅ FIX (Cách 1): Summary trước khi bấm hoàn tất */}
       <div className="border rounded-lg p-4 space-y-2 bg-muted/20">
         <div className="font-semibold">Tóm tắt dữ liệu</div>
         <div className="text-sm text-muted-foreground">
@@ -942,12 +1057,6 @@ function Step4Form({
             </span>{" "}
             {summary?.timelinesCount ?? 0}
           </div>
-          <div>
-            <span className="font-medium text-foreground">
-              Số lịch khởi hành:
-            </span>{" "}
-            {dates.length}
-          </div>
         </div>
       </div>
 
@@ -967,12 +1076,12 @@ function Step4Form({
               />
             </div>
             <div>
-              <Label>Ngày về</Label>
+              <Label>Ngày về (tự động)</Label>
               <Input
                 name="endDate"
                 type="date"
                 value={item.endDate}
-                onChange={(e) => handleChange(index, e)}
+                readOnly
                 required
               />
             </div>
@@ -1022,7 +1131,7 @@ function Step4Form({
             size="icon"
             className="absolute top-2 right-2 w-6 h-6"
             onClick={() => removeDate(index)}
-            disabled={dates.length === 1} // ✅ tránh xoá hết
+            disabled={dates.length === 1}
             title={
               dates.length === 1 ? "Phải có ít nhất 1 lịch khởi hành" : "Xóa"
             }
@@ -1055,18 +1164,17 @@ function Step4Form({
   );
 }
 
-// --- Component Wizard Chính ---
+// ================== Wizard ==================
 export function CreateTourWizard({ open, onOpenChange, onSuccess }) {
   const [step, setStep] = useState(1);
   const [newTourId, setNewTourId] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // ✅ FIX (Cách 1): Lưu dữ liệu các bước, chỉ gọi API ở bước cuối
-  const [draftStep1Raw, setDraftStep1Raw] = useState(null); // raw fields step1
-  const [draftStep1, setDraftStep1] = useState(null); // { formData: FormData, hashtags: [] }
-  const [draftGalleryFiles, setDraftGalleryFiles] = useState([]); // File[]
-  const [draftTimelines, setDraftTimelines] = useState([]); // [{tl_title, tl_description, file}]
-  const [draftDates, setDraftDates] = useState([]); // [{startDate, endDate, priceAdult, priceChildren, quantity}]
+  const [draftStep1Raw, setDraftStep1Raw] = useState(null);
+  const [draftStep1, setDraftStep1] = useState(null);
+  const [draftGalleryFiles, setDraftGalleryFiles] = useState([]);
+  const [draftTimelines, setDraftTimelines] = useState([]);
+  const [draftDates, setDraftDates] = useState([]);
 
   const formatBytes = (bytes) => {
     if (!bytes || bytes <= 0) return "0 B";
@@ -1083,15 +1191,18 @@ export function CreateTourWizard({ open, onOpenChange, onSuccess }) {
     );
   }, [draftGalleryFiles]);
 
+  const totalDays = useMemo(() => {
+    const d = Number(draftStep1Raw?.days);
+    return Number.isFinite(d) && d > 0 ? d : 3;
+  }, [draftStep1Raw?.days]);
+
   const handleClose = () => {
     onOpenChange(false);
-    // Reset state khi đóng
     setTimeout(() => {
       setStep(1);
       setNewTourId(null);
       setLoading(false);
 
-      // ✅ FIX (Cách 1): Reset draft
       setDraftStep1Raw(null);
       setDraftStep1(null);
       setDraftGalleryFiles([]);
@@ -1100,25 +1211,16 @@ export function CreateTourWizard({ open, onOpenChange, onSuccess }) {
     }, 300);
   };
 
-  // ✅ FIX: Dialog onOpenChange không nên luôn đóng
   const handleDialogOpenChange = (nextOpen) => {
-    if (!nextOpen) {
-      handleClose();
-    } else {
-      onOpenChange(true);
-    }
+    if (!nextOpen) handleClose();
+    else onOpenChange(true);
   };
 
   const handleStep1Submit = async (formData, hashtags) => {
     try {
       setLoading(true);
-
-      // ✅ FIX (Cách 1): Step 1 chưa gọi API, chỉ lưu lại draft
       setDraftStep1({ formData, hashtags });
-
-      // (Không tạo tour ở đây nữa)
       setNewTourId(null);
-
       setStep(2);
     } catch (err) {
       alert("Lỗi tạo tour. Vui lòng thử lại.");
@@ -1130,10 +1232,7 @@ export function CreateTourWizard({ open, onOpenChange, onSuccess }) {
   const handleStep2Submit = async (files) => {
     try {
       setLoading(true);
-
-      // ✅ FIX (Cách 1): Step 2 chưa gọi API, chỉ lưu files
       setDraftGalleryFiles(files);
-
       setStep(3);
     } catch {
       alert("Lỗi khi thêm ảnh vào gallery. Vui lòng thử lại.");
@@ -1145,10 +1244,7 @@ export function CreateTourWizard({ open, onOpenChange, onSuccess }) {
   const handleStep3Submit = async (timelines) => {
     try {
       setLoading(true);
-
-      // ✅ FIX (Cách 1): Step 3 chưa gọi API, chỉ lưu timelines
       setDraftTimelines(timelines);
-
       setStep(4);
     } catch (err) {
       alert("Lỗi khi thêm lịch trình. Vui lòng thử lại.");
@@ -1160,67 +1256,49 @@ export function CreateTourWizard({ open, onOpenChange, onSuccess }) {
   const handleStep4Submit = async (dates) => {
     try {
       setLoading(true);
-
-      // ✅ FIX (Cách 1): Step 4 nhận dates, lưu draft rồi gọi tất cả API
       setDraftDates(dates);
 
-      // ✅ VALIDATE: phải có dữ liệu step1
       if (!draftStep1?.formData) {
         alert("Thiếu dữ liệu Step 1. Vui lòng quay lại và nhập lại.");
         return;
       }
 
-      // 1) Create tour
       const newTour = await createTour(draftStep1.formData);
-      console.log("XP-DEBUG-NewTour: ", newTour);
-
-      const tourId = newTour?.tourId; // ✅ FIX: dùng biến cục bộ để tránh setState async
+      const tourId = newTour?.tourId;
       if (!tourId) {
         alert("Tạo tour thất bại: không nhận được tourId.");
         return;
       }
       setNewTourId(tourId);
 
-      // 2) Link hashtag
       const hashtags = draftStep1.hashtags || [];
-      if (hashtags && hashtags.length > 0) {
+      if (hashtags.length > 0) {
         for (const tag of hashtags) {
           await linkTourToHashTag({
-            tourId, // ✅ FIX: dùng tourId
+            tourId,
             hashtagId: tag.hashtagId,
           });
         }
       }
 
-      // 3) Upload gallery
-      if (draftGalleryFiles && draftGalleryFiles.length > 0) {
+      if (draftGalleryFiles.length > 0) {
         const formData = new FormData();
         formData.append("tourId", String(tourId));
-        // API /createMutipleImage (viết liền) mong đợi key là "files"
-        for (const file of draftGalleryFiles) {
-          formData.append("files", file);
-        }
-        const res = await createImages(formData);
-        console.log("createImages response:", res);
+        for (const file of draftGalleryFiles) formData.append("files", file);
+        await createImages(formData);
       }
 
-      // 4) Create timelines
-      if (draftTimelines && draftTimelines.length > 0) {
-        // Gọi API cho từng mục timeline
+      if (draftTimelines.length > 0) {
         for (const item of draftTimelines) {
           const formData = new FormData();
           formData.append("tourId", String(tourId));
           formData.append("tl_title", item.tl_title);
           formData.append("tl_description", item.tl_description);
-          if (item.file) {
-            formData.append("file", item.file);
-          }
+          if (item.file) formData.append("file", item.file);
           await createTimeline(formData);
         }
       }
 
-      // 5) Create start dates
-      // Gọi API cho từng mục ngày/giá
       for (const item of dates) {
         const dateData = {
           tourId,
@@ -1229,14 +1307,14 @@ export function CreateTourWizard({ open, onOpenChange, onSuccess }) {
           priceAdult: Number(item.priceAdult),
           priceChildren: Number(item.priceChildren),
           quantity: Number(item.quantity),
-          availability: 1, // Mặc định là 1 (còn chỗ)
+          availability: 1,
         };
         await createStartDate(dateData);
       }
 
       alert("Tạo tour thành công!");
-      onSuccess(); // Gọi hàm onSuccess (từ ManageToursPage) để tải lại danh sách
-      handleClose(); // ✅ đóng wizard sau khi thành công
+      onSuccess();
+      handleClose();
     } catch (err) {
       alert("Lỗi khi thêm ngày khởi hành. Vui lòng thử lại.");
     } finally {
@@ -1295,6 +1373,7 @@ export function CreateTourWizard({ open, onOpenChange, onSuccess }) {
             loading={loading}
             initialTimelines={draftTimelines}
             onDraftChange={setDraftTimelines}
+            totalDays={totalDays}
           />
         )}
 
@@ -1305,13 +1384,14 @@ export function CreateTourWizard({ open, onOpenChange, onSuccess }) {
             loading={loading}
             initialDates={draftDates}
             onDraftChange={setDraftDates}
+            totalDays={totalDays}
             summary={{
               title: draftStep1Raw?.title || "",
               destination: draftStep1Raw?.destination || "",
               thumbnailName: draftStep1Raw?.file?.name || "",
               imagesCount: draftGalleryFiles?.length || 0,
               galleryTotalSize: formatBytes(galleryTotalSizeBytes),
-              timelinesCount: draftTimelines?.length || 0,
+              timelinesCount: Number(totalDays) || 0,
             }}
           />
         )}
