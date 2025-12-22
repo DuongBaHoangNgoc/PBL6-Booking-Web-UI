@@ -355,4 +355,24 @@ export async function getImagesByTourId(tourId) {
   }
 }
 
+/**
+ * Lấy danh sách ngày khởi hành có phân trang và lọc
+ * API: GET /start-end-dates/FilterPagination
+ */
+export async function getStartDates(params = {}) {
+  try {
+    const queryParams = {
+      limit: 100, // Lấy nhiều để hiển thị trên lịch
+      page: 1,
+      ...params
+    };
+
+    const res = await api.get("/start-end-dates/FilterPagination", { params: queryParams });
+    // Dựa trên dữ liệu bạn gửi: res.data.data.startEndDates
+    return res.data?.data?.startEndDates || [];
+  } catch (err) {
+    console.error("Lỗi khi tải danh sách ngày khởi hành:", err);
+    throw err;
+  }
+}
 

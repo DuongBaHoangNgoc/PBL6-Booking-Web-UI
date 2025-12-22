@@ -8,7 +8,7 @@ import {
   User,
   LogOut,
   Map,
-  CreditCard,
+  CreditCard, 
   LayoutDashboard,
   Heart,
   Shield,
@@ -116,9 +116,24 @@ export default function Navbar() {
 
           {/* === CHỈ ADMIN THẤY === */}
           {user && user.role === "admin" && (
-            <Link to="/admin" className={getLinkClass("/admin")}>
-              Admin Panel
-            </Link>
+            <>
+              {/* Quản lý Users */}
+              <Link to="/admin/users" className={getLinkClass("/admin/users")}>
+                Users Management
+              </Link>
+              
+              {/* Quản lý Tours */}
+              <Link to="/admin/tours" className={getLinkClass("/admin/tours")}>
+                Tours Management
+              </Link>
+              
+              {/* Quản lý Bookings */}
+              <Link to="/admin/bookings" className={getLinkClass("/admin/bookings")}>
+                Bookings Management
+              </Link>
+            </>
+          
+            
           )}
         </div>
 

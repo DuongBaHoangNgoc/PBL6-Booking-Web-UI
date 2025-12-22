@@ -142,3 +142,23 @@ export async function filterBookingBySupplierId(formData) {
     throw err;
   }
 }
+
+export async function getBookingsByDateId(dateId) {
+  try {
+    const params = {
+      dateId: dateId,
+      limit: 100,
+      page: 1
+    };
+    const res = await api.get("/bookings/FilterPagination", { params });
+
+    console.log("XP-DEBUG: ", res.data.data.bookings);
+
+    return res.data?.data?.bookings || [];
+
+  } catch (err) {
+    console.error("Lỗi khi lọc booking theo supplier id.", err);
+    throw err;
+  }
+}
+

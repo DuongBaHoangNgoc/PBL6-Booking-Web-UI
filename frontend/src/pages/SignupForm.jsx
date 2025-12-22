@@ -9,7 +9,7 @@ import axios from "axios";
 // --- Cấu hình API ---
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-// --- COMPONENT CON 1: STEP 1 - SIGNUP FORM ---
+// --- COMPONENT CON 1: STEP 1 - SIGNUP FORM (ĐÃ CẬP NHẬT) ---
 function SignupForm({ role, onNext, loading }) {
   const [showPassword, setShowPassword] = useState(false);
   
@@ -17,6 +17,7 @@ function SignupForm({ role, onNext, loading }) {
     fullName: "",
     userName: "", 
     email: "",
+    phoneNumber: "", // <--- 1. THÊM STATE Ở ĐÂY
     passWord: "",
     confirmPassword: "",
     avatar: null, 
@@ -26,6 +27,10 @@ function SignupForm({ role, onNext, loading }) {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    
+    // Logic chỉ cho phép nhập số vào ô phoneNumber
+    if (name === "phoneNumber" && !/^\d*$/.test(value)) return;
+
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -36,12 +41,18 @@ function SignupForm({ role, onNext, loading }) {
     e.preventDefault();
     setErr("");
 
+    // Validation cơ bản
     if (formData.passWord.length < 6) {
       setErr("Mật khẩu phải có ít nhất 6 ký tự.");
       return;
     }
     if (formData.passWord !== formData.confirmPassword) {
       setErr("Mật khẩu xác nhận không khớp.");
+      return;
+    }
+    // <--- 2. THÊM VALIDATION SỐ ĐIỆN THOẠI
+    if (formData.phoneNumber.length < 10) {
+      setErr("Số điện thoại không hợp lệ (ít nhất 10 số).");
       return;
     }
     if (!formData.agreeToTerms) {
@@ -51,16 +62,14 @@ function SignupForm({ role, onNext, loading }) {
 
     const apiForm = new FormData();
     apiForm.append("fullName", formData.fullName);
-    // Tự động tạo userName nếu không nhập
     apiForm.append("userName", formData.userName || formData.email.split('@')[0]); 
     apiForm.append("email", formData.email);
+    apiForm.append("phoneNumber", formData.phoneNumber); // <--- 3. GỬI LÊN SERVER
     apiForm.append("passWord", formData.passWord);    
-    // Các trường mặc định để tránh lỗi API
     apiForm.append("address", ""); 
     apiForm.append("birthDay", "2000-01-01"); 
     apiForm.append("role", role);
 
-    // Gửi lên Parent
     onNext(apiForm, formData.email); 
   };
 
@@ -84,6 +93,7 @@ function SignupForm({ role, onNext, loading }) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Full Name */}
         <div className="space-y-1">
           <label className="text-sm font-semibold text-slate-700">Họ và tên</label>
           <div className="relative group">
@@ -100,7 +110,8 @@ function SignupForm({ role, onNext, loading }) {
           </div>
         </div>
 
-          <div className="space-y-1">
+        {/* Username */}
+        <div className="space-y-1">
             <label className="text-sm font-semibold text-slate-700">Tên đăng nhập</label>
             <div className="relative group">
               <User className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-cyan-600 transition-colors" />
@@ -116,22 +127,44 @@ function SignupForm({ role, onNext, loading }) {
             </div>
         </div>
 
-        <div className="space-y-1">
-          <label className="text-sm font-semibold text-slate-700">Email</label>
-          <div className="relative group">
-            <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-cyan-600 transition-colors" />
-            <input 
-              type="email" 
-              name="email" 
-              value={formData.email} 
-              onChange={handleChange} 
-              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white" 
-              placeholder="name@example.com" 
-              required 
-            />
+        {/* --- GRID: Email & Phone Number --- */}
+        {/* Tôi chia cột ở đây để giao diện gọn hơn, bạn có thể để full-width nếu thích */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-sm font-semibold text-slate-700">Email</label>
+            <div className="relative group">
+              <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-cyan-600 transition-colors" />
+              <input 
+                type="email" 
+                name="email" 
+                value={formData.email} 
+                onChange={handleChange} 
+                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white" 
+                placeholder="name@example.com" 
+                required 
+              />
+            </div>
+          </div>
+
+          {/* <--- 4. UI INPUT SỐ ĐIỆN THOẠI MỚI */}
+          <div className="space-y-1">
+            <label className="text-sm font-semibold text-slate-700">Số điện thoại</label>
+            <div className="relative group">
+              <Phone className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-cyan-600 transition-colors" />
+              <input 
+                type="tel" 
+                name="phoneNumber" 
+                value={formData.phoneNumber} 
+                onChange={handleChange} 
+                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white" 
+                placeholder="0905xxxxxx" 
+                required 
+              />
+            </div>
           </div>
         </div>
 
+        {/* Password Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="text-sm font-semibold text-slate-700">Mật khẩu</label>

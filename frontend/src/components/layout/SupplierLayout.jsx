@@ -46,10 +46,6 @@ const SupplierSidebar = () => {
           <Plane className="w-5 h-5" />
           <span>Quản lý Tour</span>
         </NavLink>
-        <NavLink to="/supplier/bookings" className={getNavLinkClass}>
-          <BookText className="w-5 h-5" />
-          <span>Quản lý Đặt chỗ</span>
-        </NavLink>
         <NavLink to="/supplier/calendar" className={getNavLinkClass}>
           <Calendar className="w-5 h-5" />
           <span>Quản lý Lịch</span>
