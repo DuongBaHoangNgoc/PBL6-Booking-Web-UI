@@ -143,22 +143,47 @@ export async function filterBookingBySupplierId(formData) {
   }
 }
 
+/**
+ * Supplier cancel booking by bookingId
+ * Endpoint: POST /bookings/SupplierCancelBookingByIdBooking/:id
+ * @param {number|string} bookingId
+ * @returns {Promise<any>} res.data
+ */
+export async function supplierCancelBookingByIdBooking(bookingId) {
+  try {
+    if (bookingId === undefined || bookingId === null || bookingId === "") {
+      throw new Error("bookingId không hợp lệ");
+    }
+
+    const res = await api.post(
+      `/bookings/SupplierCancelBookingByIdBooking/${bookingId}`
+    );
+
+    return res.data;
+  } catch (err) {
+    console.error("❌ Lỗi supplierCancelBookingByIdBooking:", {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status,
+    });
+    throw err;
+  }
+}
+
 export async function getBookingsByDateId(dateId) {
   try {
     const params = {
       dateId: dateId,
       limit: 100,
-      page: 1
+      page: 1,
     };
     const res = await api.get("/bookings/FilterPagination", { params });
 
     console.log("XP-DEBUG: ", res.data.data.bookings);
 
     return res.data?.data?.bookings || [];
-
   } catch (err) {
     console.error("Lỗi khi lọc booking theo supplier id.", err);
     throw err;
   }
 }
-

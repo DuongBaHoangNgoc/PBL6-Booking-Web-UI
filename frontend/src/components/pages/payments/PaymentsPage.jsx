@@ -35,6 +35,9 @@ import {
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// ✅ NEW: API lịch sử thanh toán (transactions-coins)
+import { getTransactionsCoinsFilterPagination } from "@/api/transaction_coins";
+
 export default function PaymentsPage() {
   const { user } = useAuth();
 
@@ -66,11 +69,18 @@ export default function PaymentsPage() {
   const [topupAmount, setTopupAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
 
+  // 🧾 Pagination lịch sử giao dịch
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
 
   const [banks, setBanks] = useState([]);
+
+  // ✅ NEW: states cho Lịch sử thanh toán (transactions-coins)
+  const [paymentCoins, setPaymentCoins] = useState([]);
+  const [paymentCoinsPage, setPaymentCoinsPage] = useState(1);
+  const [paymentCoinsTotalPages, setPaymentCoinsTotalPages] = useState(1);
+  const [loadingPaymentCoins, setLoadingPaymentCoins] = useState(false);
 
   // 🟢 Lấy danh sách tài khoản
   const fetchAccounts = async () => {
@@ -110,13 +120,10 @@ export default function PaymentsPage() {
       });
 
       const data = res?.data?.transactions || [];
-
-      // ❌ BỎ SORT — SORT ĐÃ ĐƯỢC BACKEND XỬ LÝ
       setTransactions(Array.isArray(data) ? data : []);
 
-      // Tổng số giao dịch
       const total = res?.data?.countTransaction || 0;
-      setTotalPages(Math.ceil(total / 10));
+      setTotalPages(Math.max(1, Math.ceil(total / 10)));
 
       setCurrentPage(page);
     } catch (err) {
@@ -127,6 +134,38 @@ export default function PaymentsPage() {
       });
     } finally {
       setLoadingTransactions(false);
+    }
+  };
+
+  // ✅ NEW: Lấy lịch sử thanh toán (transactions-coins)
+  const fetchPaymentCoins = async (page = 1) => {
+    if (!user) return;
+
+    try {
+      setLoadingPaymentCoins(true);
+
+      // Backend yêu cầu supplierId
+      const res = await getTransactionsCoinsFilterPagination({
+        supplierId: user.userId,
+        limit: 10,
+        page,
+      });
+
+      const payload = res?.data || {};
+      const rows = payload?.TransactionData || [];
+      const total = payload?.countTransactionData || 0;
+
+      setPaymentCoins(Array.isArray(rows) ? rows : []);
+      setPaymentCoinsTotalPages(Math.max(1, Math.ceil(total / 10)));
+      setPaymentCoinsPage(page);
+    } catch (err) {
+      console.error("❌ Lỗi khi tải lịch sử thanh toán:", err);
+      setMessage({
+        type: "error",
+        text: "Không thể tải lịch sử thanh toán!",
+      });
+    } finally {
+      setLoadingPaymentCoins(false);
     }
   };
 
@@ -150,13 +189,18 @@ export default function PaymentsPage() {
     }
   }, []);
 
-  // ✅ 2. Khi user có dữ liệu → fetch tài khoản
+  // ✅ Khi user có dữ liệu → fetch tài khoản + payment coins
   useEffect(() => {
-    if (user) fetchAccounts();
+    if (user) {
+      fetchAccounts();
+      fetchPaymentCoins(1); // ✅ load bảng lịch sử thanh toán
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
     if (accounts.length > 0) fetchTransactions(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts]);
 
   useEffect(() => {
@@ -171,7 +215,6 @@ export default function PaymentsPage() {
   const handleAddAccount = async () => {
     const { accountNumber, accountName, bankName } = newAccount;
 
-    // Validate basic
     if (!accountNumber || !accountName || !bankName) {
       return setMessage({
         type: "error",
@@ -196,7 +239,6 @@ export default function PaymentsPage() {
     try {
       setLoading(true);
 
-      // Kiểm tra trùng tài khoản
       const exists = accounts.some(
         (acc) =>
           acc.accountNumber === accountNumber &&
@@ -210,7 +252,6 @@ export default function PaymentsPage() {
         });
       }
 
-      // Gọi API tạo tài khoản
       const res = await createAccount({
         userId: user.userId,
         accountNumber,
@@ -218,12 +259,10 @@ export default function PaymentsPage() {
         accountName,
       });
 
-      // Chấp nhận statusCode 200 hoặc 201 đều OK
       if (![200, 201].includes(res.statusCode)) {
         throw new Error(res.message || "Không thể thêm tài khoản!");
       }
 
-      // Thông báo
       setMessage({
         type: "success",
         text: "Thêm tài khoản thành công!",
@@ -231,10 +270,8 @@ export default function PaymentsPage() {
 
       setNewAccount({ accountNumber: "", bankName: "", accountName: "" });
 
-      // Lấy lại list tài khoản
       await fetchAccounts();
 
-      // Đặt tài khoản mới làm mặc định (QUAN TRỌNG)
       setAccounts((prev) => {
         const newList = [...prev];
         const added = res.data;
@@ -289,18 +326,15 @@ export default function PaymentsPage() {
       const result = await res.json();
       const data = result.data;
 
-      // ✅ Hiển thị QR thanh toán
       const qr = `https://qr.sepay.vn/img?acc=96247H06JB&bank=BIDV&amount=${amount}&des=${data.transaction_content}`;
       setQrUrl(qr);
       setPaymentId(data.paymentId);
       setPaymentStatus("PENDING");
 
-      // Bắt đầu đếm ngược 5 phút (300 giây)
       const now = Date.now();
       setTimeLeft(300);
       setStartTime(now);
 
-      // Lưu vào localStorage để giữ khi reload
       localStorage.setItem(
         "qrPayment",
         JSON.stringify({
@@ -316,7 +350,6 @@ export default function PaymentsPage() {
         text: "Giao dịch được tạo, vui lòng quét mã QR để thanh toán.",
       });
 
-      // 🔹 Lắng nghe SSE
       startSseStream(data.paymentId);
     } catch (err) {
       console.error("❌ Lỗi khi nạp xu:", err);
@@ -364,7 +397,9 @@ export default function PaymentsPage() {
           text: `Đã rút ${amount.toLocaleString("vi-VN")} xu thành công!`,
         });
         setBalance((prev) => prev - amount);
-        await fetchTransactions();
+
+        await fetchTransactions(currentPage);
+        await fetchPaymentCoins(paymentCoinsPage); // ✅ refresh bảng thanh toán (nếu có liên quan)
       } else {
         throw new Error(res?.message || "Rút xu thất bại");
       }
@@ -402,7 +437,9 @@ export default function PaymentsPage() {
       if (newStatus === "SUCCESS") {
         setMessage({ type: "success", text: "Giao dịch thành công ✅" });
         setBalance((prev) => prev + Number(data.amount || 0));
-        await fetchTransactions();
+
+        await fetchTransactions(currentPage);
+        await fetchPaymentCoins(paymentCoinsPage); // ✅ refresh bảng thanh toán
         sse.close();
       } else if (newStatus === "EXPIRED") {
         setMessage({ type: "error", text: "Giao dịch hết hạn ❌" });
@@ -431,6 +468,29 @@ export default function PaymentsPage() {
       if (eventSource) eventSource.close();
     };
   }, [eventSource]);
+
+  // helper: map type/status
+  const formatCoinType = (t) => {
+    switch (t) {
+      case "NAP":
+        return "Nạp";
+      case "RUT":
+        return "Rút";
+      case "THANH_TOAN":
+        return "Thanh toán";
+      case "HOAN_TIEN":
+        return "Hoàn tiền";
+      default:
+        return t || "-";
+    }
+  };
+
+  const statusClass = (s) => {
+    if (s === "SUCCESS") return "text-green-600";
+    if (s === "FAILED") return "text-red-600";
+    if (s === "PENDING") return "text-yellow-600";
+    return "text-muted-foreground";
+  };
 
   if (!user)
     return (
@@ -517,9 +577,7 @@ export default function PaymentsPage() {
                 <PopoverContent className="w-[300px] p-0">
                   <Command>
                     <CommandInput placeholder="Tìm ngân hàng..." />
-
                     <CommandEmpty>Không tìm thấy ngân hàng.</CommandEmpty>
-
                     <CommandGroup>
                       {banks.map((bank) => (
                         <CommandItem
@@ -810,6 +868,132 @@ export default function PaymentsPage() {
                       variant="outline"
                       disabled={currentPage === totalPages}
                       onClick={() => fetchTransactions(currentPage + 1)}
+                    >
+                      Trang sau
+                    </Button>
+                  </div>
+                </>
+              )}
+            </Card>
+
+            {/* ✅ NEW: Lịch sử thanh toán (transactions-coins) */}
+            <Card className="p-6 mt-8">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold">Lịch sử thanh toán</h2>
+                <Button
+                  variant="outline"
+                  onClick={() => fetchPaymentCoins(paymentCoinsPage)}
+                  disabled={loadingPaymentCoins}
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 mr-2 ${
+                      loadingPaymentCoins ? "animate-spin" : ""
+                    }`}
+                  />
+                  Làm mới
+                </Button>
+              </div>
+
+              {loadingPaymentCoins ? (
+                <p className="text-center py-4 text-muted-foreground">
+                  Đang tải...
+                </p>
+              ) : paymentCoins.length === 0 ? (
+                <p className="text-muted-foreground text-center py-6">
+                  Chưa có thanh toán nào.
+                </p>
+              ) : (
+                <>
+                  <div className="overflow-y-scroll max-h-80 rounded-md border border-border scrollbar-thin">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-background z-10 border-b border-border">
+                        <tr>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            ID
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            Số tiền
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            Loại
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            Trạng thái
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            Mô tả
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            Ngày tạo
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            From
+                          </th>
+                          <th className="py-3 px-4 text-left font-semibold">
+                            To
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {paymentCoins.map((p) => (
+                          <tr
+                            key={p.id}
+                            className="border-b border-border hover:bg-muted/50 transition-colors"
+                          >
+                            <td className="py-3 px-4">{p.id}</td>
+                            <td className="py-3 px-4 font-semibold">
+                              {Number(p.amount || 0).toLocaleString("vi-VN")}
+                            </td>
+                            <td className="py-3 px-4">
+                              {formatCoinType(p.type)}
+                            </td>
+                            <td
+                              className={`py-3 px-4 font-semibold ${statusClass(
+                                p.status
+                              )}`}
+                            >
+                              {p.status || "-"}
+                            </td>
+                            <td className="py-3 px-4">
+                              {p.description || "-"}
+                            </td>
+                            <td className="py-3 px-4 text-muted-foreground">
+                              {p.createdAt
+                                ? new Date(p.createdAt).toLocaleString("vi-VN")
+                                : "-"}
+                            </td>
+                            <td className="py-3 px-4">
+                              {p.from_account_id ?? "-"}
+                            </td>
+                            <td className="py-3 px-4">
+                              {p.to_account_id ?? "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* PHÂN TRANG - bảng thanh toán */}
+                  <div className="flex items-center justify-center gap-4 mt-4">
+                    <Button
+                      variant="outline"
+                      disabled={paymentCoinsPage === 1}
+                      onClick={() => fetchPaymentCoins(paymentCoinsPage - 1)}
+                    >
+                      Trang trước
+                    </Button>
+
+                    <span className="text-sm">
+                      Trang <strong>{paymentCoinsPage}</strong> /{" "}
+                      {paymentCoinsTotalPages}
+                    </span>
+
+                    <Button
+                      variant="outline"
+                      disabled={paymentCoinsPage === paymentCoinsTotalPages}
+                      onClick={() => fetchPaymentCoins(paymentCoinsPage + 1)}
                     >
                       Trang sau
                     </Button>

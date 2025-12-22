@@ -1324,7 +1324,11 @@ export function CreateTourWizard({ open, onOpenChange, onSuccess }) {
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent
+        className="max-w-3xl"
+        onInteractOutside={(e) => e.preventDefault()} // ✅ click ngoài không đóng
+        onEscapeKeyDown={(e) => e.preventDefault()} // ✅ ESC không đóng
+      >
         <DialogHeader>
           <DialogTitle>Tạo Tour Mới (Bước {step}/4)</DialogTitle>
           {step === 1 && (

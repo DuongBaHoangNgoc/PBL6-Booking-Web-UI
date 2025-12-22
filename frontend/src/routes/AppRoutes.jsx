@@ -28,6 +28,7 @@ import ManageBookingsPage from "@/pages/ManageBookingsPage";
 import CalendarPage from "@/pages/CalendarPage";
 import SupplierPaymentsPage from "@/components/pages/payments/SupplierPaymentsPage";
 import { EarningsPage } from "@/pages/EarningsPage";
+import { ManageTourReviewsPage } from "@/components/pages/reviews/ManageTourReviewsPage";
 import { useAuth } from "@/context/useAuth";
 import { ManageCouponsPage } from "@/components/pages/coupons/ManageCouponsPage";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -119,6 +120,7 @@ export const AppRoutes = () => {
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="revenue" element={<EarningsPage />} />
           <Route path="payments" element={<SupplierPaymentsPage />} />
+          <Route path="reviews" element={<ManageTourReviewsPage />} />
           <Route path="coupons" element={<ManageCouponsPage />} />
         </Route>
       </Route>

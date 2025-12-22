@@ -25,7 +25,7 @@ import { MoreHorizontal, Trash2, Ban } from "lucide-react";
 import {
   getFilteredBookings,
   deleteBooking,
-  supplierCancelBooking, // ✅ dùng supplier cancel theo dateId
+  supplierCancelBookingByIdBooking, // ✅ dùng supplier cancel theo dateId
 } from "@/api/bookings";
 
 export default function AdminBookingPage() {
@@ -108,11 +108,6 @@ export default function AdminBookingPage() {
     return new Date(start).getTime() <= Date.now();
   };
 
-  /**
-   * ✅ Supplier/Admin hủy theo dateId
-   * Backend: POST /bookings/SupplierCancelBooking/:dateId
-   * Response: { message, jobIds: [{jobId, bookingId}, ...] }
-   */
   const handleCancel = async (b) => {
     if (!confirm("Bạn có chắc muốn HỦY booking này?")) return;
 
@@ -125,49 +120,41 @@ export default function AdminBookingPage() {
     if (cancelingMap[bookingId]) return;
 
     try {
-      // hiển thị trạng thái tạm
       setCancelingMap((prev) => ({
         ...prev,
-        [bookingId]: {
-          dateId,
-          state: "waiting",
-        },
+        [bookingId]: { dateId, state: "waiting" },
       }));
 
-      // ✅ gọi supplier cancel
-      const payload = await supplierCancelBooking(dateId);
-      console.log("[SUPPLIER CANCEL]", payload);
+      // ✅ gọi API hủy theo bookingId
+      const res = await supplierCancelBookingByIdBooking(bookingId);
+      console.log("[SUPPLIER CANCEL]", res);
 
-      const data = payload?.data ?? payload;
-      const jobIdsRaw = data?.jobIds ?? [];
+      // ✅ Backend bạn đang trả ResponseData: { data, message, statusCode }
+      const statusCode = res?.statusCode;
+      const message = res?.message;
 
-      if (!jobIdsRaw.length) {
-        throw new Error("jobIds rỗng");
+      // ❌ Nếu backend báo lỗi → throw để rơi vào catch
+      if (statusCode && statusCode !== 200 && statusCode !== 201) {
+        throw new Error(message || "Hủy booking thất bại!");
       }
 
-      // ✅ 1. UPDATE UI NGAY
+      // ✅ UPDATE UI NGAY
       setBookings((prev) =>
         prev.map((bk) =>
           bk.bookingId === bookingId ? { ...bk, bookingStatus: "canceled" } : bk
         )
       );
 
-      // ✅ 2. CLEAR trạng thái canceling
+      // ✅ CLEAR canceling
       setCancelingMap((prev) => {
         const clone = { ...prev };
         delete clone[bookingId];
         return clone;
       });
 
-      // ✅ 3. Thông báo
       alert("✅ Hủy booking thành công!");
 
-      // ✅ 4. Sync DB (optional)
-      setTimeout(() => {
-        fetchBookings(page);
-      }, 1000);
-
-      // ✅ 5. Clear poller (nếu có)
+      setTimeout(() => fetchBookings(page), 800);
       stopPolling(bookingId);
     } catch (err) {
       console.error("❌ Supplier cancel error:", err);
@@ -180,7 +167,12 @@ export default function AdminBookingPage() {
         return clone;
       });
 
-      alert(err?.response?.data?.message || "❌ Hủy booking thất bại!");
+      // ✅ ưu tiên message từ backend nếu có
+      alert(
+        err?.response?.data?.message ||
+          err?.message ||
+          "❌ Hủy booking thất bại!"
+      );
     }
   };
 
