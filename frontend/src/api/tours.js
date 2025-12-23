@@ -357,3 +357,15 @@ export async function getImagesByTourId(tourId) {
     return []; // Trả về mảng rỗng nếu lỗi
   }
 }
+
+// PATCH /start-end-dates/updateStatus/:id?status=active
+export const updateStartEndDateStatus = async ({ id, status }) => {
+  const res = await api.patch(
+    `/start-end-dates/updateStatus/${id}`,
+    null, // body = null vì backend lấy status từ query
+    { params: { status } }
+  );
+
+  // res.data thường là ResponseData<StartEndDateEntity>
+  return res.data;
+};
