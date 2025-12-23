@@ -36,7 +36,7 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ✅ NEW: API lịch sử thanh toán (transactions-coins)
-import { getTransactionsCoinsFilterPagination } from "@/api/transaction_coins";
+import { getTransactionsCoinsFilterPaginationUser } from "@/api/transaction_coins";
 
 export default function PaymentsPage() {
   const { user } = useAuth();
@@ -144,9 +144,9 @@ export default function PaymentsPage() {
     try {
       setLoadingPaymentCoins(true);
 
-      // Backend yêu cầu supplierId
-      const res = await getTransactionsCoinsFilterPagination({
-        supplierId: user.userId,
+      // Backend yêu cầu userId
+      const res = await getTransactionsCoinsFilterPaginationUser({
+        userId: user.userId,
         limit: 10,
         page,
       });
@@ -926,12 +926,6 @@ export default function PaymentsPage() {
                           <th className="py-3 px-4 text-left font-semibold">
                             Ngày tạo
                           </th>
-                          <th className="py-3 px-4 text-left font-semibold">
-                            From
-                          </th>
-                          <th className="py-3 px-4 text-left font-semibold">
-                            To
-                          </th>
                         </tr>
                       </thead>
 
@@ -962,12 +956,6 @@ export default function PaymentsPage() {
                               {p.createdAt
                                 ? new Date(p.createdAt).toLocaleString("vi-VN")
                                 : "-"}
-                            </td>
-                            <td className="py-3 px-4">
-                              {p.from_account_id ?? "-"}
-                            </td>
-                            <td className="py-3 px-4">
-                              {p.to_account_id ?? "-"}
                             </td>
                           </tr>
                         ))}

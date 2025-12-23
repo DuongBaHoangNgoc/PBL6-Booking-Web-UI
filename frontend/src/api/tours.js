@@ -9,7 +9,7 @@ export async function getTours() {
   try {
     const res = await api.get("/tours");
     return {
-      data: res.data?.data ?? res.data
+      data: res.data?.data ?? res.data,
     };
   } catch (err) {
     console.error("Lỗi API getTours:", err);
@@ -43,7 +43,12 @@ export async function searchTours(keyword) {
 }
 
 /** Lọc theo slug qua FilterPagination */
-export async function filterToursBySlug({ slug, page = 1, limit = 10, ...rest }) {
+export async function filterToursBySlug({
+  slug,
+  page = 1,
+  limit = 10,
+  ...rest
+}) {
   if (!slug || !String(slug).trim()) {
     console.warn("⚠️ filterToursBySlug: slug bị trống");
     return { items: [], total: 0 };
@@ -67,7 +72,6 @@ export async function filterToursBySlug({ slug, page = 1, limit = 10, ...rest })
   }
 }
 
-
 /**
  * Lấy lịch trình (timeline) của tour
  * API: GET /timelines/FilterPagination
@@ -77,7 +81,7 @@ export async function getTimelineByTourId(tourId) {
     const params = {
       tourId: tourId,
       limit: 100,
-      page: 1
+      page: 1,
     };
 
     const res = await api.get("/timelines/FilterPagination", { params });
@@ -87,7 +91,6 @@ export async function getTimelineByTourId(tourId) {
     throw err;
   }
 }
-
 
 /**
  * Lấy đánh giá (reviews) của tour
@@ -105,14 +108,14 @@ export async function getReviewsByTourId(tourId) {
 }
 
 /**
- * Lấy toàn bộ danh sách ngày khởi hành 
+ * Lấy toàn bộ danh sách ngày khởi hành
  * API: GET /start-end-dates
  */
 export async function getAllStartDates() {
   try {
     const res = await api.get("/start-end-dates");
     return {
-      data: res.data?.data ?? res.data
+      data: res.data?.data ?? res.data,
     };
   } catch (err) {
     console.error("Lỗi API getAllStartDates:", err);
@@ -205,17 +208,19 @@ export async function createStartDate(dateData) {
  */
 export async function filterTours(queryParams) {
   try {
-    const res = await api.get("/tours/FilterPagination", { params: queryParams });
+    const res = await api.get("/tours/FilterPagination", {
+      params: queryParams,
+    });
     const data = res.data?.data ?? res.data;
 
     if (!data) {
-      throw new Error('No data received from API');
+      throw new Error("No data received from API");
     }
 
     return {
       items: data.tours || [],
       totalItems: data.countTour || 0,
-    }
+    };
   } catch (err) {
     console.error("Lỗi khi lọc tours:", err);
     throw err;
@@ -238,7 +243,6 @@ export async function createImages(formData) {
   }
 }
 
-
 // === CÁC HÀM CẬP NHẬT (UPDATE - PATCH) ===
 
 /**
@@ -248,14 +252,13 @@ export async function createImages(formData) {
 export async function updateTour(id, data) {
   try {
     const res = await api.patch(`/tours/${id}`, data);
-    console.log("XP-DEBUG: ", res.data)
+    console.log("XP-DEBUG: ", res.data);
     return res.data?.data ?? res.data;
   } catch (err) {
     console.error(`Lỗi khi cập nhật tour ${id}:`, err);
     throw err;
   }
 }
-
 
 /**
  * Cập nhật một mục lịch trình
@@ -346,7 +349,7 @@ export async function deleteImage(id) {
 export async function getImagesByTourId(tourId) {
   try {
     const res = await api.get(`/images/TourId/${tourId}`);
-    // Giả định API trả về một mảng các object ảnh, 
+    // Giả định API trả về một mảng các object ảnh,
     // ví dụ: [{ imageId: 1, image: "url1" }, { imageId: 2, image: "url2" }]
     return res.data?.data ?? res.data ?? [];
   } catch (err) {
@@ -354,25 +357,3 @@ export async function getImagesByTourId(tourId) {
     return []; // Trả về mảng rỗng nếu lỗi
   }
 }
-
-/**
- * Lấy danh sách ngày khởi hành có phân trang và lọc
- * API: GET /start-end-dates/FilterPagination
- */
-export async function getStartDates(params = {}) {
-  try {
-    const queryParams = {
-      limit: 100, // Lấy nhiều để hiển thị trên lịch
-      page: 1,
-      ...params
-    };
-
-    const res = await api.get("/start-end-dates/FilterPagination", { params: queryParams });
-    // Dựa trên dữ liệu bạn gửi: res.data.data.startEndDates
-    return res.data?.data?.startEndDates || [];
-  } catch (err) {
-    console.error("Lỗi khi tải danh sách ngày khởi hành:", err);
-    throw err;
-  }
-}
-

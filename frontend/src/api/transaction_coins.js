@@ -68,6 +68,19 @@ export async function getTransactionsCoinsFilterPagination({
   }
 }
 
+// ✅ Lọc transactions-coins theo user + phân trang
+// GET: /transactions-coins/FilterPaginationUser?page=1&limit=10&userId=1
+export const getTransactionsCoinsFilterPaginationUser = async (params) => {
+  const { userId, page = 1, limit = 10 } = params || {};
+
+  const res = await api.get("/transactions-coins/FilterPaginationUser", {
+    params: { userId, page, limit },
+  });
+
+  // res.data = ResponseData (backend)
+  return res.data;
+};
+
 /**
  * (Optional) Lấy toàn bộ transactions-coins (admin/debug)
  * Backend: GET /transactions-coins
