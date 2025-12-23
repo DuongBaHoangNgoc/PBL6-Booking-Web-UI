@@ -15,6 +15,7 @@ import { useAuth } from "@/context/useAuth";
 import { Button } from "../ui/button";
 import PageHeader from "../pages/bookings/PageHeader";
 import { PageFooter } from "../pages/bookings/PageFooter";
+import { Toaster } from "@/components/ui/toaster"
 
 // Đây là Sidebar đã được cập nhật theo giao diện sáng (light mode)
 const SupplierSidebar = () => {
@@ -22,10 +23,9 @@ const SupplierSidebar = () => {
 
   // Hàm tạo className cho NavLink để xử lý trạng thái active
   const getNavLinkClass = ({ isActive }) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors ${
-      isActive
-        ? "bg-blue-600 text-white" // Style khi active
-        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900" // Style khi không active
+    `flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors ${isActive
+      ? "bg-blue-600 text-white" // Style khi active
+      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900" // Style khi không active
     }`;
 
   return (
@@ -46,9 +46,9 @@ const SupplierSidebar = () => {
           <Plane className="w-5 h-5" />
           <span>Quản lý Tour</span>
         </NavLink>
-        <NavLink to="/supplier/calendar" className={getNavLinkClass}>
+        <NavLink to="/supplier/coupons" className={getNavLinkClass}>
           <Calendar className="w-5 h-5" />
-          <span>Quản lý Lịch</span>
+          <span>Quản lý Khuyến mãi</span>
         </NavLink>
         <NavLink to="/supplier/revenue" className={getNavLinkClass}>
           <DollarSign className="w-5 h-5" />
@@ -96,6 +96,7 @@ export const SupplierLayout = () => {
       <main className="flex-1 p-8 overflow-y-auto h-screen">
         <PageHeader />
         <Outlet />
+        <Toaster />
         <PageFooter />
       </main>
     </div>

@@ -25,13 +25,12 @@ export default function PageHeader() {
     user?.role === "supplier"
       ? "Supplier"
       : user?.role === "admin"
-      ? "Admin"
-      : "User";
+        ? "Admin"
+        : "User";
 
   return (
-    <div className="flex items-center justify-between bg-card p-6 border-b">
-      <h1 className="text-3xl font-bold">Bookings</h1>
-
+    <div className="flex items-center justify-between bg-card px-6 pb-2 border-b">
+      <h1 className="text-3xl font-bold"></h1>
       <div className="flex items-center gap-6">
         {/* User Avatar + Dropdown */}
         <DropdownMenu>

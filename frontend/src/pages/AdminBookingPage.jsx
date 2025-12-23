@@ -257,15 +257,15 @@ export default function AdminBookingPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="py-3 px-4 font-semibold">ID</th>
+                {/* <th className="py-3 px-4 font-semibold">ID</th> */}
                 <th className="py-3 px-4 font-semibold">Full Name</th>
-                <th className="py-3 px-4 font-semibold">Email</th>
+                {/* <th className="py-3 px-4 font-semibold">Email</th> */}
                 <th className="py-3 px-4 font-semibold">Phone</th>
                 <th className="py-3 px-4 font-semibold">Tour</th>
 
                 {/* ✅ thêm cột */}
                 <th className="py-3 px-4 font-semibold">Start</th>
-                <th className="py-3 px-4 font-semibold">End</th>
+                {/* <th className="py-3 px-4 font-semibold">End</th> */}
 
                 <th className="py-3 px-4 font-semibold">Status</th>
                 <th className="py-3 px-4 font-semibold">Price</th>
@@ -289,28 +289,27 @@ export default function AdminBookingPage() {
                     key={b.bookingId}
                     className="border-b border-border hover:bg-muted/50 transition-colors"
                   >
-                    <td className="py-3 px-4">{b.bookingId}</td>
+                    {/* <td className="py-3 px-4">{b.bookingId}</td> */}
                     <td className="py-3 px-4">{b.fullName}</td>
-                    <td className="py-3 px-4">{b.email}</td>
+                    {/* <td className="py-3 px-4">{b.email}</td> */}
                     <td className="py-3 px-4">{b.phoneNumber}</td>
-                    <td className="py-3 px-4">{b.tour?.title}</td>
+                    <td className="py-3 px-6">{b.tour?.title}</td>
 
                     <td className="py-3 px-4">
                       {formatDate(b?.date?.startDate)}
                     </td>
-                    <td className="py-3 px-4">
+                    {/* <td className="py-3 px-4">
                       {formatDate(b?.date?.endDate)}
-                    </td>
+                    </td> */}
 
                     <td className="py-3 px-4">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          b.bookingStatus === "confirmed"
-                            ? "bg-green-100 text-green-700"
-                            : b.bookingStatus === "pending"
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${b.bookingStatus === "confirmed"
+                          ? "bg-green-100 text-green-700"
+                          : b.bookingStatus === "pending"
                             ? "bg-yellow-100 text-yellow-700"
                             : "bg-red-100 text-red-700"
-                        }`}
+                          }`}
                       >
                         {b.bookingStatus}
                       </span>
@@ -348,8 +347,8 @@ export default function AdminBookingPage() {
                               {isCanceling
                                 ? "Đang hủy..."
                                 : isPastConfirmed(b)
-                                ? "Không thể hủy (quá hạn)"
-                                : "Hủy booking (theo ngày)"}
+                                  ? "Không thể hủy (quá hạn)"
+                                  : "Hủy booking (theo ngày)"}
                             </span>
                           </DropdownMenuItem>
 

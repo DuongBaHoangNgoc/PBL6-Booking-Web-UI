@@ -1,92 +1,195 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Edit2, CreditCard, Ticket, X, Plus, Upload, Award as IdCard } from "lucide-react"
+import React, { useState, useEffect, useCallback } from "react"
+import * as PopoverPrimitive from "@radix-ui/react-popover"
+import {
+  Edit2,
+  CreditCard,
+  Ticket,
+  X,
+  Plus,
+  Upload,
+  Award as IdCard,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar as CalendarIcon,
+  CheckCircle2,
+  Camera,
+  ArrowRight,
+  ShieldCheck,
+  Settings,
+  Info,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Shield,
+  AlertCircle
+} from "lucide-react"
+import { format, startOfWeek, addDays, startOfMonth, endOfMonth, endOfWeek, isSameMonth, isSameDay, subMonths, addMonths } from "date-fns"
+
+// KHÔI PHỤC LOGIC API VÀ CONTEXT CŨ
 import { getUserById, updateUser } from "../api/user"
-import Navbar from "@/components/layout/Header"
-import { format } from "date-fns"
-import { CalendarIcon } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/context/useAuth"
 
+/**
+ * 🎨 UI COMPONENTS (STYLE ĐỒNG BỘ VỚI SUPPLIER LAYOUT)
+ */
+const cn = (...classes) => classes.filter(Boolean).join(" ");
+
+const StyledCard = ({ children, className = "" }) => (
+  <div className={cn("bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden", className)}>{children}</div>
+);
+
+const CardHeader = ({ children, className = "" }) => (
+  <div className={cn("p-6 border-b border-slate-100 bg-slate-50/50", className)}>{children}</div>
+);
+
+const CardTitle = ({ children, className = "" }) => (
+  <h3 className={cn("text-sm font-bold text-slate-700 flex items-center gap-2", className)}>{children}</h3>
+);
+
+const CardContent = ({ children, className = "" }) => (
+  <div className={cn("p-6", className)}>{children}</div>
+);
+
+const Label = ({ children, htmlFor }) => (
+  <label htmlFor={htmlFor} className="text-xs font-semibold text-slate-500 mb-1.5 block">{children}</label>
+);
+
+const StyledButton = ({ children, onClick, className = "", variant = "primary", disabled = false, size = "md", type = "button" }) => {
+  const variants = {
+    primary: "bg-blue-600 text-white hover:bg-blue-700 shadow-sm",
+    outline: "border border-slate-200 bg-white hover:bg-slate-50 text-slate-600",
+    ghost: "bg-transparent hover:bg-slate-100 text-slate-500 font-medium",
+    destructive: "bg-red-50 text-red-600 hover:bg-red-100 border border-red-100",
+  };
+  const sizes = {
+    sm: "px-3 py-1.5 text-xs",
+    md: "px-5 py-2.5 text-sm",
+    lg: "px-8 py-3.5 text-base"
+  };
+  return (
+    <button
+      type={type}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center justify-center rounded-lg font-semibold transition-all active:scale-[0.98] disabled:opacity-50",
+        variants[variant],
+        sizes[size],
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+};
+
+const CustomInput = ({ className = "", icon: Icon = null, id, ...props }) => (
+  <div className="relative w-full">
+    {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />}
+    <input id={id} className={cn("w-full pr-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all outline-none text-slate-700 placeholder:text-slate-400 bg-white", Icon ? 'pl-10' : 'pl-4', className)} {...props} />
+  </div>
+);
+
+const Badge = ({ children, className = "" }) => (
+  <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap", className)}>{children}</span>
+);
+
+/**
+ * CALENDAR COMPONENT
+ */
+const MiniCalendar = ({ selectedDate, onSelect }) => {
+  const [currentMonth, setCurrentMonth] = useState(selectedDate || new Date());
+  const days = [];
+  const start = startOfWeek(startOfMonth(currentMonth));
+  const end = endOfWeek(endOfMonth(currentMonth));
+  let day = start;
+  while (day <= end) { days.push(day); day = addDays(day, 1); }
+
+  return (
+    <div className="p-4 w-64 bg-white border border-slate-200 rounded-xl shadow-xl">
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"><ChevronLeft className="w-4 h-4 text-slate-400" /></button>
+        <span className="text-xs font-bold text-slate-700">{format(currentMonth, "MMMM yyyy")}</span>
+        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"><ChevronRight className="w-4 h-4 text-slate-400" /></button>
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map(d => (
+          <div key={d} className="text-center text-[10px] font-bold text-slate-400 py-1">{d}</div>
+        ))}
+        {days.map((d, i) => (
+          <button
+            key={i}
+            onClick={() => onSelect(d)}
+            className={cn(
+              "h-8 w-8 text-[11px] font-medium rounded-lg transition-all flex items-center justify-center",
+              !isSameMonth(d, currentMonth) && "text-slate-200",
+              isSameDay(d, selectedDate) ? "bg-blue-600 text-white shadow-sm" : "hover:bg-slate-50 text-slate-600"
+            )}
+          >
+            {format(d, "d")}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * ✅ Profile Component
+ */
 export function Profile() {
-  const { user, setUser } = useAuth()
-  const [loading, setLoading] = useState(true)
+  const { user, setUser, loading: authLoading } = useAuth()
+  const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("account")
   const [isEditing, setIsEditing] = useState(false)
   const [showAddCard, setShowAddCard] = useState(false)
 
   const [form, setForm] = useState({
-    fullName: user?.fullName || "Phuc TX",
-    email: user?.email || "tx.phuc.dev@gmail.com",
-    phoneNumber: user?.phoneNumber || "+1 000-000-0000",
-    address: user?.address || "St 32 main downtown, Los Angeles, California, USA",
+    fullName: user?.fullName || "",
+    email: user?.email || "",
+    phoneNumber: user?.phoneNumber || "",
+    address: user?.address || "",
     dateOfBirth: user?.birthDay ? new Date(user.birthDay) : null,
     role: user?.role || "user",
     isActive: user?.isActive || "n",
   })
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!user?.userId && !user?.id) {
-      setLoading(false)
-      return
+      setLoading(false);
+      return;
     }
     try {
       setLoading(true)
       const data = await getUserById(user.userId || user.id)
-
-      const preparedData = {
+      setForm({
         ...data,
         dateOfBirth: data.birthDay ? new Date(data.birthDay) : null,
-      }
-      setForm(preparedData)
+      })
     } catch {
-      setForm(null)
+      console.error("Lỗi khi tải dữ liệu")
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
   useEffect(() => {
     fetchProfile()
-  }, [user])
+  }, [fetchProfile])
 
-  const [newCard, setNewCard] = useState({
-    cardNumber: "",
-    expiryDate: "",
-    cvv: "",
-    cardholderName: "",
-  })
-
+  const [newCard, setNewCard] = useState({ cardNumber: "", expiryDate: "", cvv: "", cardholderName: "" })
   const [savedCards, setSavedCards] = useState([
     { id: 1, last4: "4321", brand: "Visa", expiryDate: "12/25" },
     { id: 2, last4: "5678", brand: "Mastercard", expiryDate: "08/26" },
   ])
 
   const [bookings] = useState([
-    {
-      id: 1,
-      reference: "BK-001",
-      hotel: "CVK Park Bosphorus Hotel",
-      checkIn: "Dec 15",
-      checkOut: "Dec 18",
-      price: "$240",
-      status: "Confirmed",
-    },
-    {
-      id: 2,
-      reference: "BK-002",
-      hotel: "Ereisin Hotels Sultanahmet",
-      checkIn: "Jan 10",
-      checkOut: "Jan 15",
-      price: "$180",
-      status: "Upcoming",
-    },
+    { id: 1, reference: "BK-001", hotel: "Vịnh Hạ Long - Tour 2N1Đ", checkIn: "15 Th12", checkOut: "18 Th12", price: "2.500.000đ", status: "Confirmed" },
+    { id: 2, reference: "BK-002", hotel: "Đà Nẵng City Tour", checkIn: "10 Th01", checkOut: "15 Th01", price: "1.200.000đ", status: "Upcoming" },
   ])
 
   const handleChange = (e) => {
@@ -97,23 +200,17 @@ export function Profile() {
   const handleSave = async () => {
     try {
       setLoading(true)
-
       const payload = {
         ...form,
         birthDay: form.dateOfBirth ? format(form.dateOfBirth, "yyyy-MM-dd") : null,
       }
       delete payload.dateOfBirth
       const updated = await updateUser(user.userId || user.id, payload)
-
-      const preparedData = {
-        ...form,
-        ...updated,
-        dateOfBirth: updated.birthDay ? new Date(updated.birthDay) : null,
-      }
+      const preparedData = { ...form, ...updated, dateOfBirth: updated.birthDay ? new Date(updated.birthDay) : null }
       setUser(preparedData)
       setForm(preparedData)
-      alert("✅ Cập nhật thông tin thành công!")
       setIsEditing(false)
+      alert("✅ Cập nhật thông tin thành công!")
     } catch {
       alert("❌ Lỗi khi cập nhật thông tin!")
     } finally {
@@ -138,497 +235,254 @@ export function Profile() {
   const handleAddCard = () => {
     if (newCard.cardNumber && newCard.expiryDate && newCard.cvv && newCard.cardholderName) {
       const last4 = newCard.cardNumber.slice(-4)
-      setSavedCards([
-        ...savedCards,
-        { id: savedCards.length + 1, last4, brand: "Visa", expiryDate: newCard.expiryDate },
-      ])
+      setSavedCards([...savedCards, { id: Date.now(), last4, brand: "Visa", expiryDate: newCard.expiryDate }])
       setNewCard({ cardNumber: "", expiryDate: "", cvv: "", cardholderName: "" })
       setShowAddCard(false)
-      alert("✅ Card added successfully!")
     }
   }
 
   const handleRemoveCard = (cardId) => {
     setSavedCards(savedCards.filter((card) => card.id !== cardId))
-    alert("✅ Card removed successfully!")
   }
 
-  const handleUploadCover = () => {
-    alert("📸 Upload cover image functionality - Coming soon!")
-  }
-
-  const handleEditAvatar = () => {
-    alert("✏️ Edit avatar functionality - Coming soon!")
-  }
-
-  const handleViewBookingDetails = (bookingId) => {
-    alert(`📋 Viewing details for booking ${bookingId}`)
-  }
-
-  const { loading: authLoading } = useAuth()
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500">Đang tải thông tin cá nhân...</div>
-    )
-  }
-
-  if (!form) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500">
-        Không tìm thấy thông tin người dùng
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="text-xs font-medium text-slate-400 tracking-wider">Đang đồng bộ hồ sơ...</span>
       </div>
     )
   }
 
   return (
-    <section className="py-12 bg-gradient-to-b from-[#f0faf9] to-white overscroll-y-scroll">
-      <div className="flex flex-1">
-        <main className="flex-1 p-6 md:p-14 overflow-y-auto">
-          <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8 mt-10">
-            <div className="container mx-auto">
-              <div className="mb-8">
-                <div className="relative h-48 rounded-xl overflow-hidden mb-20 shadow-md">
-                  <div
-                    className="absolute top-0 left-0 right-0 bottom-0 rounded-xl"
-                    style={{
-                      backgroundImage: `linear-gradient(135deg, #1a5f7a 0%, #1a5f7a 25%, #ff7a5c 25%, #ff7a5c 50%, #ffc857 50%, #ffc857 75%, #ffd166 75%, #ffd166 100%)`,
-                    }}
-                  ></div>
+    <div className="space-y-6 px-4 py-8">
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleUploadCover}
-                    className="absolute top-4 right-4 bg-[#5dd9c1] hover:bg-[#4bc9b0] text-[#1a5f7a] border-0 gap-2 font-semibold shadow-md transition-all duration-200 hover:shadow-lg"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload new cover
-                  </Button>
-                </div>
+      {/* 1. PROFILE HEADER SECTION */}
+      <div className="relative rounded-2xl overflow-hidden bg-white border border-slate-200 shadow-sm">
+        {/* Banner */}
+        <div className="h-40 bg-gradient-to-r from-blue-600 to-indigo-700 relative">
+          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`, backgroundSize: '24px 24px' }} />
+        </div>
 
-                <div className="flex flex-col items-center -mt-16 mb-8">
-                  <div className="relative">
-                    <div className="w-32 h-32 rounded-full bg-white border-4 border-[#5dd9c1] flex items-center justify-center shadow-xl">
-                      <div className="w-28 h-28 rounded-full bg-gradient-to-br from-[#5dd9c1] to-[#1a5f7a] flex items-center justify-center">
-                        <span className="text-4xl font-bold text-white">
-                          {user?.fullName
-                            ? user.fullName
-                                .split(" ")
-                                .map((n) => n[0])
-                                .slice(0, 2)
-                                .join("")
-                                .toUpperCase()
-                            : "JD"}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleEditAvatar}
-                      className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-[#5dd9c1] hover:bg-[#4bc9b0] flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
-                    >
-                      <Edit2 className="w-5 h-5 text-[#1a5f7a]" />
-                    </button>
-                  </div>
-
-                  <h1 className="text-3xl font-bold text-[#1a5f7a] mt-4">{form.fullName}</h1>
-                  <p className="text-[#5dd9c1] font-medium">{form.email}</p>
-                </div>
-
-                <div className="flex border-b-2 border-[#e8f5f3] mt-8">
-                  <button
-                    onClick={() => setActiveTab("account")}
-                    className={`flex-1 pb-4 font-semibold transition-all duration-300 ${
-                      activeTab === "account"
-                        ? "text-[#1a5f7a] border-b-2 border-[#5dd9c1] -mb-[2px]"
-                        : "text-[#999] hover:text-[#1a5f7a]"
-                    }`}
-                  >
-                    Account
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("booking")}
-                    className={`flex-1 pb-4 font-semibold transition-all duration-300 ${
-                      activeTab === "booking"
-                        ? "text-[#1a5f7a] border-b-2 border-[#5dd9c1] -mb-[2px]"
-                        : "text-[#999] hover:text-[#1a5f7a]"
-                    }`}
-                  >
-                    Bookings
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("payments")}
-                    className={`flex-1 pb-4 font-semibold transition-all duration-300 ${
-                      activeTab === "payments"
-                        ? "text-[#1a5f7a] border-b-2 border-[#5dd9c1] -mb-[2px]"
-                        : "text-[#999] hover:text-[#1a5f7a]"
-                    }`}
-                  >
-                    Payment methods
-                  </button>
-                </div>
-              </div>
-
-              {/* Tab Content */}
-              <div className="mt-8">
-                {/* Account Tab */}
-                {activeTab === "account" && (
-                  <div className="max-w-3xl mx-auto">
-                    <h2 className="text-2xl font-bold text-[#1a5f7a] mb-8">Account Information</h2>
-
-                    <div className="space-y-6">
-                      <div
-                        className={`flex items-center justify-between pb-4 ${!isEditing ? "border-b border-[#e8f5f3]" : ""}`}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#5dd9c1] to-[#1a5f7a] flex items-center justify-center shrink-0">
-                            <IdCard className="w-5 h-5 text-white" />
-                          </div>
-
-                          <div>
-                            <p className="text-sm text-[#999] font-medium">Role</p>
-                            <p className="text-lg font-semibold text-[#1a5f7a] capitalize">{form.role || "N/A"}</p>
-                          </div>
-                        </div>
-
-                        <div>
-                          {form.isActive === "y" ? (
-                            <Badge className="bg-[#5dd9c1] text-[#1a5f7a] px-3 py-1 text-sm font-semibold border-0">
-                              ✓ Verified
-                            </Badge>
-                          ) : (
-                            <Badge variant="destructive" className="px-3 py-1 text-sm font-semibold">
-                              Not Verified
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      <div
-                        className={`flex items-center justify-between pb-4 ${!isEditing ? "border-b border-[#e8f5f3]" : ""}`}
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm text-[#999] font-medium mb-2">Fullname</p>
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              name="fullName"
-                              value={form.fullName}
-                              onChange={handleChange}
-                              className="text-lg font-semibold text-[#1a5f7a] outline-none border-b-2 border-[#5dd9c1] pb-1 bg-transparent w-full"
-                              autoFocus
-                            />
-                          ) : (
-                            <p className="text-lg font-semibold text-[#1a5f7a]">{form.fullName}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Email Field */}
-                      <div
-                        className={`flex items-center justify-between pb-4 ${!isEditing ? "border-b border-[#e8f5f3]" : ""}`}
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm text-[#999] font-medium mb-2">Email</p>
-                          {isEditing ? (
-                            <input
-                              type="email"
-                              name="email"
-                              value={form.email}
-                              onChange={handleChange}
-                              className="text-lg font-semibold text-[#1a5f7a] outline-none border-b-2 border-[#5dd9c1] pb-1 bg-transparent w-full"
-                              disabled
-                            />
-                          ) : (
-                            <p className="text-lg font-semibold text-[#1a5f7a]">{form.email}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Phone Field */}
-                      <div
-                        className={`flex items-center justify-between pb-4 ${!isEditing ? "border-b border-[#e8f5f3]" : ""}`}
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm text-[#999] font-medium mb-2">Phone number</p>
-                          {isEditing ? (
-                            <input
-                              type="tel"
-                              name="phoneNumber"
-                              value={form.phoneNumber}
-                              onChange={handleChange}
-                              className="text-lg font-semibold text-[#1a5f7a] outline-none border-b-2 border-[#5dd9c1] pb-1 bg-transparent w-full"
-                              autoFocus
-                            />
-                          ) : (
-                            <p className="text-lg font-semibold text-[#1a5f7a]">{form.phoneNumber}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Address Field */}
-                      <div
-                        className={`flex items-center justify-between pb-4 ${!isEditing ? "border-b border-[#e8f5f3]" : ""}`}
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm text-[#999] font-medium mb-2">Address</p>
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              name="address"
-                              value={form.address}
-                              onChange={handleChange}
-                              className="text-lg font-semibold text-[#1a5f7a] outline-none border-b-2 border-[#5dd9c1] pb-1 bg-transparent w-full"
-                              autoFocus
-                            />
-                          ) : (
-                            <p className="text-lg font-semibold text-[#1a5f7a]">{form.address}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Date of Birth Field */}
-                      <div
-                        className={`flex items-center justify-between pb-4 ${!isEditing ? "border-b border-[#e8f5f3]" : ""}`}
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm text-[#999] font-medium mb-2">Date of birth</p>
-                          {isEditing ? (
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant={"outline"}
-                                  className={cn(
-                                    "w-[240px] justify-start text-left font-semibold border-[#5dd9c1] text-[#1a5f7a] hover:bg-[#e8f5f3]",
-                                    !form.dateOfBirth && "text-[#999]",
-                                  )}
-                                >
-                                  <CalendarIcon className="mr-2 h-4 w-4" />
-                                  {form.dateOfBirth ? (
-                                    format(form.dateOfBirth, "dd/MM/yyyy")
-                                  ) : (
-                                    <span>Chọn ngày sinh</span>
-                                  )}
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                  mode="single"
-                                  selected={form.dateOfBirth}
-                                  onSelect={handleDateChange}
-                                  initialFocus
-                                  captionLayout="dropdown-buttons"
-                                  fromYear={1950}
-                                  toYear={new Date().getFullYear()}
-                                />
-                              </PopoverContent>
-                            </Popover>
-                          ) : (
-                            <p className="text-lg font-semibold text-[#1a5f7a]">
-                              {form.dateOfBirth ? format(form.dateOfBirth, "dd/MM/yyyy") : "N/A"}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end gap-4 mt-8">
-                      {isEditing ? (
-                        <>
-                          <Button
-                            variant="outline"
-                            onClick={handleCancel}
-                            className="border-[#5dd9c1] text-[#1a5f7a] hover:bg-[#e8f5f3] bg-transparent"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={handleSave}
-                            className="bg-[#5dd9c1] hover:bg-[#4bc9b0] text-[#1a5f7a] font-semibold shadow-md transition-all duration-200 hover:shadow-lg"
-                          >
-                            Save Changes
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          onClick={() => setIsEditing(true)}
-                          className="bg-[#5dd9c1] hover:bg-[#4bc9b0] text-[#1a5f7a] font-semibold shadow-md transition-all duration-200 hover:shadow-lg"
-                        >
-                          Change Information
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === "booking" && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-2xl font-bold text-[#1a5f7a]">Tickets/Bookings</h2>
-                      <select className="border-2 border-[#5dd9c1] rounded-lg px-4 py-2 bg-white text-[#1a5f7a] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#5dd9c1]">
-                        <option>Upcoming</option>
-                        <option>Past</option>
-                        <option>All</option>
-                      </select>
-                    </div>
-
-                    {bookings.map((booking) => (
-                      <Card
-                        key={booking.id}
-                        className="p-6 flex items-center justify-between hover:shadow-lg transition-all duration-200 border-l-4 border-[#5dd9c1]"
-                      >
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="w-12 h-12 rounded-lg bg-[#5dd9c1]/20 flex items-center justify-center">
-                            <Ticket className="w-6 h-6 text-[#1a5f7a]" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-[#1a5f7a]">{booking.hotel}</h3>
-                            <p className="text-sm text-[#999]">
-                              {booking.checkIn} - {booking.checkOut}
-                            </p>
-                            <p className="text-xs text-[#999] mt-1">Ref: {booking.reference}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-6">
-                          <div className="text-right">
-                            <p className="font-bold text-[#ff6b6b] text-lg">{booking.price}</p>
-                            <p className="text-xs text-[#999]">{booking.status}</p>
-                          </div>
-                          <Button
-                            onClick={() => handleViewBookingDetails(booking.id)}
-                            className="bg-[#5dd9c1] hover:bg-[#4bc9b0] text-[#1a5f7a] font-semibold transition-all duration-200 hover:shadow-md"
-                          >
-                            View Details
-                          </Button>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-
-                {activeTab === "payments" && (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-2xl font-bold text-[#1a5f7a]">Payment methods</h2>
-                      <Button
-                        onClick={() => setShowAddCard(true)}
-                        className="bg-[#5dd9c1] hover:bg-[#4bc9b0] text-[#1a5f7a] gap-2 font-semibold shadow-md transition-all duration-200 hover:shadow-lg"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add a new Card
-                      </Button>
-                    </div>
-
-                    {/* Saved Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {savedCards.map((card) => (
-                        <Card
-                          key={card.id}
-                          className="p-6 bg-gradient-to-br from-[#5dd9c1] to-[#1a5f7a] text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                        >
-                          <div className="flex items-start justify-between mb-12">
-                            <div>
-                              <p className="text-sm opacity-80 font-medium">{card.brand}</p>
-                              <p className="text-lg font-semibold">•••• {card.last4}</p>
-                            </div>
-                            <CreditCard className="w-8 h-8 opacity-80" />
-                          </div>
-                          <div className="flex items-end justify-between">
-                            <div>
-                              <p className="text-xs opacity-80">Expires</p>
-                              <p className="font-semibold">{card.expiryDate}</p>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRemoveCard(card.id)}
-                              className="bg-white/20 hover:bg-white/30 text-white border-white/30 font-semibold transition-all duration-200"
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-
-                    {showAddCard && (
-                      <Card className="p-8 border-2 border-[#5dd9c1] bg-[#f0faf9]">
-                        <div className="flex items-center justify-between mb-6">
-                          <h3 className="text-lg font-bold text-[#1a5f7a]">Add a new Card</h3>
-                          <button
-                            onClick={() => setShowAddCard(false)}
-                            className="text-[#999] hover:text-[#1a5f7a] transition-colors"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-
-                        <div className="space-y-4 max-w-md">
-                          <div>
-                            <label className="text-sm font-semibold text-[#1a5f7a] block mb-2">Card Number</label>
-                            <input
-                              type="text"
-                              name="cardNumber"
-                              placeholder="1234 5678 9012 3456"
-                              value={newCard.cardNumber}
-                              onChange={handleCardChange}
-                              className="w-full border-2 border-[#5dd9c1] rounded-lg px-3 py-2 outline-none bg-white text-[#1a5f7a] font-medium focus:ring-2 focus:ring-[#5dd9c1]"
-                            />
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-sm font-semibold text-[#1a5f7a] block mb-2">Expiry Date</label>
-                              <input
-                                type="text"
-                                name="expiryDate"
-                                placeholder="MM/YY"
-                                value={newCard.expiryDate}
-                                onChange={handleCardChange}
-                                className="w-full border-2 border-[#5dd9c1] rounded-lg px-3 py-2 outline-none bg-white text-[#1a5f7a] font-medium focus:ring-2 focus:ring-[#5dd9c1]"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-sm font-semibold text-[#1a5f7a] block mb-2">CVV</label>
-                              <input
-                                type="text"
-                                name="cvv"
-                                placeholder="123"
-                                value={newCard.cvv}
-                                onChange={handleCardChange}
-                                className="w-full border-2 border-[#5dd9c1] rounded-lg px-3 py-2 outline-none bg-white text-[#1a5f7a] font-medium focus:ring-2 focus:ring-[#5dd9c1]"
-                              />
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="text-sm font-semibold text-[#1a5f7a] block mb-2">Cardholder Name</label>
-                            <input
-                              type="text"
-                              name="cardholderName"
-                              placeholder="John Doe"
-                              value={newCard.cardholderName}
-                              onChange={handleCardChange}
-                              className="w-full border-2 border-[#5dd9c1] rounded-lg px-3 py-2 outline-none bg-white text-[#1a5f7a] font-medium focus:ring-2 focus:ring-[#5dd9c1]"
-                            />
-                          </div>
-
-                          <Button
-                            onClick={handleAddCard}
-                            className="w-full bg-[#5dd9c1] hover:bg-[#4bc9b0] text-[#1a5f7a] font-semibold shadow-md transition-all duration-200 hover:shadow-lg"
-                          >
-                            Add card
-                          </Button>
-                        </div>
-                      </Card>
-                    )}
-                  </div>
-                )}
+        {/* Profile Info Overlay */}
+        <div className="px-8 pb-8 flex flex-col md:flex-row items-center md:items-end gap-6 -mt-12 relative z-10">
+          <div className="relative group">
+            <div className="w-32 h-32 rounded-2xl bg-white p-1.5 shadow-md">
+              <div className="w-full h-full rounded-xl bg-slate-100 flex items-center justify-center text-blue-600 font-bold text-4xl">
+                {form.fullName?.charAt(0) || "U"}
               </div>
             </div>
+            <button className="absolute bottom-1 right-1 w-9 h-9 rounded-xl bg-blue-600 text-white shadow-lg flex items-center justify-center hover:bg-blue-700 transition-all border-2 border-white">
+              <Camera className="w-4 h-4" />
+            </button>
           </div>
-        </main>
+
+          <div className="flex-1 text-center md:text-left mb-2">
+            <div className="flex items-center gap-2 justify-center md:justify-start">
+              <h1 className="text-2xl font-bold text-slate-800">{form.fullName}</h1>
+              {form.isActive === "y" && <CheckCircle2 className="w-5 h-5 text-blue-600" />}
+            </div>
+            <p className="text-slate-500 text-sm font-medium mt-1">{form.email} • {form.role}</p>
+          </div>
+
+          <div className="mb-2">
+            {!isEditing ? (
+              <StyledButton onClick={() => setIsEditing(true)} className="gap-2">
+                <Edit2 className="w-4 h-4" /> Chỉnh sửa hồ sơ
+              </StyledButton>
+            ) : (
+              <div className="flex gap-2">
+                <StyledButton variant="outline" onClick={handleCancel}>Hủy</StyledButton>
+                <StyledButton onClick={handleSave}>Lưu thay đổi</StyledButton>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    </section>
+
+      {/* 2. TABS NAVIGATION */}
+      <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+        {[
+          { id: 'account', label: 'Tài khoản', icon: User },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              "flex items-center gap-2 px-6 py-2.5 text-xs font-bold rounded-lg transition-all",
+              activeTab === tab.id ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 3. CONTENT AREA */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Main Info Column */}
+        <div className="lg:col-span-2 space-y-6">
+          {activeTab === "account" && (
+            <StyledCard>
+              <CardHeader>
+                <CardTitle><Info className="w-4 h-4" /> Thông tin cơ bản</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <Label>Họ và Tên</Label>
+                  <CustomInput name="fullName" value={form.fullName} onChange={handleChange} disabled={!isEditing} icon={User} className={!isEditing && "bg-slate-50"} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Email</Label>
+                  <CustomInput value={form.email} disabled icon={Mail} className="bg-slate-50 cursor-not-allowed" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Số điện thoại</Label>
+                  <CustomInput name="phoneNumber" value={form.phoneNumber} onChange={handleChange} disabled={!isEditing} icon={Phone} className={!isEditing && "bg-slate-50"} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Ngày sinh</Label>
+                  {isEditing ? (
+                    <PopoverPrimitive.Root>
+                      <PopoverPrimitive.Trigger asChild>
+                        <button className="w-full flex items-center gap-3 px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-blue-600 transition-all text-left bg-white">
+                          <CalendarIcon className="w-4 h-4 text-slate-400" />
+                          {form.dateOfBirth ? format(form.dateOfBirth, "dd/MM/yyyy") : "Chọn ngày sinh"}
+                        </button>
+                      </PopoverPrimitive.Trigger>
+                      <PopoverPrimitive.Portal>
+                        <PopoverPrimitive.Content className="z-50 outline-none" align="start" sideOffset={5}>
+                          <MiniCalendar selectedDate={form.dateOfBirth} onSelect={handleDateChange} />
+                        </PopoverPrimitive.Content>
+                      </PopoverPrimitive.Portal>
+                    </PopoverPrimitive.Root>
+                  ) : (
+                    <CustomInput value={form.dateOfBirth ? format(form.dateOfBirth, "dd/MM/yyyy") : "Chưa cập nhật"} disabled icon={CalendarIcon} className="bg-slate-50" />
+                  )}
+                </div>
+                <div className="md:col-span-2 space-y-1">
+                  <Label>Địa chỉ</Label>
+                  <CustomInput name="address" value={form.address} onChange={handleChange} disabled={!isEditing} icon={MapPin} className={!isEditing && "bg-slate-50"} />
+                </div>
+              </CardContent>
+            </StyledCard>
+          )}
+
+          {activeTab === "booking" && (
+            <div className="space-y-4">
+              {bookings.map((booking) => (
+                <StyledCard key={booking.id} className="hover:border-blue-200 transition-colors">
+                  <CardContent className="p-5 flex items-center gap-5">
+                    <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                      <Ticket className="w-7 h-7" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-slate-800">{booking.hotel}</h4>
+                      <p className="text-xs text-slate-500 font-medium mt-1">
+                        {booking.checkIn} - {booking.checkOut} • REF: {booking.reference}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-blue-600">{booking.price}</p>
+                      <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 mt-1">{booking.status}</Badge>
+                    </div>
+                    <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors"><ArrowRight className="w-4 h-4 text-slate-400" /></button>
+                  </CardContent>
+                </StyledCard>
+              ))}
+            </div>
+          )}
+
+          {activeTab === "payments" && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center px-2">
+                <h3 className="font-bold text-slate-700">Thanh toán & Thẻ</h3>
+                <StyledButton size="sm" variant="primary" onClick={() => setShowAddCard(true)}>
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Thêm thẻ
+                </StyledButton>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {savedCards.map((card) => (
+                  <StyledCard key={card.id} className="bg-slate-900 text-white border-none shadow-md hover:scale-[1.02] transition-transform">
+                    <CardContent className="p-6 h-44 flex flex-col justify-between">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{card.brand}</p>
+                          <p className="text-xl font-bold tracking-widest mt-1">•••• {card.last4}</p>
+                        </div>
+                        <CreditCard className="w-6 h-6 text-slate-600" />
+                      </div>
+                      <div className="flex justify-between items-end">
+                        <div className="text-[10px]">
+                          <p className="text-slate-500 font-bold uppercase">Hết hạn</p>
+                          <p className="font-bold mt-0.5">{card.expiryDate}</p>
+                        </div>
+                        <button onClick={() => handleRemoveCard(card.id)} className="text-[10px] font-bold text-red-400 hover:text-red-300">Gỡ bỏ</button>
+                      </div>
+                    </CardContent>
+                  </StyledCard>
+                ))}
+              </div>
+
+              {showAddCard && (
+                <StyledCard className="bg-blue-50/50 border-2 border-dashed border-blue-200 mt-8 animate-in fade-in slide-in-from-top-4">
+                  <CardHeader className="bg-transparent border-none">
+                    <div className="flex justify-between items-center">
+                      <CardTitle>Liên kết thẻ ngân hàng</CardTitle>
+                      <button onClick={() => setShowAddCard(false)}><X className="w-4 h-4 text-slate-400" /></button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-1">
+                      <Label>Số thẻ</Label>
+                      <CustomInput name="cardNumber" placeholder="0000 0000 0000 0000" value={newCard.cardNumber} onChange={handleCardChange} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label>Hết hạn (MM/YY)</Label>
+                        <CustomInput name="expiryDate" placeholder="12/25" value={newCard.expiryDate} onChange={handleCardChange} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>CVV</Label>
+                        <CustomInput name="cvv" placeholder="•••" value={newCard.cvv} onChange={handleCardChange} />
+                      </div>
+                    </div>
+                    <StyledButton className="w-full mt-4" onClick={handleAddCard}>Xác nhận thêm</StyledButton>
+                  </CardContent>
+                </StyledCard>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar Info Column */}
+        <div className="space-y-6">
+          <StyledCard>
+            <CardHeader>
+              <CardTitle><Settings className="w-4 h-4" /> Cài đặt & Bảo mật</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <button className="w-full px-6 py-4 flex items-center justify-between text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors border-b border-slate-100">
+                <span>Đổi mật khẩu</span>
+                <ArrowRight className="w-4 h-4 text-slate-300" />
+              </button>
+              <button className="w-full px-6 py-4 flex items-center justify-between text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors border-b border-slate-100">
+                <span>Xác thực 2 lớp (2FA)</span>
+                <div className="w-8 h-4 bg-slate-200 rounded-full flex items-center px-1"><div className="w-3 h-3 bg-white rounded-full shadow-sm" /></div>
+              </button>
+              <button className="w-full px-6 py-4 flex items-center justify-between text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors">
+                <span>Xóa tài khoản</span>
+                <AlertCircle className="w-4 h-4" />
+              </button>
+            </CardContent>
+          </StyledCard>
+        </div>
+      </div>
+    </div>
   )
 }
+
+export default Profile;

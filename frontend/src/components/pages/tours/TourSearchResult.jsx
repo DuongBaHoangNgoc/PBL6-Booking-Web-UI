@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import TourCard from "@/components/pages/tours/TourCard";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -25,12 +24,10 @@ import { filterTours, getTourPriceById } from "@/api/tours";
 
 const categories = [
   "All",
-  "Beach",
-  "Culture",
-  "Adventure",
-  "Romance",
-  "City",
-  "Luxury",
+  "Đà Nẵng",
+  "Đà Lạt",
+  "Tây Ninh",
+  "Hà Giang"
 ];
 
 export default function TourSearchResult() {
@@ -125,7 +122,7 @@ export default function TourSearchResult() {
   const filteredTours = tours
     .filter((tour) => {
       if (selectedCategory === "All") return true;
-      return tour.category === selectedCategory;
+      return tour.destination === selectedCategory;
     })
     .filter((tour) => {
       // Lưu ý: Slug đã được lọc ở server, đây là lọc phụ client nếu cần
@@ -144,7 +141,7 @@ export default function TourSearchResult() {
   return (
     <section className="min-h-screen bg-slate-50 py-12 md:py-20">
       <div className="container mx-auto px-4 md:px-6">
-        
+
         {/* ================= HEADER SECTION ================= */}
         <div className="text-center max-w-3xl mx-auto mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-100 text-sm font-semibold mb-4">
@@ -161,19 +158,18 @@ export default function TourSearchResult() {
         {/* ================= CONTROLS (FILTER & SEARCH) ================= */}
         <div className="bg-white p-4 md:p-6 rounded-2xl shadow-xl shadow-cyan-900/5 border border-slate-100 mb-10 sticky top-24 z-30">
           <div className="flex flex-col xl:flex-row gap-6 justify-between items-center">
-            
-           {/* 1. Category Pills */}
+
+            {/* 1. Category Pills */}
             <div className="w-full xl:w-auto overflow-x-auto overflow-y-hidden pb-2 xl:pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex gap-2 min-w-max p-1">
                 {categories.map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 whitespace-nowrap ${
-                      selectedCategory === cat
-                        ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-cyan-500/30 transform scale-105"
-                        : "bg-slate-50 text-slate-600 hover:bg-white hover:text-cyan-600 hover:shadow-md border border-transparent hover:border-cyan-100"
-                    }`}
+                    className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 whitespace-nowrap ${selectedCategory === cat
+                      ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-cyan-500/30 transform scale-105"
+                      : "bg-slate-50 text-slate-600 hover:bg-white hover:text-cyan-600 hover:shadow-md border border-transparent hover:border-cyan-100"
+                      }`}
                   >
                     {cat}
                   </button>
@@ -183,11 +179,11 @@ export default function TourSearchResult() {
 
             {/* 2. Search & Sort Actions */}
             <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto items-center">
-              
+
               {/* Search Box */}
               <div className="relative w-full sm:w-72 group">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-cyan-500 transition-colors">
-                   <Search className="w-4 h-4" />
+                  <Search className="w-4 h-4" />
                 </div>
                 <Input
                   id="slug"
@@ -200,7 +196,7 @@ export default function TourSearchResult() {
 
               {/* Sort Dropdown */}
               <div className="flex items-center gap-2 w-full sm:w-auto">
-                 <Select
+                <Select
                   value={sortBy}
                   onValueChange={(value) => setSortBy(value)}
                 >
@@ -250,8 +246,8 @@ export default function TourSearchResult() {
             <p className="text-slate-500 max-w-md">
               We couldn't find any tours matching your search "{localFilters.slug}". Try adjusting your filters or search keywords.
             </p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="mt-6 border-cyan-200 text-cyan-600 hover:bg-cyan-50"
               onClick={() => {
                 setLocalFilters({ slug: "", destination: "", status: "all" });
@@ -275,7 +271,7 @@ export default function TourSearchResult() {
               <ChevronLeft className="w-4 h-4 mr-2" />
               Previous
             </Button>
-            
+
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-slate-500">Page</span>
               <span className="px-3 py-1 bg-white border border-cyan-200 rounded-lg text-cyan-600 font-bold min-w-[2rem] text-center shadow-sm">

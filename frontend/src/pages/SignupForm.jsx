@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { 
-  ChevronLeft, Eye, EyeOff, User, Mail, Phone, Lock, 
-  Loader2, CreditCard, Building2, ShieldCheck, Plane 
+import {
+  ChevronLeft, Eye, EyeOff, User, Mail, Phone, Lock,
+  Loader2, CreditCard, Building2, ShieldCheck, Plane
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -12,22 +12,22 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 // --- COMPONENT CON 1: STEP 1 - SIGNUP FORM (ĐÃ CẬP NHẬT) ---
 function SignupForm({ role, onNext, loading }) {
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     fullName: "",
-    userName: "", 
+    userName: "",
     email: "",
     phoneNumber: "", // <--- 1. THÊM STATE Ở ĐÂY
     passWord: "",
     confirmPassword: "",
-    avatar: null, 
+    avatar: null,
     agreeToTerms: false,
   });
   const [err, setErr] = useState("");
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
+
     // Logic chỉ cho phép nhập số vào ô phoneNumber
     if (name === "phoneNumber" && !/^\d*$/.test(value)) return;
 
@@ -62,26 +62,26 @@ function SignupForm({ role, onNext, loading }) {
 
     const apiForm = new FormData();
     apiForm.append("fullName", formData.fullName);
-    apiForm.append("userName", formData.userName || formData.email.split('@')[0]); 
+    apiForm.append("userName", formData.userName || formData.email.split('@')[0]);
     apiForm.append("email", formData.email);
     apiForm.append("phoneNumber", formData.phoneNumber); // <--- 3. GỬI LÊN SERVER
-    apiForm.append("passWord", formData.passWord);    
-    apiForm.append("address", ""); 
-    apiForm.append("birthDay", "2000-01-01"); 
+    apiForm.append("passWord", formData.passWord);
+    apiForm.append("address", "");
+    apiForm.append("birthDay", "2000-01-01");
     apiForm.append("role", role);
 
-    onNext(apiForm, formData.email); 
+    onNext(apiForm, formData.email);
   };
 
   return (
     <div className="w-full animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="mb-6">
         <h2 className="text-3xl font-bold text-slate-900 mb-2">
-            Đăng ký {role === 'supplier' ? 'Nhà cung cấp' : 'Thành viên'}
+          Đăng ký {role === 'supplier' ? 'Nhà cung cấp' : 'Thành viên'}
         </h2>
         <p className="text-slate-500">
-          {role === "supplier" 
-            ? "Trở thành đối tác và phát triển kinh doanh cùng chúng tôi." 
+          {role === "supplier"
+            ? "Trở thành đối tác và phát triển kinh doanh cùng chúng tôi."
             : "Tạo tài khoản để nhận ưu đãi và quản lý chuyến đi dễ dàng."}
         </p>
       </div>
@@ -98,33 +98,33 @@ function SignupForm({ role, onNext, loading }) {
           <label className="text-sm font-semibold text-slate-700">Họ và tên</label>
           <div className="relative group">
             <User className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-cyan-600 transition-colors" />
-            <input 
-              type="text" 
-              name="fullName" 
-              value={formData.fullName} 
-              onChange={handleChange} 
-              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white" 
-              placeholder="Ví dụ: Nguyễn Văn A" 
-              required 
+            <input
+              type="text"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleChange}
+              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white"
+              placeholder="Ví dụ: Nguyễn Văn A"
+              required
             />
           </div>
         </div>
 
         {/* Username */}
         <div className="space-y-1">
-            <label className="text-sm font-semibold text-slate-700">Tên đăng nhập</label>
-            <div className="relative group">
-              <User className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-cyan-600 transition-colors" />
-              <input 
-                type="text" 
-                name="userName" 
-                value={formData.userName} 
-                onChange={handleChange} 
-                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white" 
-                placeholder="username123" 
-                required 
-              />
-            </div>
+          <label className="text-sm font-semibold text-slate-700">Tên đăng nhập</label>
+          <div className="relative group">
+            <User className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-cyan-600 transition-colors" />
+            <input
+              type="text"
+              name="userName"
+              value={formData.userName}
+              onChange={handleChange}
+              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white"
+              placeholder="username123"
+              required
+            />
+          </div>
         </div>
 
         {/* --- GRID: Email & Phone Number --- */}
@@ -134,14 +134,14 @@ function SignupForm({ role, onNext, loading }) {
             <label className="text-sm font-semibold text-slate-700">Email</label>
             <div className="relative group">
               <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-cyan-600 transition-colors" />
-              <input 
-                type="email" 
-                name="email" 
-                value={formData.email} 
-                onChange={handleChange} 
-                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white" 
-                placeholder="name@example.com" 
-                required 
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                placeholder="name@example.com"
+                required
               />
             </div>
           </div>
@@ -151,14 +151,14 @@ function SignupForm({ role, onNext, loading }) {
             <label className="text-sm font-semibold text-slate-700">Số điện thoại</label>
             <div className="relative group">
               <Phone className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-cyan-600 transition-colors" />
-              <input 
-                type="tel" 
-                name="phoneNumber" 
-                value={formData.phoneNumber} 
-                onChange={handleChange} 
-                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white" 
-                placeholder="0905xxxxxx" 
-                required 
+              <input
+                type="tel"
+                name="phoneNumber"
+                value={formData.phoneNumber}
+                onChange={handleChange}
+                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                placeholder="0905xxxxxx"
+                required
               />
             </div>
           </div>
@@ -170,14 +170,14 @@ function SignupForm({ role, onNext, loading }) {
             <label className="text-sm font-semibold text-slate-700">Mật khẩu</label>
             <div className="relative group">
               <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-cyan-600 transition-colors" />
-              <input 
-                type={showPassword ? "text" : "password"} 
-                name="passWord" 
-                value={formData.passWord} 
-                onChange={handleChange} 
-                className="w-full pl-10 pr-10 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white" 
-                placeholder="Min 6 ký tự" 
-                required 
+              <input
+                type={showPassword ? "text" : "password"}
+                name="passWord"
+                value={formData.passWord}
+                onChange={handleChange}
+                className="w-full pl-10 pr-10 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                placeholder="Min 6 ký tự"
+                required
               />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -188,37 +188,37 @@ function SignupForm({ role, onNext, loading }) {
             <label className="text-sm font-semibold text-slate-700">Xác nhận</label>
             <div className="relative group">
               <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-cyan-600 transition-colors" />
-              <input 
-                type={showPassword ? "text" : "password"} 
-                name="confirmPassword" 
-                value={formData.confirmPassword} 
-                onChange={handleChange} 
-                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white" 
-                placeholder="Nhập lại mật khẩu" 
-                required 
+              <input
+                type={showPassword ? "text" : "password"}
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                placeholder="Nhập lại mật khẩu"
+                required
               />
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3 pt-2">
-          <input 
-            id="terms" 
-            name="agreeToTerms" 
-            type="checkbox" 
-            required 
-            checked={formData.agreeToTerms} 
-            onChange={handleChange} 
-            className="w-5 h-5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer" 
+          <input
+            id="terms"
+            name="agreeToTerms"
+            type="checkbox"
+            required
+            checked={formData.agreeToTerms}
+            onChange={handleChange}
+            className="w-5 h-5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer"
           />
           <label htmlFor="terms" className="text-sm text-slate-600 cursor-pointer select-none">
             Tôi đồng ý với <span className="font-semibold text-cyan-600 hover:underline">Điều khoản & Chính sách</span>.
           </label>
         </div>
 
-        <button 
-          type="submit" 
-          disabled={loading} 
+        <button
+          type="submit"
+          disabled={loading}
           className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-xl shadow-lg shadow-cyan-500/30 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 focus:outline-none transition-all transform active:scale-[0.98] disabled:opacity-70 mt-2"
         >
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Đăng ký ngay"}
@@ -243,10 +243,10 @@ function OTPForm({ email, onVerify, onResend, loading }) {
       <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-600 animate-bounce-slow">
         <ShieldCheck className="w-10 h-10" />
       </div>
-      
+
       <h2 className="text-3xl font-bold text-slate-900 mb-2">Xác thực tài khoản</h2>
       <p className="text-slate-500 max-w-xs mx-auto mb-8">
-        Nhập mã 6 số chúng tôi vừa gửi đến <br/><span className="font-bold text-slate-800">{email}</span>
+        Nhập mã 6 số chúng tôi vừa gửi đến <br /><span className="font-bold text-slate-800">{email}</span>
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-6 max-w-xs mx-auto">
@@ -282,7 +282,7 @@ function WalletForm({ userId, onSubmit, loading }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setWalletData(prev => ({...prev, [name]: value}));
+    setWalletData(prev => ({ ...prev, [name]: value }));
   };
 
   return (
@@ -297,7 +297,7 @@ function WalletForm({ userId, onSubmit, loading }) {
       </div>
 
       <form onSubmit={(e) => { e.preventDefault(); onSubmit(walletData); }} className="space-y-5 bg-slate-50 p-6 rounded-2xl border border-slate-100">
-        
+
         <div className="space-y-1">
           <label className="text-xs font-bold text-slate-500 uppercase">Ngân hàng</label>
           <div className="relative group">
@@ -345,20 +345,20 @@ export default function SignupWizard({ role = "user", onBack }) {
       const res = await axios.post(`${API_URL}/auth/Register`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      
-      console.log("👉 Response:", res.data); 
+
+      console.log("👉 Response:", res.data);
       // Logic lấy ID linh hoạt
       const userId = res.data?.data?.userId || res.data?.data?.user?.userId || res.data?.userId;
 
       if (!userId) {
         console.error("❌ Missing userId in response", res.data);
         alert("Đăng ký thành công nhưng lỗi hệ thống (missing ID).");
-        return; 
+        return;
       }
 
       setRegisteredData({ userId, email });
       await axios.post(`${API_URL}/auth/request-verify-user-register-otp`, { email });
-      setStep(2); 
+      setStep(2);
     } catch (err) {
       alert(err.response?.data?.message || "Đăng ký thất bại.");
     } finally {
@@ -402,7 +402,7 @@ export default function SignupWizard({ role = "user", onBack }) {
       const payload = { userId: registeredData.userId, ...walletData };
       // GỌI API TRỰC TIẾP bằng axios thay vì import hàm bên ngoài
       await axios.post(`${API_URL}/accounts`, payload);
-      
+
       alert("Tạo ví thành công!");
       navigate("/auth/login");
     } catch (err) {
@@ -423,7 +423,7 @@ export default function SignupWizard({ role = "user", onBack }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-10 relative">
+    <div className="min-h-screen flex items-center justify-center px-4 py-16 relative">
       {/* Back Button */}
       {step === 1 && (
         <button onClick={handleBack} className="absolute top-6 left-6 text-slate-500 flex items-center gap-2 hover:text-blue-600 font-medium transition-colors">
@@ -432,7 +432,7 @@ export default function SignupWizard({ role = "user", onBack }) {
       )}
 
       <div className="flex w-full max-w-5xl bg-white shadow-2xl rounded-3xl overflow-hidden border border-slate-100 min-h-[600px] animate-in fade-in zoom-in-95 duration-500">
-        
+
         {/* LEFT SIDE: Inspirational Image */}
         <div className="hidden md:flex w-5/12 relative bg-slate-800">
           <img
@@ -446,13 +446,13 @@ export default function SignupWizard({ role = "user", onBack }) {
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-2 opacity-80">
                 <Plane className="w-5 h-5" />
-                <span className="text-sm font-semibold tracking-wider uppercase">Travelie</span>
+                <span className="text-sm font-semibold tracking-wider uppercase">Bookings</span>
               </div>
               <h3 className="text-3xl font-bold leading-tight">
                 {step === 1 ? "Khám phá thế giới theo cách của bạn" : step === 2 ? "Bảo mật tài khoản" : "Đối tác tin cậy"}
               </h3>
             </div>
-            
+
             {/* Simple Step Indicator */}
             <div className="flex gap-2">
               {[1, 2, ...(role === "supplier" ? [3] : [])].map((s) => (
@@ -467,7 +467,7 @@ export default function SignupWizard({ role = "user", onBack }) {
           {step === 1 && <SignupForm role={role} onNext={handleRegister} loading={loading} />}
           {step === 2 && <OTPForm email={registeredData.email} onVerify={handleVerifyOTP} onResend={handleResendOTP} loading={loading} />}
           {step === 3 && <WalletForm userId={registeredData.userId} onSubmit={handleCreateWallet} loading={loading} />}
-          
+
           {step === 1 && (
             <div className="mt-8 pt-6 border-t border-slate-100 text-center">
               <p className="text-sm text-slate-500">

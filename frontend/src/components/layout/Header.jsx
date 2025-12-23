@@ -131,6 +131,11 @@ export default function Navbar() {
               <Link to="/admin/bookings" className={getLinkClass("/admin/bookings")}>
                 Bookings Management
               </Link>
+
+              {/* Quản lý Coupons */}
+              <Link to="/admin/coupons" className={getLinkClass("/admin/coupons")}>
+                Coupons Management
+              </Link>
             </>
           
             

@@ -29,6 +29,7 @@ import CalendarPage from "@/pages/CalendarPage";
 import SupplierPaymentsPage from "@/components/pages/payments/SupplierPaymentsPage";
 import { EarningsPage } from "@/pages/EarningsPage";
 import { useAuth } from "@/context/useAuth";
+import { ManageCouponsPage } from "@/components/pages/coupons/ManageCouponsPage";
 
 const RootRedirector = () => {
   const { user, loading } = useAuth();
@@ -97,12 +98,13 @@ export const AppRoutes = () => {
           <Route path="bookings" element={<AdminBookingPage />} />
           <Route path="tours/edit/:id" element={<ManageTourDetailPage />} />
           <Route path="revenue" element={<EarningsPage />} />
+          <Route path="coupons" element={<ManageCouponsPage />} />
         </Route>
       </Route>
 
       {/* =========================================
         AREA 3: SUPPLIER ROUTES
-        =========================================
+        ===========================================
       */}
       <Route path="/supplier" element={<SupplierRoute />}>
         <Route element={<SupplierLayout />}>
@@ -115,6 +117,7 @@ export const AppRoutes = () => {
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="revenue" element={<EarningsPage />} />
           <Route path="payments" element={<SupplierPaymentsPage />} />
+          <Route path="coupons" element={<ManageCouponsPage />} />
         </Route>
       </Route>
     </Routes>
