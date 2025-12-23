@@ -553,7 +553,7 @@ export function ManageTourReviewsPage() {
                           </TableCell>
 
                           <TableCell className="text-muted-foreground">
-                            {formatDateTime(rv.createdAt || rv.createDate)}
+                            {formatDateTime(rv.timestamp)}
                           </TableCell>
 
                           <TableCell className="text-right">
