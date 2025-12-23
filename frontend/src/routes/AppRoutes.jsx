@@ -30,6 +30,7 @@ import SupplierPaymentsPage from "@/components/pages/payments/SupplierPaymentsPa
 import { EarningsPage } from "@/pages/EarningsPage";
 import { useAuth } from "@/context/useAuth";
 import { ManageCouponsPage } from "@/components/pages/coupons/ManageCouponsPage";
+import ForgotPassword from "@/pages/ForgotPassword";
 
 const RootRedirector = () => {
   const { user, loading } = useAuth();
@@ -76,6 +77,7 @@ export const AppRoutes = () => {
         {/* --- 1.2: Authenticating Pages --- */}
         <Route path="signup" element={<SignUpPage />} />
         <Route path="auth/login" element={<Login />} />
+        <Route path="forgot-password" element={<ForgotPassword />} />
 
         {/* --- 1.3: Protected Pages (User & Admin) --- */}
         <Route element={<ProtectedRoute />}>
