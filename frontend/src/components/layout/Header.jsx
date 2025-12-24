@@ -8,7 +8,7 @@ import {
   User,
   LogOut,
   Map,
-  CreditCard, 
+  CreditCard,
   LayoutDashboard,
   Heart,
   Shield,
@@ -121,24 +121,36 @@ export default function Navbar() {
               <Link to="/admin/users" className={getLinkClass("/admin/users")}>
                 Users Management
               </Link>
-              
+
               {/* Quản lý Tours */}
               <Link to="/admin/tours" className={getLinkClass("/admin/tours")}>
                 Tours Management
               </Link>
-              
+
               {/* Quản lý Bookings */}
-              <Link to="/admin/bookings" className={getLinkClass("/admin/bookings")}>
+              <Link
+                to="/admin/bookings"
+                className={getLinkClass("/admin/bookings")}
+              >
                 Bookings Management
               </Link>
 
               {/* Quản lý Coupons */}
-              <Link to="/admin/coupons" className={getLinkClass("/admin/coupons")}>
+              <Link
+                to="/admin/coupons"
+                className={getLinkClass("/admin/coupons")}
+              >
                 Coupons Management
               </Link>
+
+              {/* Quản lý Payments */}
+              <Link
+                to="/admin/payments"
+                className={getLinkClass("/admin/payments")}
+              >
+                Payments Management
+              </Link>
             </>
-          
-            
           )}
         </div>
 
