@@ -36,3 +36,42 @@ export const getTransactions = async (params = {}) => {
     throw error;
   }
 };
+
+/**
+ * 💸 Tạo transaction rút tiền (PENDING)
+ * Backend: POST /transactions/RutTien
+ * @param {Object} payload
+ * @param {number} payload.userWalletAccountId
+ * @param {number} payload.amount
+ * @returns {Promise<Object>}
+ */
+export const createWithdrawTransaction = async (payload) => {
+  try {
+    const res = await api.post("/transactions/RutTien", {
+      ...payload,
+      type: "RUT_TIEN", // theo controller yêu cầu type = RUT_TIEN
+    });
+    return res.data;
+  } catch (error) {
+    console.error("❌ Lỗi khi tạo transaction rút tiền:", error);
+    throw error;
+  }
+};
+
+/**
+ * ✅ Xác nhận rút tiền & cập nhật số dư theo transactionId
+ * Backend: POST /transactions/UpdateBalanceRutTien/:id
+ * @param {number|string} transactionId
+ * @returns {Promise<Object>}
+ */
+export const confirmWithdrawAndUpdateBalance = async (transactionId) => {
+  try {
+    const res = await api.post(
+      `/transactions/UpdateBalanceRutTien/${transactionId}`
+    );
+    return res.data;
+  } catch (error) {
+    console.error("❌ Lỗi khi cập nhật số dư rút tiền:", error);
+    throw error;
+  }
+};

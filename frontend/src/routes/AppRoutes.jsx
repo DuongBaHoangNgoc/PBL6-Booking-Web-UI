@@ -32,6 +32,7 @@ import { ManageTourReviewsPage } from "@/components/pages/reviews/ManageTourRevi
 import { useAuth } from "@/context/useAuth";
 import { ManageCouponsPage } from "@/components/pages/coupons/ManageCouponsPage";
 import ForgotPassword from "@/pages/ForgotPassword";
+import { ManageWithdrawRequestsPage } from "@/components/pages/payments/ManageWithdrawRequestsPage";
 
 const RootRedirector = () => {
   const { user, loading } = useAuth();
@@ -102,6 +103,7 @@ export const AppRoutes = () => {
           <Route path="tours/edit/:id" element={<ManageTourDetailPage />} />
           <Route path="revenue" element={<EarningsPage />} />
           <Route path="coupons" element={<ManageCouponsPage />} />
+          <Route path="payments" element={<ManageWithdrawRequestsPage />} />
         </Route>
       </Route>
 

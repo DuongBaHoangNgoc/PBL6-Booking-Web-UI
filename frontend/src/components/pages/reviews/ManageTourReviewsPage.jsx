@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Star,
+  Sparkles,
 } from "lucide-react";
 import {
   Table,
@@ -39,7 +40,7 @@ import { useDebounce } from "@/hook/useDebounce";
 import { useAuth } from "@/context/useAuth";
 
 // ✅ tours api
-import { filterTours } from "@/api/tours";
+import { filterTours, getAITourAnalysis } from "@/api/tours";
 
 // ✅ reviews api
 import { getReviewsFilterPagination, deleteReview } from "@/api/reviews";
@@ -72,6 +73,27 @@ const StarsView = ({ value }) => {
   );
 };
 
+// ✅ Lấy tổng số review + sao trung bình theo tourId (đúng theo response bạn gửi)
+const getReviewStatsForTour = async (tourId) => {
+  // lấy đủ để tính avg (admin view thường không quá nhiều)
+  const res = await getReviewsFilterPagination({
+    tourId,
+    page: 1,
+    limit: 1000,
+  });
+
+  const reviews = res?.data?.reviews || [];
+  const count = Number(res?.data?.countReviews || 0);
+
+  const sum = reviews.reduce((acc, r) => acc + Number(r.rating || 0), 0);
+  const avg = reviews.length ? sum / reviews.length : 0;
+
+  return {
+    reviewCount: count,
+    starAvg: avg,
+  };
+};
+
 export function ManageTourReviewsPage() {
   const { user } = useAuth();
 
@@ -90,7 +112,7 @@ export function ManageTourReviewsPage() {
     return Math.ceil(pagination.totalItems / pagination.limit);
   }, [pagination.totalItems, pagination.limit]);
 
-  // filters giống ManageToursPage
+  // filters
   const [localFilters, setLocalFilters] = useState({
     slug: "",
     destination: "",
@@ -121,8 +143,22 @@ export function ManageTourReviewsPage() {
       };
 
       const data = await filterTours(params);
+      const items = data.items || [];
 
-      setTours(data.items || []);
+      // ✅ TỰ TÍNH reviewCount + starAvg bằng reviews API
+      const itemsWithStats = await Promise.all(
+        items.map(async (t) => {
+          try {
+            const stats = await getReviewStatsForTour(t.tourId);
+            return { ...t, ...stats };
+          } catch (e) {
+            console.error("Stats error tourId=", t.tourId, e);
+            return { ...t, reviewCount: 0, starAvg: 0 };
+          }
+        })
+      );
+
+      setTours(itemsWithStats);
       setPagination((prev) => ({
         ...prev,
         page,
@@ -142,7 +178,6 @@ export function ManageTourReviewsPage() {
   }, [pagination.page, debouncedFilters]);
 
   useEffect(() => {
-    // đổi filter => về trang 1
     setPagination((prev) => ({ ...prev, page: 1 }));
   }, [debouncedFilters]);
 
@@ -170,6 +205,12 @@ export function ManageTourReviewsPage() {
     return Math.ceil(reviewPagination.totalItems / reviewPagination.limit);
   }, [reviewPagination.totalItems, reviewPagination.limit]);
 
+  // ✅ AI state
+  const [showAI, setShowAI] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  const [aiSummary, setAiSummary] = useState(null);
+
   const fetchReviewsByTour = async (tourId, page = 1) => {
     try {
       setLoadingReviews(true);
@@ -181,31 +222,15 @@ export function ManageTourReviewsPage() {
         tourId,
       });
 
-      const data = res?.data ?? res;
-
-      const items =
-        data?.items ||
-        data?.reviews ||
-        data?.ReviewData ||
-        data?.data?.items ||
-        data?.data?.reviews ||
-        [];
-
-      const total =
-        data?.totalItems ??
-        data?.total ??
-        data?.count ??
-        data?.countReview ??
-        data?.totalReviews ??
-        data?.data?.totalItems ??
-        data?.data?.total ??
-        0;
+      // ✅ đúng theo response: data.reviews & data.countReviews
+      const items = res?.data?.reviews || [];
+      const total = Number(res?.data?.countReviews || 0);
 
       setReviews(Array.isArray(items) ? items : []);
       setReviewPagination((prev) => ({
         ...prev,
         page,
-        totalItems: Number(total) || 0,
+        totalItems: total,
       }));
     } catch (err) {
       console.error("Failed to fetch reviews:", err);
@@ -219,27 +244,48 @@ export function ManageTourReviewsPage() {
     }
   };
 
-  const handleOpenTourReviews = (tour) => {
+  const handleOpenTourReviews = async (tour) => {
     setSelectedTour(tour);
     setOpenReviews(true);
 
+    // reset reviews
     setReviews([]);
     setErrorReviews(null);
-
     setReviewPagination((prev) => ({ ...prev, page: 1, totalItems: 0 }));
-
-    // ✅ quan trọng: tour.tourId có tồn tại không?
-    console.log("[OPEN TOUR]", tour);
     fetchReviewsByTour(tour.tourId, 1);
+
+    // reset AI
+    setShowAI(false);
+    setAiLoading(false);
+    setAiError(null);
+    setAiSummary(null);
+
+    // ✅ refresh stats để header dialog đúng ngay
+    try {
+      const stats = await getReviewStatsForTour(tour.tourId);
+      setSelectedTour((prev) => (prev ? { ...prev, ...stats } : prev));
+      setTours((prev) =>
+        prev.map((t) => (t.tourId === tour.tourId ? { ...t, ...stats } : t))
+      );
+    } catch (e) {
+      console.error("Refresh stats on open dialog error:", e);
+    }
   };
 
   const handleCloseReviews = () => {
     setOpenReviews(false);
     setSelectedTour(null);
+
     setReviews([]);
     setErrorReviews(null);
     setLoadingReviews(false);
     setReviewPagination((prev) => ({ ...prev, page: 1, totalItems: 0 }));
+
+    // reset AI
+    setShowAI(false);
+    setAiLoading(false);
+    setAiError(null);
+    setAiSummary(null);
   };
 
   const handleDeleteReview = async (reviewId) => {
@@ -249,36 +295,23 @@ export function ManageTourReviewsPage() {
     try {
       await deleteReview(reviewId);
 
-      // ✅ Update UI ngay
+      // update list reviews UI
       setReviews((prev) =>
         prev.filter((r) => (r.reviewId ?? r.id) !== reviewId)
       );
-
-      // ✅ Update tổng số review
       setReviewPagination((prev) => ({
         ...prev,
         totalItems: Math.max(0, (prev.totalItems || 0) - 1),
       }));
 
-      // ✅ Update reviewCount của tour ngay trên list
+      // ✅ tính lại stats theo reviews API để update header + table tours
       if (selectedTour?.tourId) {
+        const stats = await getReviewStatsForTour(selectedTour.tourId);
+        setSelectedTour((prev) => (prev ? { ...prev, ...stats } : prev));
         setTours((prev) =>
           prev.map((t) =>
-            t.tourId === selectedTour.tourId
-              ? {
-                  ...t,
-                  reviewCount: Math.max(0, Number(t.reviewCount || 0) - 1),
-                }
-              : t
+            t.tourId === selectedTour.tourId ? { ...t, ...stats } : t
           )
-        );
-        setSelectedTour((prev) =>
-          prev
-            ? {
-                ...prev,
-                reviewCount: Math.max(0, Number(prev.reviewCount || 0) - 1),
-              }
-            : prev
         );
       }
 
@@ -295,6 +328,34 @@ export function ManageTourReviewsPage() {
       return new Date(iso).toLocaleString("vi-VN");
     } catch {
       return "—";
+    }
+  };
+
+  // ✅ click "Tổng hợp từ AI"
+  const handleFetchAISummary = async () => {
+    if (!selectedTour?.tourId) return;
+    setShowAI(true);
+
+    // đã có thì chỉ mở panel
+    if (aiSummary) return;
+
+    try {
+      setAiLoading(true);
+      setAiError(null);
+
+      const res = await getAITourAnalysis(selectedTour.tourId);
+      if (![200, 201].includes(res?.statusCode)) {
+        throw new Error(res?.message || "Không thể lấy tổng hợp AI");
+      }
+
+      setAiSummary(res?.data || null);
+    } catch (err) {
+      console.error("AI summary error:", err);
+      setAiError(
+        err?.response?.data?.message || err?.message || "Lỗi khi gọi AI"
+      );
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -380,7 +441,7 @@ export function ManageTourReviewsPage() {
         </div>
       )}
 
-      {/* ✅ TABLE TOURS (đúng) */}
+      {/* TABLE TOURS */}
       {!loadingTours && !errorTours && tours.length > 0 && (
         <div className="border rounded-lg">
           <Table>
@@ -476,14 +537,14 @@ export function ManageTourReviewsPage() {
         </div>
       )}
 
-      {/* ✅ DIALOG REVIEWS (có thùng rác) */}
+      {/* DIALOG REVIEWS + AI */}
       <Dialog
         open={openReviews}
         onOpenChange={(v) => {
           if (!v) handleCloseReviews();
         }}
       >
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-5xl">
           <DialogHeader>
             <DialogTitle>
               Đánh giá tour: {selectedTour?.title || ""}
@@ -495,7 +556,114 @@ export function ManageTourReviewsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          {/* Nút AI góc trái */}
+          <div className="flex items-center justify-between">
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={handleFetchAISummary}
+              disabled={!selectedTour?.tourId}
+            >
+              <Sparkles className="w-4 h-4" />
+              Tổng hợp từ AI
+            </Button>
+
+            <Button variant="outline" onClick={handleCloseReviews}>
+              Đóng
+            </Button>
+          </div>
+
+          {/* Panel AI */}
+          {showAI && (
+            <Card className="mt-4 border-dashed">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-yellow-500" />
+                  Tổng hợp đánh giá từ AI
+                </CardTitle>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                {aiLoading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Đang tổng hợp...
+                  </div>
+                )}
+
+                {!aiLoading && aiError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{aiError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {!aiLoading && !aiError && aiSummary && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="font-semibold mb-1">
+                        Đánh giá tổng quan
+                      </div>
+                      <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                        {aiSummary.overall_assessment || "—"}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <div className="font-semibold mb-1">Ưu điểm</div>
+                        <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+                          {(aiSummary?.pros_and_cons?.pros || []).map(
+                            (p, i) => (
+                              <li key={i}>{p}</li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+
+                      <div>
+                        <div className="font-semibold mb-1">Nhược điểm</div>
+                        <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+                          {(aiSummary?.pros_and_cons?.cons || []).map(
+                            (c, i) => (
+                              <li key={i}>{c}</li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="font-semibold mb-1">Khuyến nghị</div>
+                      <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+                        {(aiSummary?.recommendations || []).map((r, i) => (
+                          <li key={i}>{r}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div>
+                      <div className="font-semibold mb-1">
+                        Đối tượng phù hợp
+                      </div>
+                      <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                        {aiSummary?.target_audience || "—"}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!aiLoading && !aiError && !aiSummary && (
+                  <div className="text-sm text-muted-foreground">
+                    Nhấn “Tổng hợp từ AI” để xem phân tích.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Reviews table */}
+          <div className="space-y-4 mt-4">
             {loadingReviews && (
               <div className="flex items-center justify-center py-10">
                 <Loader2 className="w-6 h-6 animate-spin" />
@@ -530,20 +698,20 @@ export function ManageTourReviewsPage() {
 
                   <TableBody>
                     {reviews.map((rv, idx) => {
-                      const reviewId = rv.reviewId ?? rv.id; // ✅ id để xóa
+                      const reviewId = rv.reviewId ?? rv.id;
                       return (
                         <TableRow key={reviewId ?? idx}>
                           <TableCell>
                             <div className="font-medium">
-                              {rv.user?.fullName || rv.fullName || "—"}
+                              {rv.user?.fullName || "—"}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {rv.user?.email || rv.email || "—"}
+                              {rv.user?.email || "—"}
                             </div>
                           </TableCell>
 
                           <TableCell>
-                            <StarsView value={rv.rating ?? rv.star ?? 0} />
+                            <StarsView value={rv.rating || 0} />
                           </TableCell>
 
                           <TableCell>
@@ -611,12 +779,6 @@ export function ManageTourReviewsPage() {
                 </Button>
               </div>
             )}
-
-            <div className="flex justify-end">
-              <Button variant="outline" onClick={handleCloseReviews}>
-                Đóng
-              </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>

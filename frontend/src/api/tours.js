@@ -369,3 +369,23 @@ export const updateStartEndDateStatus = async ({ id, status }) => {
   // res.data thường là ResponseData<StartEndDateEntity>
   return res.data;
 };
+
+/**
+ * 🤖 Gọi API phân tích tour bằng AI
+ * Backend: GET /tours/AItour/:id
+ *
+ * @param {number|string} tourId - ID của tour
+ * @returns {Promise<Object>} ResponseData<any> (theo backend trả về)
+ *
+ * Ví dụ response:
+ * { data: <kết quả AI>, message: "server was successful", statusCode: 200 }
+ */
+export const getAITourAnalysis = async (tourId) => {
+  try {
+    const res = await api.get(`/tours/AItour/${tourId}`);
+    return res.data;
+  } catch (error) {
+    console.error("❌ Lỗi khi gọi AI Tour:", error);
+    throw error;
+  }
+};

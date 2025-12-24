@@ -36,7 +36,11 @@ import {
   createAccount,
 } from "@/api/wallet_accounts";
 
-import { createTransaction, getTransactions } from "@/api/transactions";
+import {
+  createTransaction,
+  getTransactions,
+  createWithdrawTransaction, // ✅ dùng API /transactions/RutTien
+} from "@/api/transactions";
 
 export default function SupplierPaymentsPage() {
   const { user } = useAuth();
@@ -345,16 +349,20 @@ export default function SupplierPaymentsPage() {
     }
   };
 
-  // ========== WITHDRAW ==========
+  // ========== WITHDRAW (chỉ gửi yêu cầu - admin sẽ confirm sau) ==========
   const handleWithdraw = async () => {
     if (!withdrawAmount || Number(withdrawAmount) <= 0) {
       setMessage({ type: "error", text: "Vui lòng nhập số tiền muốn rút!" });
       return;
     }
-    if (Number(withdrawAmount) > balance) {
+
+    const amount = Number(withdrawAmount);
+
+    if (amount > balance) {
       setMessage({ type: "error", text: "Số tiền rút vượt quá số dư!" });
       return;
     }
+
     if (accounts.length === 0) {
       setMessage({
         type: "error",
@@ -365,25 +373,31 @@ export default function SupplierPaymentsPage() {
 
     try {
       setLoading(true);
-      const res = await createTransaction({
+
+      // ✅ Gửi yêu cầu rút tiền (tạo transaction PENDING)
+      const res = await createWithdrawTransaction({
         userWalletAccountId: accounts[0].id,
-        amount: Number(withdrawAmount),
-        type: "RUT_TIEN",
+        amount,
       });
 
-      if (res?.statusCode === 201 || res?.status === "SUCCESS") {
-        setBalance((prev) => prev - Number(withdrawAmount));
-        setMessage({ type: "success", text: "Rút tiền thành công!" });
-        setWithdrawAmount("");
-        await fetchTransactions();
-      } else {
-        throw new Error(res?.message || "Rút tiền thất bại");
+      if (![200, 201].includes(res?.statusCode)) {
+        throw new Error(res?.message || "Gửi yêu cầu rút tiền thất bại");
       }
+
+      // ✅ Không trừ balance ở UI vì admin mới là người confirm
+      setMessage({
+        type: "success",
+        text: "Đã gửi yêu cầu rút tiền. Vui lòng chờ admin xác nhận!",
+      });
+
+      setWithdrawAmount("");
+      await fetchTransactions(currentPage);
     } catch (err) {
       console.error("❌ Lỗi rút tiền supplier:", err);
       setMessage({
         type: "error",
-        text: "Không thể rút tiền, vui lòng thử lại!",
+        text:
+          err?.message || "Không thể gửi yêu cầu rút tiền, vui lòng thử lại!",
       });
     } finally {
       setLoading(false);
@@ -647,9 +661,14 @@ export default function SupplierPaymentsPage() {
                   onClick={handleWithdraw}
                   disabled={loading}
                 >
-                  {loading ? "Đang xử lý..." : "Rút"}
+                  {loading ? "Đang xử lý..." : "Gửi yêu cầu"}
                 </Button>
               </div>
+
+              <p className="text-xs text-gray-500 mt-2">
+                * Yêu cầu rút tiền sẽ ở trạng thái <b>PENDING</b> và được admin
+                xác nhận sau.
+              </p>
             </Card>
           </div>
 
@@ -682,6 +701,10 @@ export default function SupplierPaymentsPage() {
                     {transactions.map((t) => {
                       const isDeposit =
                         t.transaction_content?.includes("NAPTIEN");
+                      const isWithdraw =
+                        t.transaction_content?.includes("RUTTIEN");
+
+                      // Lấy amount từ transaction_content "... NAPTIEN 500 paymentCode ..."
                       const matchAmount = t.transaction_content?.match(
                         /(\d+)(?=\s*paymentCode)/
                       );
@@ -691,7 +714,11 @@ export default function SupplierPaymentsPage() {
                         <tr key={t.transactionId} className="border-b">
                           <td className="p-3">{t.transactionId}</td>
                           <td className="p-3">
-                            {isDeposit ? "Nạp tiền" : "Rút tiền"}
+                            {isDeposit
+                              ? "Nạp tiền"
+                              : isWithdraw
+                              ? "Rút tiền"
+                              : "Khác"}
                           </td>
                           <td
                             className={`p-3 font-semibold ${
@@ -705,7 +732,8 @@ export default function SupplierPaymentsPage() {
                               "p-3 font-medium",
                               t.status === "SUCCESS"
                                 ? "text-green-600"
-                                : t.status === "EXPIRED"
+                                : t.status === "EXPIRED" ||
+                                  t.status === "FAILED"
                                 ? "text-red-600"
                                 : "text-yellow-600"
                             )}
@@ -713,9 +741,13 @@ export default function SupplierPaymentsPage() {
                             {t.status}
                           </td>
                           <td className="p-3 text-gray-500">
-                            {new Date(t.transaction_date).toLocaleString(
-                              "vi-VN"
-                            )}
+                            {t.transaction_date
+                              ? new Date(t.transaction_date).toLocaleString(
+                                  "vi-VN"
+                                )
+                              : new Date(
+                                  t.created_at || t.createdAt
+                                ).toLocaleString("vi-VN")}
                           </td>
                         </tr>
                       );

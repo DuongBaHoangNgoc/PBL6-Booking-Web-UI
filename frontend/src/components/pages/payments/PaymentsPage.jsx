@@ -362,60 +362,6 @@ export default function PaymentsPage() {
     }
   };
 
-  // 💵 Rút xu (không cần QR)
-  const handleWithdraw = async () => {
-    if (!withdrawAmount || Number(withdrawAmount) <= 0) {
-      setMessage({ type: "error", text: "Vui lòng nhập số xu muốn rút!" });
-      return;
-    }
-    if (Number(withdrawAmount) > balance) {
-      setMessage({ type: "error", text: "Số xu rút vượt quá số dư!" });
-      return;
-    }
-    if (accounts.length === 0) {
-      setMessage({
-        type: "error",
-        text: "Bạn cần có tài khoản ngân hàng để rút tiền!",
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const account = accounts[0];
-      const amount = Number(withdrawAmount);
-
-      const res = await createTransaction({
-        userWalletAccountId: account.id,
-        amount,
-        type: "RUT_TIEN",
-      });
-
-      if (res?.statusCode === 201 || res?.status === "SUCCESS") {
-        setMessage({
-          type: "success",
-          text: `Đã rút ${amount.toLocaleString("vi-VN")} xu thành công!`,
-        });
-        setBalance((prev) => prev - amount);
-
-        await fetchTransactions(currentPage);
-        await fetchPaymentCoins(paymentCoinsPage); // ✅ refresh bảng thanh toán (nếu có liên quan)
-      } else {
-        throw new Error(res?.message || "Rút xu thất bại");
-      }
-
-      setWithdrawAmount("");
-    } catch (err) {
-      console.error("❌ Lỗi khi rút xu:", err);
-      setMessage({
-        type: "error",
-        text: "Không thể rút xu. Vui lòng thử lại!",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // 🔄 SSE stream listener
   const startSseStream = (paymentId) => {
     if (eventSource) eventSource.close();
@@ -719,29 +665,6 @@ export default function PaymentsPage() {
                     </p>
                   </div>
                 )}
-              </Card>
-
-              {/* Rút xu */}
-              <Card className="p-6">
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                  <ArrowUpCircle className="w-5 h-5 text-red-600" /> Rút xu
-                </h2>
-                <div className="flex flex-col md:flex-row items-center gap-4">
-                  <Input
-                    type="number"
-                    placeholder="Nhập số xu muốn rút"
-                    value={withdrawAmount}
-                    onChange={(e) => setWithdrawAmount(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                    onClick={handleWithdraw}
-                    disabled={loading}
-                  >
-                    {loading ? "Đang xử lý..." : "Rút Ngay"}
-                  </Button>
-                </div>
               </Card>
             </div>
 
