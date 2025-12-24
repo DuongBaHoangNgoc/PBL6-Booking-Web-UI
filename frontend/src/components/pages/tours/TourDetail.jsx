@@ -109,11 +109,10 @@ function ImageLightbox({ images, startIndex, open, onOpenChange }) {
               key={image.imageId}
               onClick={(e) => handleThumbnailClick(e, index)}
               className={`h-16 w-24 flex-shrink-0 rounded-md overflow-hidden transition-all border-2
-                  ${
-                    index === currentIndex
-                      ? "border-cyan-500 opacity-100"
-                      : "border-transparent opacity-50 hover:opacity-100"
-                  }
+                  ${index === currentIndex
+                  ? "border-cyan-500 opacity-100"
+                  : "border-transparent opacity-50 hover:opacity-100"
+                }
                 `}
             >
               <img
@@ -280,26 +279,46 @@ export default function TourDetail() {
   const handleConfirmBooking = async () => {
     setIsBooking(true);
     try {
+      const voucher = (formData.voucher || "").trim();
+
+      // 1) Nếu có nhập voucher thì kiểm tra bằng API trước
+      if (voucher) {
+        // gọi API tìm theo title (search)
+        const { items } = await getCouponsPagination(1, 50, voucher);
+
+        // tùy backend: title có thể match kiểu "contains", nên mình check thêm cho chắc
+        const found = items?.some(
+          (c) => (c?.title || "").trim().toLowerCase() === voucher.toLowerCase()
+        );
+
+        if (!found) {
+          alert("Mã giảm giá không hợp lệ hoặc không tồn tại.");
+          return; // ✅ chặn submit
+        }
+      }
+
+      // 2) Nếu ok thì submit booking
       const bookingData = {
         tourId: tour.tourId,
         userId: user.userId,
-        dateId: selectedDate.dateId, // ✅ object nên luôn có dateId
+        dateId: selectedDate.dateId,
         fullName: formData.fullName,
         email: formData.email,
         phoneNumber: formData.phoneNumber,
         address: formData.address,
         numAdults: travelers.adults,
         numChildren: travelers.children,
-        codeCoupon: formData.voucher || "",
+        codeCoupon: voucher || "",
         bookingStatus: "pending",
         receiveEmail: true,
       };
+
       await createBooking(bookingData);
       alert("Đặt tour thành công! Đang chuyển đến trang booking của bạn...");
       navigate("/bookings");
     } catch (err) {
       console.error("❌ Lỗi khi đặt tour:", err);
-      alert("Đã xảy ra lỗi khi đặt tour. Vui lòng thử lại.");
+      alert("Coupon không hoạt động hoặc đã hết hạn. Vui lòng thử lại.");
     } finally {
       setIsBooking(false);
       setOpenBookingForm(false);
@@ -340,8 +359,16 @@ export default function TourDetail() {
 
   // ✅ chỉ lấy ngày còn chỗ + từ hôm nay
   const availableDatesInStock = (availableDates || []).filter((d) => {
-    return new Date(d.startDate) >= new Date() && Number(d.availability) > 0;
+    const status = String(d?.status || "").toLowerCase(); // "active" | "inactive"
+    const isActive = status !== "inactive";
+
+    const start = new Date(d?.startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // so sánh theo ngày
+
+    return isActive && start >= today && Number(d?.availability || 0) > 0;
   });
+
 
   if (loading)
     return (
@@ -488,11 +515,10 @@ export default function TourDetail() {
                     title={isFavorite ? "Bỏ yêu thích" : "Thêm vào yêu thích"}
                   >
                     <Heart
-                      className={`w-6 h-6 transition-colors duration-300 ${
-                        isFavorite
-                          ? "fill-pink-500 text-pink-500"
-                          : "text-white group-hover/fav:text-pink-500"
-                      }`}
+                      className={`w-6 h-6 transition-colors duration-300 ${isFavorite
+                        ? "fill-pink-500 text-pink-500"
+                        : "text-white group-hover/fav:text-pink-500"
+                        }`}
                     />
                   </button>
 
@@ -515,10 +541,9 @@ export default function TourDetail() {
                           setSelectedImage(image.imageURL); // Cập nhật ảnh chính
                         }}
                         className={`h-20 md:h-24 rounded-xl overflow-hidden cursor-pointer border-2 transition-all relative group/thumb
-                          ${
-                            selectedImage === image.imageURL
-                              ? "border-cyan-500 ring-2 ring-cyan-100 ring-offset-1 opacity-100"
-                              : "border-transparent opacity-70 hover:opacity-100"
+                          ${selectedImage === image.imageURL
+                            ? "border-cyan-500 ring-2 ring-cyan-100 ring-offset-1 opacity-100"
+                            : "border-transparent opacity-70 hover:opacity-100"
                           }`}
                       >
                         <img
@@ -697,11 +722,10 @@ export default function TourDetail() {
                           {[...Array(5)].map((_, i) => (
                             <Star
                               key={i}
-                              className={`w-3.5 h-3.5 ${
-                                i < review.rating
-                                  ? "fill-current"
-                                  : "text-slate-200 fill-slate-200"
-                              }`}
+                              className={`w-3.5 h-3.5 ${i < review.rating
+                                ? "fill-current"
+                                : "text-slate-200 fill-slate-200"
+                                }`}
                             />
                           ))}
                         </div>
@@ -736,10 +760,10 @@ export default function TourDetail() {
                     </span>
                     {tour.originalPrice >
                       (selectedDate?.priceAdult || tour.price) && (
-                      <span className="text-sm text-slate-400 line-through decoration-slate-400">
-                        {tour.originalPrice.toLocaleString("vi-VN")}₫
-                      </span>
-                    )}
+                        <span className="text-sm text-slate-400 line-through decoration-slate-400">
+                          {tour.originalPrice.toLocaleString("vi-VN")}₫
+                        </span>
+                      )}
                   </div>
                 </div>
 
@@ -777,11 +801,10 @@ export default function TourDetail() {
                                 price: Number(d.priceAdult),
                               }));
                             }}
-                            className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
-                              isActive
-                                ? "border-primary text-primary bg-primary/10"
-                                : "border-border hover:border-primary/50"
-                            }`}
+                            className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${isActive
+                              ? "border-primary text-primary bg-primary/10"
+                              : "border-border hover:border-primary/50"
+                              }`}
                           >
                             <div>{formatted}</div>
                             <div className="text-xs text-muted-foreground">
@@ -797,11 +820,10 @@ export default function TourDetail() {
                     {/* Nút mở DatePicker */}
                     <button
                       onClick={() => setShowDatePicker((prev) => !prev)}
-                      className={`px-4 py-2 rounded-lg border flex items-center justify-center gap-1 transition ${
-                        showDatePicker
-                          ? "border-primary text-primary bg-primary/10"
-                          : "border-border hover:border-primary/50"
-                      }`}
+                      className={`px-4 py-2 rounded-lg border flex items-center justify-center gap-1 transition ${showDatePicker
+                        ? "border-primary text-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
+                        }`}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"

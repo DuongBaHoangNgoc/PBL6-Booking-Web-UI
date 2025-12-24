@@ -21,6 +21,7 @@ import { CheckCircle2 } from "lucide-react";
 import { getCouponsPagination, updateCoupon, deleteCoupon, createCoupon } from "@/api/coupons";
 import { Label } from "@radix-ui/react-label";
 import { useToast } from "@/hooks/use-toast";
+import { useMemo } from "react";
 /**
  * UI COMPONENTS (INLINED)
  */
@@ -277,6 +278,14 @@ export function ManageCouponsPage() {
         }
     };
 
+    const averageDiscount = useMemo(() => {
+        if (coupons.length === 0) return 0;
+        const total = coupons.reduce((sum, coupon) => sum + Number(coupon.discount || 0), 0);
+        const avg = total / coupons.length;
+        // Làm tròn 1 chữ số thập phân (Vd: 12.5%)
+        return Math.round(avg * 10) / 10;
+    }, [coupons]);
+
 
     return (
         <section className="min-h-screen my-10 pb-16 font-sans text-slate-900">
@@ -311,7 +320,7 @@ export function ManageCouponsPage() {
                         </div>
                         <div>
                             <p className="text-[10px] text-slate-500 uppercase font-black tracking-wider">Mức giảm trung bình</p>
-                            <span className="text-2xl font-bold">12%</span>
+                            <span className="text-2xl font-bold">{averageDiscount}</span>
                         </div>
                     </Card>
                     <Card className="p-5 flex items-center gap-4">

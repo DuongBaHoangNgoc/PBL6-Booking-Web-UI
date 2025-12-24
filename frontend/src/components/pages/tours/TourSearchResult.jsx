@@ -61,6 +61,7 @@ export default function TourSearchResult() {
         page: pagination.page,
         limit: pagination.limit,
         slug: debouncedSlug || undefined,
+        status: 'active'
       };
       const toursData = await filterTours(params);
 

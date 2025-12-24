@@ -230,11 +230,10 @@ function HashtagCombobox({ value, onChange }) {
                     onSelect={() => handleSelect(tag)}
                   >
                     <Check
-                      className={`mr-2 h-4 w-4 ${
-                        value.some((item) => item.hashtagId === tag.hashtagId)
+                      className={`mr-2 h-4 w-4 ${value.some((item) => item.hashtagId === tag.hashtagId)
                           ? "opacity-100"
                           : "opacity-0"
-                      }`}
+                        }`}
                     />
                     {tag.name}
                   </CommandItem>
@@ -289,7 +288,7 @@ function Step1Form({ onSubmit, loading, initialData, onDraftChange }) {
       (formData.file?.name || "") === (initialData.file?.name || "") &&
       (formData.file?.size || 0) === (initialData.file?.size || 0) &&
       JSON.stringify((formData.hashtags || []).map((t) => t.hashtagId)) ===
-        JSON.stringify((initialData.hashtags || []).map((t) => t.hashtagId));
+      JSON.stringify((initialData.hashtags || []).map((t) => t.hashtagId));
 
     if (same) return;
 
@@ -869,7 +868,6 @@ function Step3Form({
 
           <Textarea
             name="tl_description"
-            placeholder="Mô tả chi tiết (HTML)..."
             value={item.tl_description}
             onChange={(e) => handleChange(index, e)}
             required
@@ -928,14 +926,14 @@ function Step4Form({
     initialDates?.length
       ? initialDates
       : [
-          {
-            startDate: "",
-            endDate: "",
-            priceAdult: 1000000,
-            priceChildren: 700000,
-            quantity: 30,
-          },
-        ]
+        {
+          startDate: "",
+          endDate: "",
+          priceAdult: 1000000,
+          priceChildren: 700000,
+          quantity: 30,
+        },
+      ]
   );
 
   useEffect(() => {
