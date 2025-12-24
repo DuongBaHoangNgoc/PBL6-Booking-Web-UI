@@ -58,6 +58,15 @@ const formatHashtag = (text) => {
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
+const todayISO = () => {
+  const now = new Date();
+  // lấy ngày theo local timezone (đúng với input date)
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 const toISODateInput = (date) => {
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -911,6 +920,7 @@ function Step4Form({
   totalDays,
 }) {
   const daysNum = clamp(Number(totalDays) || 1, 1, 365);
+  const minStartDate = useMemo(() => todayISO(), []);
 
   const isHydratingRef = useRef(false);
 
@@ -1071,6 +1081,7 @@ function Step4Form({
                 name="startDate"
                 type="date"
                 value={item.startDate}
+                min={minStartDate}
                 onChange={(e) => handleChange(index, e)}
                 required
               />

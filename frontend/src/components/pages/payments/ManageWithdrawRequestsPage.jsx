@@ -51,6 +51,7 @@ import { format } from "date-fns";
 import {
   getTransactions,
   confirmWithdrawAndUpdateBalance,
+  cancelWithdrawTransaction, // ✅ thêm api hủy
 } from "@/api/transactions";
 
 const formatMoney = (n) =>
@@ -89,11 +90,10 @@ export function ManageWithdrawRequestsPage() {
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     transactionId: null,
-    type: null, // "APPROVE" | "REJECT"
+    type: null, // "APPROVE" | "CANCEL"
   });
 
   const handleFilterChange = (key, value) => {
-    // Khi thay đổi filter -> tự quay về trang 1 để tránh page rỗng
     setPagination((prev) => ({ ...prev, page: 1 }));
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
@@ -188,17 +188,22 @@ export function ManageWithdrawRequestsPage() {
         if (![200, 201].includes(res?.statusCode)) {
           throw new Error(res?.message || "Xác nhận rút tiền thất bại");
         }
-      } else if (type === "REJECT") {
-        alert(
-          "Hiện backend chưa có API từ chối (REJECT). Bạn cần bổ sung endpoint để cập nhật status FAILED/REJECTED."
-        );
+      }
+
+      if (type === "CANCEL") {
+        const res = await cancelWithdrawTransaction(transactionId);
+        if (![200, 201].includes(res?.statusCode)) {
+          throw new Error(res?.message || "Hủy yêu cầu rút tiền thất bại");
+        }
       }
 
       setConfirmDialog({ isOpen: false, transactionId: null, type: null });
       await fetchWithdrawRequests(pagination.page, debouncedFilters);
     } catch (err) {
       console.error("Action failed:", err);
-      alert(err?.message || "Thao tác thất bại.");
+      alert(
+        err?.response?.data?.message || err?.message || "Thao tác thất bại."
+      );
     } finally {
       setActionLoadingId(null);
     }
@@ -218,6 +223,12 @@ export function ManageWithdrawRequestsPage() {
           EXPIRED
         </Badge>
       );
+    if (status === "CANCELLED")
+      return (
+        <Badge variant="outline" className="text-gray-600 border-gray-600">
+          CANCELLED
+        </Badge>
+      );
     return (
       <Badge variant="outline" className="text-yellow-600 border-yellow-600">
         PENDING
@@ -232,7 +243,6 @@ export function ManageWithdrawRequestsPage() {
           Quản lý yêu cầu rút tiền
         </h1>
 
-        {/* ✅ Không cần nút làm mới nữa; vẫn có thể giữ nếu muốn, nhưng yêu cầu là bỏ */}
         <div className="text-sm text-muted-foreground">
           {loading ? "Đang tải..." : `Tổng: ${pagination.totalItems} yêu cầu`}
         </div>
@@ -273,6 +283,7 @@ export function ManageWithdrawRequestsPage() {
             <SelectItem value="SUCCESS">SUCCESS</SelectItem>
             <SelectItem value="FAILED">FAILED</SelectItem>
             <SelectItem value="EXPIRED">EXPIRED</SelectItem>
+            <SelectItem value="CANCELLED">CANCELLED</SelectItem>
             <SelectItem value="all">Tất cả</SelectItem>
           </SelectContent>
         </Select>
@@ -322,6 +333,9 @@ export function ManageWithdrawRequestsPage() {
                 const amount =
                   extractAmountFromContent(t.transaction_content) ||
                   Math.abs(Number(t.amount_in || 0));
+
+                const isPending = t.status === "PENDING";
+                const isActionLoading = actionLoadingId === t.transactionId;
 
                 return (
                   <TableRow key={t.transactionId}>
@@ -373,10 +387,7 @@ export function ManageWithdrawRequestsPage() {
                           <DropdownMenuSeparator />
 
                           <DropdownMenuItem
-                            disabled={
-                              t.status !== "PENDING" ||
-                              actionLoadingId === t.transactionId
-                            }
+                            disabled={!isPending || isActionLoading}
                             onClick={() =>
                               openConfirmDialog(t.transactionId, "APPROVE")
                             }
@@ -386,19 +397,16 @@ export function ManageWithdrawRequestsPage() {
                           </DropdownMenuItem>
 
                           <DropdownMenuItem
-                            disabled={
-                              t.status !== "PENDING" ||
-                              actionLoadingId === t.transactionId
-                            }
+                            disabled={!isPending || isActionLoading}
                             onClick={() =>
-                              openConfirmDialog(t.transactionId, "REJECT")
+                              openConfirmDialog(t.transactionId, "CANCEL")
                             }
                           >
                             <XCircle className="w-4 h-4 mr-2 text-red-600" />
-                            Từ chối (Reject)
+                            Hủy yêu cầu (Cancel)
                           </DropdownMenuItem>
 
-                          {actionLoadingId === t.transactionId && (
+                          {isActionLoading && (
                             <div className="px-2 py-2 text-xs text-muted-foreground flex items-center gap-2">
                               <Loader2 className="w-4 h-4 animate-spin" />
                               Đang xử lý...
@@ -452,12 +460,12 @@ export function ManageWithdrawRequestsPage() {
             <AlertDialogTitle>
               {confirmDialog.type === "APPROVE"
                 ? "Xác nhận yêu cầu rút tiền?"
-                : "Từ chối yêu cầu rút tiền?"}
+                : "Hủy yêu cầu rút tiền?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmDialog.type === "APPROVE"
                 ? "Hệ thống sẽ trừ số dư ví và chuyển trạng thái sang SUCCESS."
-                : "Hiện backend chưa có API từ chối. Nếu bạn có endpoint reject, mình sẽ nối vào giúp bạn."}
+                : "Hệ thống sẽ chuyển trạng thái transaction sang CANCELLED (không trừ số dư)."}
               <div className="mt-2 text-xs text-muted-foreground">
                 Transaction ID: <b>{confirmDialog.transactionId}</b>
               </div>

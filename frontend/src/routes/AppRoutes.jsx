@@ -24,7 +24,7 @@ import { ManageTourDetailPage } from "@/components/pages/tours/ManageTourDetailP
 import { SupplierDashboard } from "@/components/pages/dashboard/SupplierDashBoard";
 import { SupplierLayout } from "@/components/layout/SupplierLayout";
 import { SupplierRoute } from "./SupplierRoute";
-import ManageBookingsPage from "@/pages/ManageBookingsPage";
+import ManageBookingsPage from "@/pages/SupplierBookingsPage";
 import CalendarPage from "@/pages/CalendarPage";
 import SupplierPaymentsPage from "@/components/pages/payments/SupplierPaymentsPage";
 import { EarningsPage } from "@/pages/EarningsPage";

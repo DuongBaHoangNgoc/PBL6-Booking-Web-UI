@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Card,
@@ -49,7 +49,6 @@ import {
   deleteTimeline,
   createStartDate,
   updateStartDate,
-  // deleteStartDate, // ❌ không dùng nữa (vì giờ xóa = cancel + inactive)
   createImages,
   deleteImage,
   getImagesByTourId,
@@ -93,6 +92,15 @@ const formatHashtag = (text) => {
   const slug = slugify(cleaned, { lower: true, strict: true, locale: "vi" });
   const formatted = slug.replace(/-/g, "");
   return `#${formatted}`;
+};
+
+const todayISO = () => {
+  const now = new Date();
+  // lấy ngày theo local timezone (đúng với input date)
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 };
 
 const toISODateInput = (date) => {
@@ -474,6 +482,7 @@ function EditTimelines({ tourId, timelines, onTimelinesUpdated }) {
 // ================= StartDate dialogs =================
 function AddStartDateForm({ tourId, tourTime, open, onOpenChange, onSuccess }) {
   const totalDays = Math.max(1, parseDaysFromTime(tourTime)); // ví dụ "3 ngày 2 đêm" => 3
+  const minStartDate = useMemo(() => todayISO(), []);
 
   const [formData, setFormData] = useState({
     tourId,
@@ -545,6 +554,7 @@ function AddStartDateForm({ tourId, tourTime, open, onOpenChange, onSuccess }) {
                 name="startDate"
                 type="date"
                 value={formData.startDate}
+                min={minStartDate}
                 onChange={handleChange}
                 required
               />

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+"use client";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useDebounce } from "@/hook/useDebounce";
+import { useAuth } from "@/context/useAuth";
 
 import {
   DropdownMenu,
@@ -28,11 +30,14 @@ import {
   supplierCancelBookingByIdBooking,
 } from "@/api/bookings";
 
-export default function AdminBookingPage() {
+export default function SupplierBookingsPage() {
+  const { user } = useAuth();
+
   const [bookings, setBookings] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
 
+  // ✅ Supplier filter giống Admin + có status
   const [filters, setFilters] = useState({
     email: "",
     fullName: "",
@@ -47,39 +52,8 @@ export default function AdminBookingPage() {
 
   const limit = 10;
 
-  /**
-   * ✅ map theo bookingId:
-   * { [bookingId]: { dateId, state: 'waiting|active|completed|failed' } }
-   */
   const [cancelingMap, setCancelingMap] = useState({});
-  const pollersRef = useRef({}); // bookingId -> intervalId (hiện chưa dùng, giữ lại nếu sau này cần)
-
-  const fetchBookings = async (pageArg = page) => {
-    const result = await getFilteredBookings({
-      page: pageArg,
-      limit,
-      email: debouncedEmail,
-      fullName: debouncedName,
-      phoneNumber: debouncedPhone,
-      bookingStatus: debouncedStatus,
-    });
-
-    const list = result.bookings || [];
-    setBookings(list);
-    setTotal(result.total || 0);
-    return list;
-  };
-
-  const handleDelete = async (bookingId) => {
-    if (!confirm("Bạn có chắc muốn xóa booking này?")) return;
-    try {
-      await deleteBooking(bookingId);
-      alert("✅ Đã xóa booking!");
-      fetchBookings();
-    } catch (err) {
-      alert(err?.response?.data?.message || "❌ Lỗi khi xóa booking!");
-    }
-  };
+  const pollersRef = useRef({});
 
   const stopPolling = (bookingId) => {
     const intervalId = pollersRef.current[bookingId];
@@ -98,14 +72,50 @@ export default function AdminBookingPage() {
     }
   };
 
-  /**
-   * ✅ DISABLE hủy nếu booking CONFIRMED nhưng startDate đã qua (quá khứ / đang diễn ra)
-   */
+  // ✅ disable hủy nếu confirmed nhưng startDate đã qua/đang diễn ra
   const isPastConfirmed = (b) => {
     if (b?.bookingStatus !== "confirmed") return false;
     const start = b?.date?.startDate;
-    if (!start) return false; // không có startDate thì không chặn
+    if (!start) return false;
     return new Date(start).getTime() <= Date.now();
+  };
+
+  const fetchBookings = async (pageArg = page) => {
+    if (!user?.userId) return;
+
+    const result = await getFilteredBookings({
+      page: pageArg,
+      limit,
+
+      // ✅ lọc theo supplierId để ra đúng dữ liệu của supplier
+      supplierId: user.userId,
+
+      email: debouncedEmail || undefined,
+      fullName: debouncedName || undefined,
+      phoneNumber: debouncedPhone || undefined,
+      bookingStatus: debouncedStatus || undefined,
+    });
+
+    // tuỳ backend trả về: result.data.bookings / result.bookings
+    const list =
+      result?.data?.bookings || result?.bookings || result?.data?.items || [];
+    const totalCount =
+      result?.data?.total || result?.total || result?.data?.totalItems || 0;
+
+    setBookings(Array.isArray(list) ? list : []);
+    setTotal(Number(totalCount) || 0);
+    return list;
+  };
+
+  const handleDelete = async (bookingId) => {
+    if (!confirm("Bạn có chắc muốn xóa booking này?")) return;
+    try {
+      await deleteBooking(bookingId);
+      alert("✅ Đã xóa booking!");
+      fetchBookings(page);
+    } catch (err) {
+      alert(err?.response?.data?.message || "❌ Lỗi khi xóa booking!");
+    }
   };
 
   const handleCancel = async (b) => {
@@ -127,25 +137,21 @@ export default function AdminBookingPage() {
 
       // ✅ gọi API hủy theo bookingId
       const res = await supplierCancelBookingByIdBooking(bookingId);
-      console.log("[SUPPLIER CANCEL]", res);
 
-      // ✅ Backend bạn đang trả ResponseData: { data, message, statusCode }
       const statusCode = res?.statusCode;
       const message = res?.message;
 
-      // ❌ Nếu backend báo lỗi → throw để rơi vào catch
       if (statusCode && statusCode !== 200 && statusCode !== 201) {
         throw new Error(message || "Hủy booking thất bại!");
       }
 
-      // ✅ UPDATE UI NGAY
+      // ✅ update UI ngay
       setBookings((prev) =>
         prev.map((bk) =>
           bk.bookingId === bookingId ? { ...bk, bookingStatus: "canceled" } : bk
         )
       );
 
-      // ✅ CLEAR canceling
       setCancelingMap((prev) => {
         const clone = { ...prev };
         delete clone[bookingId];
@@ -153,21 +159,16 @@ export default function AdminBookingPage() {
       });
 
       alert("✅ Hủy booking thành công!");
-
-      setTimeout(() => fetchBookings(page), 800);
+      setTimeout(() => fetchBookings(page), 600);
       stopPolling(bookingId);
     } catch (err) {
-      console.error("❌ Supplier cancel error:", err);
-
       stopPolling(bookingId);
-
       setCancelingMap((prev) => {
         const clone = { ...prev };
         delete clone[bookingId];
         return clone;
       });
 
-      // ✅ ưu tiên message từ backend nếu có
       alert(
         err?.response?.data?.message ||
           err?.message ||
@@ -176,16 +177,24 @@ export default function AdminBookingPage() {
     }
   };
 
+  // ✅ fetch khi page đổi
   useEffect(() => {
-    fetchBookings();
+    fetchBookings(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, user?.userId]);
 
+  // ✅ fetch khi filter debounce đổi
   useEffect(() => {
     setPage(1);
     fetchBookings(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedEmail, debouncedName, debouncedPhone, debouncedStatus]);
+  }, [
+    debouncedEmail,
+    debouncedName,
+    debouncedPhone,
+    debouncedStatus,
+    user?.userId,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -196,39 +205,48 @@ export default function AdminBookingPage() {
     };
   }, []);
 
+  const totalPages = useMemo(() => Math.ceil(total / limit) || 1, [total]);
+
   return (
     <section className="min-h-screen my-20 pb-24">
       <div className="container mx-auto px-4">
-        <h1 className="text-3xl font-bold mb-6 text-foreground">
-          All Bookings
-        </h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-foreground">All Bookings</h1>
+          <div className="text-sm text-muted-foreground">
+            Total: <b>{total}</b>
+          </div>
+        </div>
 
+        {/* Filters */}
         <Card className="p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Input
               placeholder="Search by email"
               value={filters.email}
               onChange={(e) =>
-                setFilters({ ...filters, email: e.target.value })
+                setFilters((prev) => ({ ...prev, email: e.target.value }))
               }
             />
             <Input
               placeholder="Search by full name"
               value={filters.fullName}
               onChange={(e) =>
-                setFilters({ ...filters, fullName: e.target.value })
+                setFilters((prev) => ({ ...prev, fullName: e.target.value }))
               }
             />
             <Input
               placeholder="Search by phone"
               value={filters.phoneNumber}
               onChange={(e) =>
-                setFilters({ ...filters, phoneNumber: e.target.value })
+                setFilters((prev) => ({ ...prev, phoneNumber: e.target.value }))
               }
             />
             <Select
               onValueChange={(v) =>
-                setFilters({ ...filters, bookingStatus: v === "all" ? "" : v })
+                setFilters((prev) => ({
+                  ...prev,
+                  bookingStatus: v === "all" ? "" : v,
+                }))
               }
               value={filters.bookingStatus || "all"}
             >
@@ -245,20 +263,15 @@ export default function AdminBookingPage() {
           </div>
         </Card>
 
+        {/* Table */}
         <Card className="p-6 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                {/* <th className="py-3 px-4 font-semibold">ID</th> */}
                 <th className="py-3 px-4 font-semibold">Full Name</th>
-                {/* <th className="py-3 px-4 font-semibold">Email</th> */}
                 <th className="py-3 px-4 font-semibold">Phone</th>
                 <th className="py-3 px-4 font-semibold">Tour</th>
-
-                {/* ✅ thêm cột */}
                 <th className="py-3 px-4 font-semibold">Start</th>
-                {/* <th className="py-3 px-4 font-semibold">End</th> */}
-
                 <th className="py-3 px-4 font-semibold">Status</th>
                 <th className="py-3 px-4 font-semibold">Price</th>
                 <th className="py-3 px-4 font-semibold text-right">Actions</th>
@@ -274,25 +287,20 @@ export default function AdminBookingPage() {
                   b.bookingStatus === "canceled" ||
                   isCanceling ||
                   b.bookingStatus !== "confirmed" ||
-                  isPastConfirmed(b); // ✅ confirmed nhưng startDate đã qua => disable
+                  isPastConfirmed(b);
 
                 return (
                   <tr
                     key={b.bookingId}
                     className="border-b border-border hover:bg-muted/50 transition-colors"
                   >
-                    {/* <td className="py-3 px-4">{b.bookingId}</td> */}
                     <td className="py-3 px-4">{b.fullName}</td>
-                    {/* <td className="py-3 px-4">{b.email}</td> */}
                     <td className="py-3 px-4">{b.phoneNumber}</td>
                     <td className="py-3 px-6">{b.tour?.title}</td>
 
                     <td className="py-3 px-4">
                       {formatDate(b?.date?.startDate)}
                     </td>
-                    {/* <td className="py-3 px-4">
-                      {formatDate(b?.date?.endDate)}
-                    </td> */}
 
                     <td className="py-3 px-4">
                       <span
@@ -315,7 +323,7 @@ export default function AdminBookingPage() {
                     </td>
 
                     <td className="py-3 px-4">
-                      {Number(b.totalPrice).toLocaleString("vi-VN")}₫
+                      {Number(b.totalPrice || 0).toLocaleString("vi-VN")}₫
                     </td>
 
                     <td className="py-3 px-4 text-right">
@@ -341,12 +349,12 @@ export default function AdminBookingPage() {
                                 ? "Đang hủy..."
                                 : isPastConfirmed(b)
                                 ? "Không thể hủy (quá hạn)"
-                                : "Hủy booking (theo ngày)"}
+                                : "Hủy booking"}
                             </span>
                           </DropdownMenuItem>
 
+                          {/* Nếu supplier KHÔNG được xóa booking thì bạn bỏ item này */}
                           <DropdownMenuSeparator />
-
                           <DropdownMenuItem
                             onClick={() => handleDelete(b.bookingId)}
                             className="cursor-pointer flex items-center gap-2 text-red-600 focus:text-red-600"
@@ -363,6 +371,7 @@ export default function AdminBookingPage() {
             </tbody>
           </table>
 
+          {/* Pagination */}
           <div className="flex justify-between items-center mt-4">
             <Button
               variant="outline"
@@ -373,12 +382,12 @@ export default function AdminBookingPage() {
             </Button>
 
             <span className="text-sm text-muted-foreground">
-              Page {page} / {Math.ceil(total / limit) || 1}
+              Page {page} / {totalPages}
             </span>
 
             <Button
               variant="outline"
-              disabled={page * limit >= total}
+              disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
             >
               Next

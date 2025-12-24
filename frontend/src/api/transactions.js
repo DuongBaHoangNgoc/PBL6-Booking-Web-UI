@@ -75,3 +75,19 @@ export const confirmWithdrawAndUpdateBalance = async (transactionId) => {
     throw error;
   }
 };
+
+/**
+ * ❌ Admin hủy yêu cầu rút tiền (cancel transaction rút tiền)
+ * Backend: POST /transactions/CancelRutTien/:id
+ * @param {number|string} transactionId - ID transaction cần hủy
+ * @returns {Promise<Object>} ResponseData<TransactionEntity>
+ */
+export const cancelWithdrawTransaction = async (transactionId) => {
+  try {
+    const res = await api.post(`/transactions/CancelRutTien/${transactionId}`);
+    return res.data;
+  } catch (error) {
+    console.error("❌ Lỗi khi hủy transaction rút tiền:", error);
+    throw error;
+  }
+};
