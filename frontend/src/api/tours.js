@@ -359,16 +359,16 @@ export async function getImagesByTourId(tourId) {
 }
 
 // PATCH /start-end-dates/updateStatus/:id?status=active
-export const updateStartEndDateStatus = async ({ id, status }) => {
-  const res = await api.patch(
-    `/start-end-dates/updateStatus/${id}`,
-    null, // body = null vì backend lấy status từ query
-    { params: { status } }
-  );
+export async function updateStartEndDateStatus(dateId, status) {
+  const safeId = Number(dateId);
+  if (!Number.isFinite(safeId) || safeId <= 0)
+    throw new Error("Invalid dateId");
 
-  // res.data thường là ResponseData<StartEndDateEntity>
-  return res.data;
-};
+  const res = await api.patch(`/start-end-dates/updateStatus/${safeId}`, null, {
+    params: { status },
+  });
+  return res.data; // {data, message, statusCode}
+}
 
 /**
  * 🤖 Gọi API phân tích tour bằng AI

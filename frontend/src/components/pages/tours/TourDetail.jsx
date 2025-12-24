@@ -357,7 +357,7 @@ export default function TourDetail() {
     return adultPrice * travelers.adults + childPrice * travelers.children;
   };
 
-  // ✅ chỉ lấy ngày còn chỗ + từ hôm nay
+  // ✅ chỉ lấy ngày: status active + còn chỗ + từ hôm nay
   const availableDatesInStock = (availableDates || []).filter((d) => {
     const status = String(d?.status || "").toLowerCase(); // "active" | "inactive"
     const isActive = status !== "inactive";
