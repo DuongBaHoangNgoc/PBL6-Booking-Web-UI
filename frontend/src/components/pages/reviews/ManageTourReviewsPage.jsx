@@ -61,11 +61,10 @@ const StarsView = ({ value }) => {
         {Array.from({ length: 5 }).map((_, i) => (
           <Star
             key={i}
-            className={`w-4 h-4 ${
-              i < full
+            className={`w-4 h-4 ${i < full
                 ? "text-yellow-500 fill-yellow-500"
                 : "text-muted-foreground"
-            }`}
+              }`}
           />
         ))}
       </div>
@@ -544,7 +543,7 @@ export function ManageTourReviewsPage() {
           if (!v) handleCloseReviews();
         }}
       >
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Đánh giá tour: {selectedTour?.title || ""}
