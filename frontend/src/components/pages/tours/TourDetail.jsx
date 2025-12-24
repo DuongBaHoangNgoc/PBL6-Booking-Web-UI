@@ -280,26 +280,46 @@ export default function TourDetail() {
   const handleConfirmBooking = async () => {
     setIsBooking(true);
     try {
+      const voucher = (formData.voucher || "").trim();
+
+      // 1) Nếu có nhập voucher thì kiểm tra bằng API trước
+      if (voucher) {
+        // gọi API tìm theo title (search)
+        const { items } = await getCouponsPagination(1, 50, voucher);
+
+        // tùy backend: title có thể match kiểu "contains", nên mình check thêm cho chắc
+        const found = items?.some(
+          (c) => (c?.title || "").trim().toLowerCase() === voucher.toLowerCase()
+        );
+
+        if (!found) {
+          alert("Mã giảm giá không hợp lệ hoặc không tồn tại.");
+          return; // ✅ chặn submit
+        }
+      }
+
+      // 2) Nếu ok thì submit booking
       const bookingData = {
         tourId: tour.tourId,
         userId: user.userId,
-        dateId: selectedDate.dateId, // ✅ object nên luôn có dateId
+        dateId: selectedDate.dateId,
         fullName: formData.fullName,
         email: formData.email,
         phoneNumber: formData.phoneNumber,
         address: formData.address,
         numAdults: travelers.adults,
         numChildren: travelers.children,
-        codeCoupon: formData.voucher || "",
+        codeCoupon: voucher || "",
         bookingStatus: "pending",
         receiveEmail: true,
       };
+
       await createBooking(bookingData);
       alert("Đặt tour thành công! Đang chuyển đến trang booking của bạn...");
       navigate("/bookings");
     } catch (err) {
       console.error("❌ Lỗi khi đặt tour:", err);
-      alert("Đã xảy ra lỗi khi đặt tour. Vui lòng thử lại.");
+      alert("Coupon không hoạt động hoặc đã hết hạn. Vui lòng thử lại.");
     } finally {
       setIsBooking(false);
       setOpenBookingForm(false);
@@ -338,9 +358,16 @@ export default function TourDetail() {
     return adultPrice * travelers.adults + childPrice * travelers.children;
   };
 
-  // ✅ chỉ lấy ngày còn chỗ + từ hôm nay
+  // ✅ chỉ lấy ngày: status active + còn chỗ + từ hôm nay
   const availableDatesInStock = (availableDates || []).filter((d) => {
-    return new Date(d.startDate) >= new Date() && Number(d.availability) > 0;
+    const status = String(d?.status || "").toLowerCase(); // "active" | "inactive"
+    const isActive = status !== "inactive";
+
+    const start = new Date(d?.startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // so sánh theo ngày
+
+    return isActive && start >= today && Number(d?.availability || 0) > 0;
   });
 
   if (loading)

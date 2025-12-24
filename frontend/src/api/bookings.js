@@ -37,16 +37,13 @@ export async function cancelBookingQueued({
   // ✅ trả thẳng { jobId, bookingId }
   return res.data?.data ?? res.data;
 }
-
 export async function supplierCancelBooking(dateId) {
-  try {
-    const res = await api.post(`/bookings/SupplierCancelBooking/${dateId}`);
-    // backend bọc ResponseData => res.data.data
-    return res.data?.data ?? res.data;
-  } catch (err) {
-    console.error("❌ Lỗi khi gọi SupplierCancelBooking:", err);
-    throw err;
-  }
+  const safeId = Number(dateId);
+  if (!Number.isFinite(safeId) || safeId <= 0)
+    throw new Error("Invalid dateId");
+
+  const res = await api.post(`/bookings/SupplierCancelBooking/${safeId}`);
+  return res.data?.data; // ✅ luôn trả { message, jobIds }
 }
 
 // ✅ 3) CHECK JOB STATUS (poll)

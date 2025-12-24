@@ -795,9 +795,14 @@ function EditStartDates({ tourId, tourTime, startDates, onStartDatesUpdated }) {
     (d) => String(d.status || "active").toLowerCase() === "active"
   );
 
-  // ✅ delete flow: cancel booking -> update inactive -> refresh
   const handleDelete = async (dateId) => {
-    if (!dateId) return;
+    const safeId = Number(dateId);
+
+    if (!Number.isFinite(safeId) || safeId <= 0) {
+      console.error("Invalid dateId:", dateId);
+      alert("dateId không hợp lệ. Vui lòng reload trang và thử lại.");
+      return;
+    }
 
     if (
       !window.confirm(
@@ -807,32 +812,33 @@ function EditStartDates({ tourId, tourTime, startDates, onStartDatesUpdated }) {
       return;
 
     try {
-      setDeletingId(dateId);
+      setDeletingId(safeId);
 
-      // 1) cancel/refund
-      const cancelRes = await supplierCancelBooking(dateId);
-      // cancelRes hiện tại của bạn là { message, jobIds }
-      if (!cancelRes?.message) {
+      const cancelRes = await supplierCancelBooking(safeId);
+      if (!cancelRes?.message)
         throw new Error("SupplierCancelBooking thất bại");
-      }
 
-      // 2) update inactive
-      const upRes = await updateStartEndDateStatus(dateId, "inactive");
-      // upRes nên là wrapper { data, message, statusCode }
+      const upRes = await updateStartEndDateStatus(safeId, "inactive");
       if (upRes?.statusCode && upRes.statusCode !== 200) {
         throw new Error(upRes?.message || "Update status thất bại");
       }
 
-      // 3) refresh list
       await onStartDatesUpdated?.();
       alert("✅ Đã hoàn tiền & chuyển trạng thái inactive.");
     } catch (err) {
-      console.error(err);
+      console.error("❌ RAW ERR:", err);
+      console.error("❌ message:", err?.message);
+      console.error("❌ stack:", err?.stack);
+      console.error("❌ axios?", {
+        url: err?.config?.url,
+        method: err?.config?.method,
+        status: err?.response?.status,
+        data: err?.response?.data,
+      });
+
       alert(
-        err?.response?.data?.message || err.message || "❌ Thao tác thất bại"
+        err?.response?.data?.message || err?.message || "❌ Thao tác thất bại"
       );
-    } finally {
-      setDeletingId(null);
     }
   };
 
@@ -861,49 +867,61 @@ function EditStartDates({ tourId, tourTime, startDates, onStartDatesUpdated }) {
             </TableHeader>
 
             <TableBody>
-              {activeStartDates.map((item) => (
-                <TableRow key={item.dateId}>
-                  <TableCell>
-                    {format(new Date(item.startDate), "dd/MM/yyyy")}
-                  </TableCell>
-                  <TableCell>
-                    {format(new Date(item.endDate), "dd/MM/yyyy")}
-                  </TableCell>
-                  <TableCell>
-                    {Number(item.priceAdult || 0).toLocaleString("vi-VN")}₫
-                  </TableCell>
-                  <TableCell>
-                    {Number(item.priceChildren || 0).toLocaleString("vi-VN")}₫
-                  </TableCell>
-                  <TableCell>{item.quantity}</TableCell>
+              {activeStartDates.map((item) => {
+                const rowId = Number(item.dateId);
 
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setEditingStartDate(item)}
-                      disabled={deletingId === item.dateId}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
+                return (
+                  <TableRow key={String(item.dateId)}>
+                    <TableCell>
+                      {item.startDate
+                        ? format(new Date(item.startDate), "dd/MM/yyyy")
+                        : "-"}
+                    </TableCell>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-red-600"
-                      onClick={() => handleDelete(item.dateId)}
-                      disabled={deletingId === item.dateId}
-                      title="Hoàn tiền + chuyển inactive"
-                    >
-                      {deletingId === item.dateId ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    <TableCell>
+                      {item.endDate
+                        ? format(new Date(item.endDate), "dd/MM/yyyy")
+                        : "-"}
+                    </TableCell>
+
+                    <TableCell>
+                      {Number(item.priceAdult || 0).toLocaleString("vi-VN")}₫
+                    </TableCell>
+
+                    <TableCell>
+                      {Number(item.priceChildren || 0).toLocaleString("vi-VN")}₫
+                    </TableCell>
+
+                    <TableCell>{item.quantity ?? "-"}</TableCell>
+
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingStartDate(item)}
+                        disabled={deletingId === rowId}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-600"
+                        onClick={() => handleDelete(rowId)}
+                        disabled={deletingId === rowId}
+                        title="Hoàn tiền + chuyển inactive"
+                      >
+                        {deletingId === rowId ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
 
               {activeStartDates.length === 0 && (
                 <TableRow>
