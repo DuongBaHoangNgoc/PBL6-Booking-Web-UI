@@ -61,11 +61,10 @@ const StarsView = ({ value }) => {
         {Array.from({ length: 5 }).map((_, i) => (
           <Star
             key={i}
-            className={`w-4 h-4 ${
-              i < full
-                ? "text-yellow-500 fill-yellow-500"
-                : "text-muted-foreground"
-            }`}
+            className={`w-4 h-4 ${i < full
+              ? "text-yellow-500 fill-yellow-500"
+              : "text-muted-foreground"
+              }`}
           />
         ))}
       </div>
@@ -443,8 +442,8 @@ export function ManageTourReviewsPage() {
 
       {/* TABLE TOURS */}
       {!loadingTours && !errorTours && tours.length > 0 && (
-        <div className="border rounded-lg">
-          <Table>
+        <div className="rounded-md border overflow-x-auto w-full">
+          <Table className="min-w-[800px] md:min-w-full">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[100px]">Ảnh</TableHead>
@@ -544,7 +543,7 @@ export function ManageTourReviewsPage() {
           if (!v) handleCloseReviews();
         }}
       >
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Đánh giá tour: {selectedTour?.title || ""}
