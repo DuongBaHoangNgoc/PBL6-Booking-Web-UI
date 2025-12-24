@@ -11,6 +11,7 @@ import {
   XCircle,
   CheckCircle,
   Ban,
+  Star,
 } from "lucide-react";
 import {
   Dialog,
@@ -22,19 +23,22 @@ import {
 import { getAccountsFilterPagination } from "@/api/wallet_accounts";
 import { payBookingWithCoin } from "@/api/bookings";
 
-// ✅ thêm 3 api mới
+// ✅ cancel apis
 import {
   getPriceBookingCancel,
   cancelBookingQueued,
   getCancelJobStatus,
 } from "@/api/bookings";
 
+// ✅ review apis
+import { createReview, getReviewsFilterPagination } from "@/api/reviews";
+
 export default function BookingDetailPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const bookingFromState = location.state?.booking;
 
-  // 🔥 local booking state để update UI sau khi pay/cancel
+  // local booking state để update UI sau khi pay/cancel
   const [booking, setBooking] = useState(bookingFromState || null);
 
   // Payment dialog
@@ -55,10 +59,21 @@ export default function BookingDetailPage() {
   // poll ref
   const cancelPollRef = useRef(null);
 
+  // ✅ REVIEW state
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewMsg, setReviewMsg] = useState({ type: "", text: "" });
+  const [existingReview, setExistingReview] = useState(null);
+  const [reviewChecking, setReviewChecking] = useState(false);
+
   const userId = booking?.user?.userId;
   const totalPrice = Number(booking?.totalPrice || 0);
   const tour = booking?.tour || {};
   const dateInfo = booking?.date || {};
+
+  const endDate = dateInfo?.endDate ? new Date(dateInfo.endDate) : null;
+  const isTripCompleted = !!endDate && endDate.getTime() < Date.now();
 
   useEffect(() => {
     return () => {
@@ -67,6 +82,48 @@ export default function BookingDetailPage() {
       }
     };
   }, []);
+
+  // ✅ check đã review chưa khi trip completed
+  useEffect(() => {
+    const run = async () => {
+      if (!booking) return;
+      if (booking.bookingStatus !== "confirmed") return;
+      if (!isTripCompleted) return;
+      if (!userId || !tour?.tourId) return;
+
+      setReviewChecking(true);
+      try {
+        // FilterPagination: page, limit, userId, tourId
+        const res = await getReviewsFilterPagination({
+          page: 1,
+          limit: 10,
+          userId,
+          tourId: tour.tourId,
+        });
+
+        // Backend ResponseData: { data: { reviews: [], countReviews }, message, statusCode }
+        const reviews = res?.data?.reviews || [];
+        if (Array.isArray(reviews) && reviews.length > 0) {
+          // nếu backend cho phép nhiều review, lấy cái mới nhất (fallback: cái đầu)
+          const r = reviews[0];
+          setExistingReview(r);
+          // set UI hiển thị đúng rating/comment
+          if (typeof r?.rating === "number") setReviewRating(r.rating);
+          if (typeof r?.comment === "string") setReviewComment(r.comment);
+        } else {
+          setExistingReview(null);
+        }
+      } catch (e) {
+        // không chặn UI, chỉ báo nhẹ
+        console.warn("⚠️ Cannot check existing review:", e);
+      } finally {
+        setReviewChecking(false);
+      }
+    };
+
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booking?.bookingStatus, isTripCompleted, userId, tour?.tourId]);
 
   if (!booking)
     return (
@@ -130,7 +187,7 @@ export default function BookingDetailPage() {
           text: "Thanh toán thành công! Đang quay lại danh sách booking...",
         });
 
-        // ✅ update UI local nếu backend trả booking đã confirmed
+        // update UI local nếu backend trả booking đã confirmed
         if (res?.data?.bookingStatus) {
           setBooking((prev) => ({
             ...prev,
@@ -166,23 +223,30 @@ export default function BookingDetailPage() {
 
     try {
       const res = await getPriceBookingCancel(booking.bookingId);
+      // res = { data, message, statusCode }
+      const payload = res?.data;
 
-      const data = res?.data;
+      // 1) Nếu backend báo không được hủy:
+      const denyMsg =
+        payload?.message || // message nằm trong data
+        (payload === null ? res?.message : null); // hoặc message nằm ở wrapper khi data=null
 
-      // backend bạn gửi: { data: { message: "Cannot cancel..." }, statusCode: 200 }
-      if (data?.message) {
-        // ❌ không được hủy
+      if (denyMsg && denyMsg !== "SUCCESS") {
         setOpenCancel(true);
-        setCancelInfo({ priceToRefund: null, infoText: data.message });
+        setCancelInfo({ priceToRefund: null, infoText: denyMsg });
         return;
       }
 
-      if (typeof data?.priceToRefund === "number") {
+      // 2) Lấy tiền hoàn (chấp nhận number/string)
+      const rawRefund = payload?.priceToRefund;
+      const refund =
+        rawRefund !== undefined && rawRefund !== null
+          ? Number(rawRefund)
+          : null;
+
+      if (refund !== null && !Number.isNaN(refund)) {
         setOpenCancel(true);
-        setCancelInfo({
-          priceToRefund: Number(data.priceToRefund),
-          infoText: "",
-        });
+        setCancelInfo({ priceToRefund: refund, infoText: "" });
         return;
       }
 
@@ -208,79 +272,31 @@ export default function BookingDetailPage() {
     setCancelMsg({ type: "", text: "" });
 
     try {
-      // gọi enqueue cancel
-      const enqueueRes = await cancelBookingQueued({
+      const res = await cancelBookingQueued({
         bookingId: booking.bookingId,
         userId,
         SupplierCancel: false,
       });
 
-      // enqueueRes có thể là { jobId, bookingId } hoặc wrapper { data: { jobId } }
+      // res thường là ResponseData: { data, message, statusCode }
       const jobId =
-        enqueueRes?.jobId ??
-        enqueueRes?.data?.jobId ??
-        enqueueRes?.data?.data?.jobId;
+        res?.data?.jobId ?? res?.jobId ?? res?.data?.data?.jobId ?? null;
 
-      if (!jobId) {
-        setCancelMsg({
-          type: "error",
-          text: "Không nhận được jobId từ server. Kiểm tra lại controller trả về.",
-        });
-        setCancelLoading(false);
-        return;
-      }
-
+      // ✅ Nếu API call chạy tới đây (không throw) => coi như đã gửi yêu cầu hủy
       setCancelMsg({
         type: "success",
-        text: "Yêu cầu hủy tour đã gửi. Đang xử lý...",
+        text: jobId
+          ? "Đã gửi yêu cầu hủy tour! Đang quay lại danh sách booking..."
+          : "Đã gửi yêu cầu hủy tour! Đang quay lại danh sách booking...",
       });
 
-      // poll job status
-      if (cancelPollRef.current) clearInterval(cancelPollRef.current);
+      // ✅ KHÔNG setBookingStatus tại đây (tránh lệch thực tế)
+      // vì backend đang xử lý queue, list booking sẽ phản ánh trạng thái thật sau.
 
-      cancelPollRef.current = setInterval(async () => {
-        try {
-          const job = await getCancelJobStatus(jobId);
-
-          // job: { state: 'completed'|'failed'|'active'|... , result, error }
-          if (job?.state === "completed") {
-            clearInterval(cancelPollRef.current);
-            cancelPollRef.current = null;
-
-            const updatedBooking =
-              job?.result ?? job?.result?.booking ?? job?.booking ?? null;
-
-            setCancelMsg({
-              type: "success",
-              text: "Hủy tour thành công! Đang quay lại danh sách booking...",
-            });
-
-            // update UI local
-            setBooking((prev) => ({
-              ...prev,
-              bookingStatus: updatedBooking?.bookingStatus || "canceled",
-            }));
-
-            setTimeout(() => {
-              setOpenCancel(false);
-              navigate("/bookings");
-            }, 1500);
-          }
-
-          if (job?.state === "failed") {
-            clearInterval(cancelPollRef.current);
-            cancelPollRef.current = null;
-
-            setCancelMsg({
-              type: "error",
-              text: job?.error || "Hủy tour thất bại. Vui lòng thử lại.",
-            });
-          }
-        } catch (pollErr) {
-          // poll lỗi thì không clear interval ngay, nhưng show cảnh báo
-          console.warn("⚠️ Poll cancel job error:", pollErr);
-        }
-      }, 1000);
+      setTimeout(() => {
+        setOpenCancel(false);
+        navigate("/bookings", { state: { refresh: true } });
+      }, 900);
     } catch (err) {
       console.error("❌ Lỗi handleConfirmCancel:", err);
       const serverMsg =
@@ -293,10 +309,57 @@ export default function BookingDetailPage() {
     }
   };
 
+  // ✅ Review submit
+  const handleSubmitReview = async () => {
+    setReviewLoading(true);
+    setReviewMsg({ type: "", text: "" });
+
+    try {
+      const payload = {
+        tourId: tour?.tourId,
+        userId,
+        rating: Number(reviewRating),
+        comment: reviewComment?.trim() || "",
+      };
+
+      const res = await createReview(payload);
+
+      if (res?.statusCode === 200 || res?.statusCode === 201 || res?.data) {
+        setReviewMsg({
+          type: "success",
+          text: "Cảm ơn bạn đã đánh giá chuyến đi!",
+        });
+
+        // sau khi tạo xong, set existingReview để ẩn form
+        const created = res?.data || null;
+        setExistingReview(
+          created || { rating: payload.rating, comment: payload.comment }
+        );
+      } else {
+        setReviewMsg({
+          type: "error",
+          text: res?.message || "Gửi đánh giá thất bại, vui lòng thử lại.",
+        });
+      }
+    } catch (err) {
+      setReviewMsg({
+        type: "error",
+        text:
+          err?.response?.data?.message ||
+          err?.response?.data?.data?.message ||
+          "Đã xảy ra lỗi khi gửi đánh giá.",
+      });
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
   const canPay =
     booking.bookingStatus !== "confirmed" &&
     booking.bookingStatus !== "canceled";
-  const canCancel = booking.bookingStatus === "confirmed";
+
+  // ✅ chỉ cho hủy khi confirmed và CHƯA kết thúc
+  const canCancel = booking.bookingStatus === "confirmed" && !isTripCompleted;
 
   return (
     <section className="p-6 md:p-14 bg-background min-h-screen">
@@ -462,7 +525,7 @@ export default function BookingDetailPage() {
             />
           </div>
 
-          {/* 💰 Tổng tiền */}
+          {/* Tổng tiền */}
           <div className="p-4 flex justify-between items-center mb-6 shadow-sm">
             <div>
               <p className="font-medium text-gray-700">Tổng tiền</p>
@@ -495,7 +558,7 @@ export default function BookingDetailPage() {
               </Button>
             )}
 
-            {/* ✅ NÚT HỦY TOUR: chỉ hiện sau khi đã confirmed */}
+            {/* ✅ chỉ hiện Hủy tour khi confirmed và chưa kết thúc */}
             {canCancel && (
               <Button
                 variant="destructive"
@@ -508,11 +571,81 @@ export default function BookingDetailPage() {
             )}
           </div>
 
-          {booking.bookingStatus === "confirmed" && (
+          {/* ✅ confirmed nhưng chưa kết thúc */}
+          {booking.bookingStatus === "confirmed" && !isTripCompleted && (
             <p className="text-green-600 font-medium mt-4 text-right flex items-center justify-end gap-2">
               <CheckCircle className="w-4 h-4" />
               Đơn hàng này đã được thanh toán thành công.
             </p>
+          )}
+
+          {/* ✅ completed => review */}
+          {booking.bookingStatus === "confirmed" && isTripCompleted && (
+            <div className="mt-6 border-t pt-5">
+              <p className="text-green-700 font-semibold flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                Chuyến đi đã hoàn thành
+              </p>
+
+              <div className="mt-4">
+                <p className="font-medium mb-2">Đánh giá chuyến đi</p>
+
+                {reviewChecking ? (
+                  <p className="text-sm text-muted-foreground">
+                    Đang kiểm tra đánh giá...
+                  </p>
+                ) : existingReview ? (
+                  <div className="rounded-md border border-border p-4">
+                    <div className="flex items-center gap-2">
+                      <StarRating
+                        value={Number(existingReview.rating || 0)}
+                        readOnly
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        ({existingReview.rating}/5)
+                      </span>
+                    </div>
+
+                    <p className="mt-3 text-sm">
+                      {existingReview.comment
+                        ? existingReview.comment
+                        : "Không có bình luận."}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <StarRating
+                      value={reviewRating}
+                      onChange={setReviewRating}
+                    />
+
+                    <div className="mt-3">
+                      <textarea
+                        className="w-full min-h-[110px] rounded-md border border-border bg-background p-3 text-sm"
+                        placeholder="Chia sẻ cảm nhận của bạn về chuyến đi..."
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                      />
+                    </div>
+
+                    {reviewMsg.text && (
+                      <div className="mt-3">
+                        <AlertMessage message={reviewMsg} />
+                      </div>
+                    )}
+
+                    <div className="mt-4 flex justify-end">
+                      <Button
+                        onClick={handleSubmitReview}
+                        disabled={reviewLoading}
+                      >
+                        {reviewLoading ? "Đang gửi..." : "Gửi đánh giá"}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           )}
         </Card>
       </div>
@@ -552,7 +685,7 @@ export default function BookingDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ✅ Popup hủy tour */}
+      {/* Popup hủy tour */}
       <Dialog open={openCancel} onOpenChange={setOpenCancel}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -570,12 +703,11 @@ export default function BookingDetailPage() {
               <div className="space-y-2">
                 <p>Bạn có chắc muốn hủy tour này không?</p>
                 <p>
-                  <strong>Số tiền dự kiến hoàn:</strong>{" "}
+                  <strong>Số tiền hoàn:</strong>{" "}
                   {cancelInfo.priceToRefund.toLocaleString("vi-VN")} đ
                 </p>
                 <p className="text-muted-foreground">
-                  * Số tiền hoàn phụ thuộc vào thời gian trước ngày khởi hành
-                  (theo backend).
+                  * Số tiền hoàn phụ thuộc vào thời gian trước ngày khởi hành.
                 </p>
               </div>
             )}
@@ -588,7 +720,6 @@ export default function BookingDetailPage() {
               Đóng
             </Button>
 
-            {/* chỉ cho confirm khi có priceToRefund */}
             {typeof cancelInfo.priceToRefund === "number" && (
               <Button
                 variant="destructive"
@@ -629,6 +760,37 @@ function AlertMessage({ message }) {
         <XCircle className="w-4 h-4" />
       )}
       <span>{message.text}</span>
+    </div>
+  );
+}
+
+function StarRating({ value = 5, onChange, readOnly = false }) {
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((i) => {
+        const active = i <= Number(value || 0);
+        return (
+          <button
+            key={i}
+            type="button"
+            onClick={() => (!readOnly ? onChange?.(i) : null)}
+            className={`p-1 ${readOnly ? "cursor-default" : "cursor-pointer"}`}
+            aria-label={`rate-${i}`}
+            disabled={readOnly}
+          >
+            <Star
+              className={`w-6 h-6 ${
+                active
+                  ? "fill-yellow-400 text-yellow-400"
+                  : "text-muted-foreground"
+              }`}
+            />
+          </button>
+        );
+      })}
+      {!readOnly && (
+        <span className="ml-2 text-sm text-muted-foreground">{value}/5</span>
+      )}
     </div>
   );
 }

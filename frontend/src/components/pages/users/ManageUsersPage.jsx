@@ -49,7 +49,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import { filterUsers, updateUser, deleteUser } from "@/api/user";
-// ------------------------------------------
+import { useDebounce } from "@/hook/useDebounce"; // ✅ thêm debounce
 
 // Hàm tiện ích viết hoa chữ cái đầu
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -58,7 +58,7 @@ export function ManageUsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // State cho phân trang
   const [pagination, setPagination] = useState({
     page: 1,
@@ -66,14 +66,17 @@ export function ManageUsersPage() {
     totalItems: 0,
   });
 
-  // State cho bộ lọc
-  const [filters, setFilters] = useState({
+  // ✅ localFilters để nhập realtime
+  const [localFilters, setLocalFilters] = useState({
     fullName: "",
     email: "",
     role: "all",
     isActive: "all",
   });
-  
+
+  // ✅ filters đã debounce
+  const debouncedFilters = useDebounce(localFilters, 500);
+
   // State cho dialog xác nhận xóa
   const [deleteDialog, setDeleteDialog] = useState({
     isOpen: false,
@@ -81,12 +84,14 @@ export function ManageUsersPage() {
   });
 
   // Hàm gọi API chính
-  const fetchUsers = async (page = pagination.page, currentFilters = filters) => {
+  const fetchUsers = async (
+    page = pagination.page,
+    currentFilters = debouncedFilters
+  ) => {
     try {
       setLoading(true);
       setError(null);
 
-      // Chuẩn bị params cho API từ state filters
       const isActiveParam =
         currentFilters.isActive === "all"
           ? undefined
@@ -105,9 +110,6 @@ export function ManageUsersPage() {
         isActive: isActiveParam,
       };
 
-      // Gọi API (hàm giả định)
-      // API của bạn nên trả về một object có dạng:
-      // { items: [user1, user2], totalItems: 20 }
       const data = await filterUsers(params);
 
       setUsers(data.items || []);
@@ -124,21 +126,20 @@ export function ManageUsersPage() {
     }
   };
 
-  // Tự động gọi API khi trang thay đổi
+  // ✅ debounce thay nút lọc: cứ đổi debouncedFilters hoặc page => fetch
   useEffect(() => {
-    fetchUsers(pagination.page, filters);
-  }, [pagination.page]);
+    fetchUsers(pagination.page, debouncedFilters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagination.page, debouncedFilters]);
+
+  // ✅ đổi filter => auto về trang 1
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, [debouncedFilters]);
 
   // Xử lý khi thay đổi filter input
   const handleFilterChange = (key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-  };
-
-  // Xử lý khi bấm nút "Lọc"
-  const handleFilterSubmit = (e) => {
-    e.preventDefault();
-    // Khi lọc, luôn quay về trang 1
-    fetchUsers(1, filters);
+    setLocalFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   // Xử lý phân trang
@@ -157,8 +158,7 @@ export function ManageUsersPage() {
     try {
       const newStatus = user.isActive === "y" ? "n" : "y";
       await updateUser(user.userId, { isActive: newStatus });
-      // Tải lại dữ liệu sau khi cập nhật
-      fetchUsers(); 
+      fetchUsers(); // tải lại
     } catch (err) {
       console.error("Failed to toggle user status:", err);
       alert("Cập nhật trạng thái thất bại.");
@@ -169,7 +169,7 @@ export function ManageUsersPage() {
     if (user.role === newRole) return;
     try {
       await updateUser(user.userId, { role: newRole });
-      fetchUsers(); // Tải lại dữ liệu
+      fetchUsers();
     } catch (err) {
       console.error("Failed to change user role:", err);
       alert("Thay đổi quyền thất bại.");
@@ -184,11 +184,13 @@ export function ManageUsersPage() {
     try {
       await deleteUser(deleteDialog.userId);
       setDeleteDialog({ isOpen: false, userId: null });
-      fetchUsers(); // Tải lại dữ liệu
+      fetchUsers();
     } catch (err) {
       console.error("Failed to delete user:", err);
-      // Hiển thị lỗi chi tiết từ backend nếu có
-      const errorMessage = err.response?.data?.message || err.message || "Xóa người dùng thất bại.";
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "Xóa người dùng thất bại.";
       alert(errorMessage);
       setDeleteDialog({ isOpen: false, userId: null });
     }
@@ -196,52 +198,49 @@ export function ManageUsersPage() {
 
   return (
     <div className="p-6 md:p-14">
-      <h1 className="text-3xl font-bold text-foreground mb-8">Quản lý Người dùng</h1>
+      <h1 className="text-3xl font-bold text-foreground mb-8">
+        Quản lý Người dùng
+      </h1>
 
-      {/* --- Thanh Filter --- */}
-      <form onSubmit={handleFilterSubmit}>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 border rounded-lg bg-card">
-          <Input
-            placeholder="Tìm theo Tên..."
-            value={filters.fullName}
-            onChange={(e) => handleFilterChange("fullName", e.target.value)}
-          />
-          <Input
-            placeholder="Tìm theo Email..."
-            value={filters.email}
-            onChange={(e) => handleFilterChange("email", e.target.value)}
-          />
-          <Select
-            value={filters.role}
-            onValueChange={(value) => handleFilterChange("role", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Lọc theo Quyền" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả Quyền</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="user">User</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select
-            value={filters.isActive}
-            onValueChange={(value) => handleFilterChange("isActive", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Lọc theo Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả Trạng thái</SelectItem>
-              <SelectItem value="y">Đã Kích hoạt (Verified)</SelectItem>
-              <SelectItem value="n">Đã Khóa (Locked)</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button type="submit" className="md:col-span-4">
-            Lọc
-          </Button>
-        </div>
-      </form>
+      {/* ✅ --- Thanh Filter (bỏ nút Lọc) --- */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 border rounded-lg bg-card">
+        <Input
+          placeholder="Tìm theo Tên..."
+          value={localFilters.fullName}
+          onChange={(e) => handleFilterChange("fullName", e.target.value)}
+        />
+        <Input
+          placeholder="Tìm theo Email..."
+          value={localFilters.email}
+          onChange={(e) => handleFilterChange("email", e.target.value)}
+        />
+        <Select
+          value={localFilters.role}
+          onValueChange={(value) => handleFilterChange("role", value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Lọc theo Quyền" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả Quyền</SelectItem>
+            <SelectItem value="admin">Admin</SelectItem>
+            <SelectItem value="user">User</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={localFilters.isActive}
+          onValueChange={(value) => handleFilterChange("isActive", value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Lọc theo Trạng thái" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả Trạng thái</SelectItem>
+            <SelectItem value="y">Đã Kích hoạt (Verified)</SelectItem>
+            <SelectItem value="n">Đã Khóa (Locked)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* --- Bảng Dữ liệu --- */}
       {loading && (
@@ -281,27 +280,35 @@ export function ManageUsersPage() {
                 <TableRow key={user.userId}>
                   <TableCell>
                     <div className="font-medium">{user.fullName}</div>
-                    <div className="text-sm text-muted-foreground">{user.email}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {user.email}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {user.isActive === "y" ? (
-                      <Badge variant="outline" className="text-green-600 border-green-600">
+                      <Badge
+                        variant="outline"
+                        className="text-green-600 border-green-600"
+                      >
                         Đã Kích hoạt
                       </Badge>
                     ) : (
-                      <Badge variant="destructive">
-                        Đã Khóa
-                      </Badge>
+                      <Badge variant="destructive">Đã Khóa</Badge>
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={user.role === 'admin' ? "default" : "secondary"} className={user.role === 'admin' ? "bg-primary" : ""}>
+                    <Badge
+                      variant={user.role === "admin" ? "default" : "secondary"}
+                      className={user.role === "admin" ? "bg-primary" : ""}
+                    >
                       {capitalize(user.role)}
                     </Badge>
                   </TableCell>
                   <TableCell>{user.phoneNumber || "N/A"}</TableCell>
                   <TableCell>
-                    {user.createDate ? format(new Date(user.createDate), "dd/MM/yyyy") : "N/A"}
+                    {user.createDate
+                      ? format(new Date(user.createDate), "dd/MM/yyyy")
+                      : "N/A"}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -313,26 +320,32 @@ export function ManageUsersPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Hành động</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        {/* Thay đổi quyền */}
-                        {user.role === 'user' ? (
-                          <DropdownMenuItem onClick={() => handleChangeRole(user, 'admin')}>
+                        {user.role === "user" ? (
+                          <DropdownMenuItem
+                            onClick={() => handleChangeRole(user, "admin")}
+                          >
                             <ShieldCheck className="w-4 h-4 mr-2" />
                             Nâng lên Admin
                           </DropdownMenuItem>
                         ) : (
-                          <DropdownMenuItem onClick={() => handleChangeRole(user, 'user')}>
+                          <DropdownMenuItem
+                            onClick={() => handleChangeRole(user, "user")}
+                          >
                             <ShieldAlert className="w-4 h-4 mr-2" />
                             Hạ xuống User
                           </DropdownMenuItem>
                         )}
-                        {/* Khóa/Mở khóa */}
                         {user.isActive === "y" ? (
-                          <DropdownMenuItem onClick={() => handleToggleActive(user)}>
+                          <DropdownMenuItem
+                            onClick={() => handleToggleActive(user)}
+                          >
                             <UserX className="w-4 h-4 mr-2" />
                             Khóa tài khoản
                           </DropdownMenuItem>
                         ) : (
-                          <DropdownMenuItem onClick={() => handleToggleActive(user)}>
+                          <DropdownMenuItem
+                            onClick={() => handleToggleActive(user)}
+                          >
                             <UserCheck className="w-4 h-4 mr-2" />
                             Mở khóa tài khoản
                           </DropdownMenuItem>
@@ -388,7 +401,8 @@ export function ManageUsersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
             <AlertDialogDescription>
-              Hành động này không thể hoàn tác. Người dùng này sẽ bị xóa vĩnh viễn khỏi hệ thống.
+              Hành động này không thể hoàn tác. Người dùng này sẽ bị xóa vĩnh
+              viễn khỏi hệ thống.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

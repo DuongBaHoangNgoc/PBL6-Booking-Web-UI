@@ -6,11 +6,12 @@ import { MapPin, Calendar, Trash2, Heart, Edit3 } from "lucide-react";
 import { useAuth } from "@/context/useAuth";
 import { getFilteredBookings, deleteBooking } from "@/api/bookings";
 import { addToFavorites, getFavorites } from "@/api/favourites";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function BookingsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [bookings, setBookings] = useState([]);
   const [favorites, setFavorites] = useState([]);
@@ -24,53 +25,77 @@ export default function BookingsPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
 
-  // 🧭 Gọi API lấy bookings & favourites
-  useEffect(() => {
+  // ✅ Fetch bookings (tách ra để có thể gọi lại khi quay về từ detail)
+  const fetchBookings = async () => {
     if (!user) return;
 
-    const fetchBookings = async () => {
-      try {
-        setLoading(true);
+    try {
+      setLoading(true);
 
-        const res = await getFilteredBookings({
-          userId: user.userId,
-          limit,
-          page,
-        });
+      const res = await getFilteredBookings({
+        userId: user.userId,
+        limit,
+        page,
+      });
 
-        const list = res?.bookings ?? []; // ✅ lấy mảng bookings
+      const list = res?.bookings ?? [];
 
-        const normalized = list.map((b) => ({
-          ...b,
-          date: b.date || { startDate: null, endDate: null },
-        }));
+      const normalized = list.map((b) => ({
+        ...b,
+        date: b.date || { startDate: null, endDate: null },
+      }));
 
-        setBookings(normalized);
-        // nếu bạn cần total:
-        // setTotal(res?.total ?? 0);
-      } catch (err) {
-        console.error("❌ Lỗi khi tải danh sách booking:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setBookings(normalized);
+    } catch (err) {
+      console.error("❌ Lỗi khi tải danh sách booking:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const fetchFavorites = async () => {
-      try {
-        setFavLoading(true);
-        const res = await getFavorites(user.userId, 1, 10);
-        // 🩷 API trả về ở res.data.data.favourites
-        setFavorites(res?.data?.favourites || []);
-      } catch (err) {
-        console.error("❌ Lỗi khi tải danh sách yêu thích:", err);
-      } finally {
-        setFavLoading(false);
-      }
-    };
+  // ✅ Fetch favourites
+  const fetchFavorites = async () => {
+    if (!user) return;
 
+    try {
+      setFavLoading(true);
+      const res = await getFavorites(user.userId, 1, 10);
+      // 🩷 API trả về ở res.data.favourites (tuỳ backend), bạn đang dùng res.data.favourites
+      setFavorites(res?.data?.favourites || []);
+    } catch (err) {
+      console.error("❌ Lỗi khi tải danh sách yêu thích:", err);
+    } finally {
+      setFavLoading(false);
+    }
+  };
+
+  // 🧭 Load lần đầu + khi user/page đổi
+  useEffect(() => {
+    if (!user) return;
     fetchBookings();
     fetchFavorites();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, page]);
+
+  // ✅ Khi quay lại từ BookingDetail và truyền state.refresh
+  // Vì cancel chạy queue nên refetch 2-3 lần để chắc đã cập nhật
+  useEffect(() => {
+    if (!user) return;
+    if (!location.state?.refresh) return;
+
+    fetchBookings();
+    const t1 = setTimeout(fetchBookings, 800);
+    const t2 = setTimeout(fetchBookings, 2000);
+
+    // ✅ xóa state refresh để không bị refetch lại lần sau
+    window.history.replaceState({}, document.title);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, user]);
 
   // ⚙️ Lọc và sắp xếp bookings
   const filteredBookings =
@@ -384,7 +409,7 @@ export default function BookingsPage() {
                           </p>
                         </div>
 
-                        {/* Biểu tượng trái tim nổi bật khi hover */}
+                        {/* Biểu tượng trái tim */}
                         <Heart
                           className="absolute top-3 right-3 w-4 h-4 text-pink-400 opacity-0 
                          group-hover:opacity-100 transition-opacity"

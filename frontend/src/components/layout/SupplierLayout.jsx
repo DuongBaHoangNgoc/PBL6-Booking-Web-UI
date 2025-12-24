@@ -15,7 +15,7 @@ import { useAuth } from "@/context/useAuth";
 import { Button } from "../ui/button";
 import PageHeader from "../pages/bookings/PageHeader";
 import { PageFooter } from "../pages/bookings/PageFooter";
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from "@/components/ui/toaster";
 
 // Đây là Sidebar đã được cập nhật theo giao diện sáng (light mode)
 const SupplierSidebar = () => {
@@ -23,9 +23,10 @@ const SupplierSidebar = () => {
 
   // Hàm tạo className cho NavLink để xử lý trạng thái active
   const getNavLinkClass = ({ isActive }) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors ${isActive
-      ? "bg-blue-600 text-white" // Style khi active
-      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900" // Style khi không active
+    `flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors ${
+      isActive
+        ? "bg-blue-600 text-white" // Style khi active
+        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900" // Style khi không active
     }`;
 
   return (
@@ -53,6 +54,10 @@ const SupplierSidebar = () => {
         <NavLink to="/supplier/revenue" className={getNavLinkClass}>
           <DollarSign className="w-5 h-5" />
           <span>Quản lý Doanh thu</span>
+        </NavLink>
+        <NavLink to="/supplier/reviews" className={getNavLinkClass}>
+          <BookText className="w-5 h-5" />
+          <span>Quản lý đánh giá</span>
         </NavLink>
       </nav>
 

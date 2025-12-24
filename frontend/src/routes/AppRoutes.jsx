@@ -24,14 +24,16 @@ import { ManageTourDetailPage } from "@/components/pages/tours/ManageTourDetailP
 import { SupplierDashboard } from "@/components/pages/dashboard/SupplierDashBoard";
 import { SupplierLayout } from "@/components/layout/SupplierLayout";
 import { SupplierRoute } from "./SupplierRoute";
-import ManageBookingsPage from "@/pages/ManageBookingsPage";
+import ManageBookingsPage from "@/pages/SupplierBookingsPage";
 import CalendarPage from "@/pages/CalendarPage";
 import SupplierPaymentsPage from "@/components/pages/payments/SupplierPaymentsPage";
 import { EarningsPage } from "@/pages/EarningsPage";
+import { ManageTourReviewsPage } from "@/components/pages/reviews/ManageTourReviewsPage";
 import { useAuth } from "@/context/useAuth";
 import { ManageCouponsPage } from "@/components/pages/coupons/ManageCouponsPage";
 import ForgotPassword from "@/pages/ForgotPassword";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { ManageWithdrawRequestsPage } from "@/components/pages/payments/ManageWithdrawRequestsPage";
 
 const RootRedirector = () => {
   const { user, loading } = useAuth();
@@ -102,6 +104,7 @@ export const AppRoutes = () => {
           <Route path="tours/edit/:id" element={<ManageTourDetailPage />} />
           <Route path="revenue" element={<EarningsPage />} />
           <Route path="coupons" element={<ManageCouponsPage />} />
+          <Route path="payments" element={<ManageWithdrawRequestsPage />} />
         </Route>
       </Route>
 
@@ -120,6 +123,7 @@ export const AppRoutes = () => {
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="revenue" element={<EarningsPage />} />
           <Route path="payments" element={<SupplierPaymentsPage />} />
+          <Route path="reviews" element={<ManageTourReviewsPage />} />
           <Route path="coupons" element={<ManageCouponsPage />} />
         </Route>
       </Route>
