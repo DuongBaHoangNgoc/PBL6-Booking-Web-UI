@@ -64,15 +64,15 @@ export default function Home() {
 
   return (
     <div className="font-sans text-slate-800 bg-slate-50">
-      
+
       {/* ================= HERO SECTION (Bright Overlay) ================= */}
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         {/* Background Image */}
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center z-0 transition-transform duration-1000 scale-105"
           style={{ backgroundImage: "url('/images/destination1.jpg')" }}
         ></div>
-        
+
         {/* Overlay: Blending Blue (Navbar) downwards */}
         <div className="absolute inset-0 bg-gradient-to-b from-blue-900/40 via-black/20 to-slate-900/60 z-10"></div>
 
@@ -81,17 +81,17 @@ export default function Home() {
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-sm font-semibold mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 shadow-lg">
             <Zap className="w-4 h-4 text-yellow-300" /> Explore the world your way
           </div>
-          
+
           <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-6 tracking-tight leading-tight animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-100 drop-shadow-lg">
             Travel <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-200">Without Limits</span>
           </h1>
-          
+
           <p className="text-lg md:text-xl text-blue-50 max-w-2xl mx-auto mb-10 leading-relaxed animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200 drop-shadow-md">
             Book all-inclusive tours, hotels, and flights at the best prices. Experience new lands with us.
           </p>
 
           {/* Search Box */}
-          <div className="bg-white/20 backdrop-blur-lg border border-white/30 p-2 md:p-3 rounded-3xl shadow-2xl max-w-5xl mx-auto animate-in fade-in zoom-in-95 duration-1000 delay-300">
+          {/* <div className="bg-white/20 backdrop-blur-lg border border-white/30 p-2 md:p-3 rounded-3xl shadow-2xl max-w-5xl mx-auto animate-in fade-in zoom-in-95 duration-1000 delay-300">
             <TourSearchBar
               destination={destination}
               setDestination={setDestination}
@@ -101,7 +101,7 @@ export default function Home() {
               setDate={setDate}
               onSearch={handleSearch}
             />
-          </div>
+          </div> */}
         </div>
       </section>
 
@@ -111,11 +111,11 @@ export default function Home() {
           <h2 className="text-3xl font-bold text-slate-900">Popular Categories</h2>
           <p className="text-slate-500 mt-2">Choose your favorite travel style</p>
         </div>
-        
+
         <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
           {categories.map((cat, idx) => (
-            <div 
-              key={idx} 
+            <div
+              key={idx}
               className="group cursor-pointer bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-cyan-100 hover:-translate-y-1 transition-all duration-300 flex flex-col items-center text-center"
               onClick={() => navigate(`/tours?category=${cat.name}`)}
             >
@@ -137,7 +137,7 @@ export default function Home() {
       {/* ================= POPULAR DESTINATIONS ================= */}
       <section className="py-20 bg-slate-50">
         <div className="container mx-auto px-6">
-           <div className="flex flex-col md:flex-row justify-between items-end mb-12">
+          <div className="flex flex-col md:flex-row justify-between items-end mb-12">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold text-slate-900">Top Destinations</h2>
               <p className="text-slate-500 mt-2">Most loved destinations by travelers this year</p>
@@ -149,14 +149,14 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-fr">
             {popularDestinations.map((dest, idx) => (
-              <div 
-                key={idx} 
+              <div
+                key={idx}
                 className={`relative rounded-3xl overflow-hidden group cursor-pointer ${dest.colSpan} ${dest.height}`}
                 onClick={() => navigate(`/tours?keyword=${dest.name}`)}
               >
-                <img 
-                  src={dest.image} 
-                  alt={dest.name} 
+                <img
+                  src={dest.image}
+                  alt={dest.name}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
                 {/* Overlay gradient Bright Ocean when hover */}
@@ -179,11 +179,11 @@ export default function Home() {
           <div className="flex flex-col lg:flex-row items-center gap-16">
             <div className="lg:w-1/2">
               <span className="text-cyan-600 font-bold tracking-wider text-sm uppercase mb-2 block">Why Choose Us?</span>
-              <h2 className="text-4xl font-bold text-slate-900 mb-6 leading-tight">Delivering The Perfect <br/>Travel Experience</h2>
+              <h2 className="text-4xl font-bold text-slate-900 mb-6 leading-tight">Delivering The Perfect <br />Travel Experience</h2>
               <p className="text-slate-600 mb-8 leading-relaxed">
                 We are committed to providing memorable trips with high quality service, transparent pricing, and 24/7 dedicated support.
               </p>
-              
+
               <div className="space-y-6">
                 {[
                   { icon: Award, title: "Best Price", desc: "Committed to the most competitive prices in the market", color: "bg-blue-100 text-blue-600" },
@@ -206,7 +206,7 @@ export default function Home() {
             <div className="lg:w-1/2 relative">
               <div className="absolute -top-10 -right-10 w-72 h-72 bg-blue-200 rounded-full blur-3xl opacity-40"></div>
               <div className="absolute -bottom-10 -left-10 w-72 h-72 bg-cyan-200 rounded-full blur-3xl opacity-40"></div>
-              
+
               <div className="relative grid grid-cols-2 gap-4">
                 <img src="/images/destination2.jpg" alt="Experience" className="rounded-3xl shadow-2xl w-full h-72 object-cover translate-y-8" />
                 <img src="/images/destination3.jpg" alt="Experience" className="rounded-3xl shadow-2xl w-full h-72 object-cover" />
@@ -251,19 +251,19 @@ export default function Home() {
       {/* ================= CTA SECTION (White Background) ================= */}
       <section className="py-24 relative overflow-hidden bg-white">
         {/* Light gray dot background pattern */}
-        <div className="absolute inset-0 opacity-40" 
-             style={{backgroundImage: 'radial-gradient(circle, #e2e8f0 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
-        
+        <div className="absolute inset-0 opacity-40"
+          style={{ backgroundImage: 'radial-gradient(circle, #e2e8f0 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+
         <div className="container mx-auto px-6 relative z-10 text-center">
           <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">Ready for your next trip?</h2>
           <p className="text-slate-600 text-lg mb-10 max-w-2xl mx-auto">
             Subscribe to our newsletter so you don't miss out on exclusive offers and exciting travel tips every week.
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-lg mx-auto mb-10">
-            <input 
-              type="email" 
-              placeholder="Enter your email address" 
+            <input
+              type="email"
+              placeholder="Enter your email address"
               className="px-6 py-4 rounded-xl flex-1 outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 shadow-sm border border-slate-200 placeholder:text-slate-400 bg-slate-50 focus:bg-white"
             />
             {/* Gradient button stands out on white background */}
