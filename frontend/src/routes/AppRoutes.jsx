@@ -31,6 +31,7 @@ import { EarningsPage } from "@/pages/EarningsPage";
 import { useAuth } from "@/context/useAuth";
 import { ManageCouponsPage } from "@/components/pages/coupons/ManageCouponsPage";
 import ForgotPassword from "@/pages/ForgotPassword";
+import { AdminLayout } from "@/components/layout/AdminLayout";
 
 const RootRedirector = () => {
   const { user, loading } = useAuth();
@@ -92,7 +93,7 @@ export const AppRoutes = () => {
         =========================================
       */}
       <Route path="/admin" element={<AdminRoute />}>
-        <Route element={<ClientLayout />}>
+        <Route element={<AdminLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<ManageUsersPage />} />
